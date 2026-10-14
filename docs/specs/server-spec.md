@@ -256,6 +256,70 @@ Operators **MAY** configure the active scheduling strategy in `server.yml` under
 
 ---
 
+### 4.5 Operator Account Lifecycle & Role-Based Access Control (RBAC) FSM
+
+The server enforces multi-operator Role-Based Access Control (RBAC) across three distinct privilege tiers, governing interactive access from Legatus Studio, the CLI, and external orchestration systems:
+
+```
+                   +-----------------------+
+                   |  POST /admin/accounts |
+                   +-----------+-----------+
+                               |
+                               v
+                   +-----------------------+
+                   |   PENDING_ACTIVATION  |
+                   +-----------+-----------+
+                               | (Activation / Initial Password Set)
+                               v
+                   +-----------------------+
+         +-------> |        ACTIVE         | <-------+
+         |         +-----------+-----------+         |
+         |                     |                     |
+(Admin Unlocks /        (5 Failed Logins /    (Admin Restores)
+ 15m Lockout Expires)    Admin Suspends)             |
+         |                     |                     |
+         |                     v                     |
+         |         +-----------------------+         |
+         +-------- |       SUSPENDED       |         |
+                   +-----------+-----------+         |
+                               |                     |
+                       (Admin Deactivates)           |
+                               |                     |
+                               v                     |
+                   +-----------------------+         |
+                   |      DEACTIVATED      | --------+
+                   |     (Soft-Deleted)    |
+                   +-----------------------+
+```
+
+#### 4.5.1 RBAC Roles & Privilege Matrix
+The server defines three normative roles:
+* **`CLUSTER_ADMIN`:** Full supervisory authority. Can create and manage operator accounts, assign and revoke roles, approve/reject quarantined workers, configure secrets in `secrets_vault`, purge tasks, and execute all operational workflows.
+* **`OPERATOR`:** Operational execution authority. Can approve/reject quarantined workers, deploy Solix bytecode functions, submit/abort compute tasks, and view cluster telemetry. **MUST NOT** manage operator accounts, access raw secret vault payloads, or invoke maintenance purge endpoints.
+* **`AUDITOR`:** Read-only compliance authority. Can inspect cluster status, view tasks and functions, inspect immutable audit logs, trigger cryptographic hash-chain verification, and export compliance reports. **MUST NOT** mutate cluster configuration, submit tasks, approve workers, or modify accounts.
+
+| Operation / Endpoint Category | `CLUSTER_ADMIN` | `OPERATOR` | `AUDITOR` | Non-Authenticated |
+| :--- | :---: | :---: | :---: | :---: |
+| **Account Administration** (`/api/v1/admin/accounts/*`) | Full Access | Denied (`403`) | Denied (`403`) | Denied (`401`) |
+| **Self Password Change** (`/api/v1/auth/operator/password`)| Allowed | Allowed | Allowed | Denied (`401`) |
+| **Worker Quarantine Approval/Rejection** | Allowed | Allowed | Denied (`403`) | Denied (`401`) |
+| **Worker Credential Revocation / Drain** | Allowed | Allowed | Denied (`403`) | Denied (`401`) |
+| **Solix Function Upload & Cataloging** | Allowed | Allowed | Denied (`403`) | Denied (`401`) |
+| **Task Submission & Cancellation** | Allowed | Allowed | Denied (`403`) | Denied (`401`) |
+| **Secrets Vault CRUD** (`/api/v1/admin/secrets/*`) | Full Access | Denied (`403`) | Denied (`403`) | Denied (`401`) |
+| **Audit Log Query & Export** (`/api/v1/admin/audit-logs/*`) | Allowed | Denied (`403`) | Allowed | Denied (`401`) |
+| **Audit Log Hash-Chain Verification** | Allowed | Denied (`403`) | Allowed | Denied (`401`) |
+| **Cluster Telemetry & Read-Only Topology** | Allowed | Allowed | Allowed | Denied (`401`) |
+
+#### 4.5.2 Account Security & Lockout Invariants
+1. **Password Hashing:** Account passwords **MUST** be hashed using Argon2id ($m=65536\text{ KB}, t=3, p=4$) on the dedicated bounded executor pool (`Executors.newFixedThreadPool(4)`).
+2. **Password Policy:** Passwords **MUST** contain a minimum of 12 characters, including uppercase, lowercase, numbers, and symbols.
+3. **Brute-Force Lockout:** If an account accumulates **5 consecutive failed login attempts**, the server **MUST** immediately transition the account status to `SUSPENDED` and set `lockout_until = t_now + 15 minutes`. Requests during lockout **MUST** be rejected with HTTP `423 Locked` (`ERR_ACCOUNT_LOCKED`). Successful authentication resets `failed_login_attempts` to 0.
+4. **Soft-Deletion Mandate:** Accounts **MUST NOT** be hard-deleted via SQL `DELETE`. When an administrator invokes account deletion, the server **MUST** transition the account to `DEACTIVATED`, revoke all active JWT sessions, and retain the account record to preserve referential integrity across the immutable audit log.
+5. **Initial Bootstrap Account:** Upon initial boot, if the `accounts` table contains zero records, the server **MUST** automatically provision a bootstrap account (`admin@legatus.internal`) with the `CLUSTER_ADMIN` role, deriving its initial password from `LEGATUS_ADMIN_INITIAL_PASSWORD` or generating a 32-character cryptographically secure token output once to stdout with a mandatory change notice.
+
+---
+
 ## 5. Persistence Schema & Encryption-at-Rest (`H2`)
 
 The server persists cluster state in an embedded H2 database protected by AES-128 file encryption (`jdbc:h2:file:<path>;CIPHER=AES;AUTO_SERVER=TRUE;FILE_LOCK=FS;LOCK_TIMEOUT=10000`).
@@ -264,17 +328,53 @@ The server persists cluster state in an embedded H2 database protected by AES-12
 
 | Table Name | Primary Key | Optimistic Lock | Core Columns & Purpose |
 | :--- | :--- | :--- | :--- |
+| `accounts` | `account_id` (`UUID`) | `version` (`BIGINT`) | `username` (`VARCHAR(255)` UNIQUE), `email` (`VARCHAR(255)`), `password_hash` (`VARCHAR(255)` Argon2id), `role` (`VARCHAR(32)`: `CLUSTER_ADMIN`, `OPERATOR`, `AUDITOR`), `status` (`VARCHAR(32)`: `PENDING_ACTIVATION`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`), `failed_login_attempts` (`INT`), `lockout_until` (`TIMESTAMP`), `created_at`, `updated_at`. |
 | `workers` | `worker_id` (`VARCHAR(64)`) | `version` (`BIGINT`) | `hostname`, `os`, `arch`, `ed25519_pubkey`, `fingerprint`, `secret_hash` (Argon2id), `state`, `allocatable_cores`, `max_memory_bytes`, `max_instruction_budget`, `last_seen_at`. |
 | `functions` | `function_id` (`UUID`) | `version` (`BIGINT`) | `name`, `semver`, `entry_point`, `bytecode_sha256`, `bytecode_blob` (`BLOB`), `default_budget`, `default_memory_bytes`, `default_timeout_ms`, `created_at`. |
 | `tasks` | `task_id` (`VARCHAR(64)`) | `version` (`BIGINT`) | `function_id`, `assigned_worker_id`, `status`, `priority` (`INT`), `exit_code`, `instructions_consumed`, `peak_memory_bytes`, `wall_time_ms`, `input_json`, `output_json`, `error_json`, `attempt_count`, `max_retries`, `created_at`, `completed_at`. |
 | `secrets_vault` | `secret_key` (`VARCHAR(128)`) | `version` (`BIGINT`) | `scope`, `cipher_text` (`VARBINARY`), `gcm_iv` (`BINARY(12)`), `auth_tag` (`BINARY(16)`), `updated_at`. |
-| `audit_logs` | `event_id` (`UUID`) | None (Append-Only)| `timestamp`, `actor`, `event_type`, `target_id`, `metadata_json`, `source_ip`. |
+| `audit_logs` | `event_id` (`UUID`) | None (WORM Append-Only)| `sequence_num` (`BIGINT` UNIQUE AUTO_INCREMENT), `timestamp` (`TIMESTAMP`), `actor_id` (`VARCHAR(255)`), `actor_role` (`VARCHAR(32)`), `event_type` (`VARCHAR(64)`), `target_type` (`VARCHAR(64)`), `target_id` (`VARCHAR(255)`), `action_status` (`VARCHAR(32)`), `metadata_json` (`CLOB`), `source_ip` (`VARCHAR(45)`), `prev_record_hash` (`CHAR(64)`), `record_hash` (`CHAR(64)`), `compliance_flag` (`VARCHAR(64)`). |
 
 ### 5.2 Envelope Encryption for Task Secrets & Master Key Bootstrap
 Guest secrets stored in `secrets_vault` **MUST NOT** rely solely on H2 disk encryption:
 1. **Master Key Bootstrapping:** In production environments (`prod` profile), the server **MUST** derive a 256-bit Master Key from the `LEGATUS_MASTER_KEY` environment variable using **HKDF-SHA256**. If `LEGATUS_MASTER_KEY` is omitted, the server **MUST** immediately abort startup with exit code `78` (`EX_CONFIG`). In `dev` profile, an ephemeral key in `.legatus-dev-key` may be used with a prominent warning.
 2. Each secret is encrypted individually using **AES-256-GCM** with a unique 96-bit random Initialization Vector (IV).
 3. Secrets are decrypted solely in memory immediately prior to constructing a `DISPATCH_TASK` WebSocket frame, and the plaintext byte arrays are zeroed immediately after socket transmission.
+
+### 5.3 Statutory Compliance & Immutable WORM Audit Trail
+
+Legatus Server implements a regulatory-grade Write-Once-Read-Many (WORM) audit subsystem designed to satisfy statutory compliance mandates including **SOC 2 Type II (CC6.8, CC7.2)**, **ISO/IEC 27001:2022 (Control A.8.15 - Logging)**, **HIPAA Security Rule (§ 164.312(b) - Audit Controls)**, and **GDPR Article 30**.
+
+#### 5.3.1 Statutory Zero-Deletion Invariant
+1. **Absolute Non-Deletability:** Audit log records **MUST NEVER** be deleted, truncated, or overwritten under any operational circumstance, including maintenance tasks, database compaction, or administrative override.
+2. **Database-Level Rejection:** The H2 database schema **MUST** register trigger invariants on the `audit_logs` table that abort any SQL `DELETE` or `UPDATE` statements immediately with a fatal SQL exception:
+   `Statutory Violation: Audit log records are legally immutable and cannot be deleted or modified.`
+3. **REST Protocol Rejection:** The REST API **MUST NOT** provide any endpoint that facilitates the deletion of audit logs. Any `DELETE /api/v1/admin/audit-logs/*` request **MUST** be rejected with HTTP `405 Method Not Allowed` or HTTP `403 Forbidden` (`ERR_AUDIT_LOG_IMMUTABLE`).
+4. **Auto-Purge Exemption:** The server's automated maintenance sweeper (`legatus.retention.auto-purge`) that purges completed task records older than 7 days **MUST EXPLICITLY EXEMPT** `audit_logs`. The `audit_logs` table is permanent and legally immutable.
+
+#### 5.3.2 Cryptographic Hash Chaining (Sequential Tamper-Evidence)
+Every record in `audit_logs` is cryptographically chained to its immediate predecessor using sequential SHA-256 hashing, forming an immutable ledger:
+
+```
+[Record 1: Genesis]               [Record 2]                         [Record N: Head]
++---------------------------+     +---------------------------+      +---------------------------+
+| sequence_num: 1           |     | sequence_num: 2           |      | sequence_num: N           |
+| prev_record_hash: 000...0 | --> | prev_record_hash: H_1     | ---> | prev_record_hash: H_{N-1} |
+| record_hash: H_1          |     | record_hash: H_2          |      | record_hash: H_N          |
++---------------------------+     +---------------------------+      +---------------------------+
+```
+
+1. **Genesis Hash:** For `sequence_num = 1`, `prev_record_hash` **MUST** be set to 64 ASCII zeroes (`0000000000000000000000000000000000000000000000000000000000000000`).
+2. **Current Record Hash Derivation ($H_i$):**
+   $$H_i = \text{SHA256}(\text{sequence\_num}_i \parallel \text{prev\_record\_hash}_i \parallel \text{timestamp}_i \parallel \text{actor\_id}_i \parallel \text{actor\_role}_i \parallel \text{event\_type}_i \parallel \text{target\_type}_i \parallel \text{target\_id}_i \parallel \text{action\_status}_i \parallel \text{metadata\_json}_i \parallel \text{source\_ip}_i)$$
+3. **Sequential Verification Algorithm:** The server provides `/api/v1/admin/audit-logs/verify` which streams records sequentially from sequence 1 to $N$, re-computing $H_i$ and verifying $H_i == \text{record\_hash}_i$ and $\text{prev\_record\_hash}_{i+1} == \text{record\_hash}_i$. If any discrepancy is detected, the verification fails immediately with `ERR_AUDIT_CHAIN_CORRUPTED`, pinpointing the exact corrupt sequence number.
+
+#### 5.3.3 Meta-Auditing ("Auditing the Auditors") Invariant
+In compliance with regulatory standards, all operations that inspect, query, verify, or attempt to manipulate audit logs **MUST THEMSELVES GENERATE AN AUDIT RECORD**:
+* Every invocation of `GET /api/v1/admin/audit-logs` appends an `AUDIT_LOG_ACCESSED` event recording the querying actor, queried time window, and filter parameters.
+* Every invocation of `GET /api/v1/admin/audit-logs/verify` appends an `AUDIT_LOG_VERIFIED` event recording the verification outcome and range.
+* Every invocation of `POST /api/v1/admin/audit-logs/export` appends an `AUDIT_LOG_EXPORTED` event recording the exported scope and destination.
+* Any unauthorized attempt to delete or alter audit logs triggers an immediate high-priority security event: `AUDIT_LOG_TAMPER_ATTEMPT` with `action_status = 'DENIED'`.
 
 ---
 
@@ -290,7 +390,7 @@ The Legatus Server provides modular capabilities that operators can enable or tu
 | **Cron & Scheduled Triggers** | `legatus.features.cron-scheduler` | `true` | Built-in cron engine that triggers registered Solix functions on recurring schedules (`0 */5 * * * *`). |
 | **Webhook Ingestion Gateway** | `legatus.features.webhooks` | `true` | Exposes `/api/v1/webhooks/{function_name}` to turn incoming third-party HTTP POST payloads directly into queued Solix tasks. |
 | **Workflow DAG Chaining** | `legatus.features.workflows` | `false` | Allows chaining output JSON of Task A directly into input arguments of Task B (pipeline orchestration). |
-| **Auto-Purge Task History** | `legatus.retention.auto-purge` | `true` | Background sweeper that purges completed task logs older than `retention.days` (default: 7 days) to keep the H2 file compact. |
+| **Auto-Purge Task History** | `legatus.retention.auto-purge` | `true` | Background sweeper that purges completed task logs from `tasks` older than `retention.days` (default: 7 days) to keep the H2 file compact. Under statutory compliance mandates, `audit_logs` is strictly exempted and never purged. |
 | **Prometheus Metrics Endpoint**| `management.endpoints.prometheus` | `false` | Exposes `/actuator/prometheus` for external Grafana/Prometheus scraping alongside Legatus Studio. |
 
 ### 6.2 Reference Configuration Schema (`server.yml`)
@@ -345,6 +445,13 @@ legatus:
 | Optimistic Lock Conflict | JPA Scheduler Transaction| Internal Retry | `ERR_CONCURRENT_STATE_MUTATION`| Catch `OptimisticLockingFailureException`; refresh entity and retry selection. |
 | Worker Dead-Man Timeout (15s) | LCTP Broker Sweeper | WS `1011` | `ERR_WORKER_HEARTBEAT_TIMEOUT`| Tear down socket; mark worker `OFFLINE`; re-queue eligible tasks. |
 | Oversized Wire Frame (> 32MB) | LCTP / Studio WS | WS `1009` | `ERR_FRAME_TOO_LARGE` | Drop WebSocket session immediately to prevent JVM heap exhaustion. |
+| Account Suspended / Locked | REST Auth | HTTP `423` | `ERR_ACCOUNT_LOCKED` | Reject login; account locked due to 5 failed attempts or admin suspension. |
+| Account Deactivated | REST Auth | HTTP `403` | `ERR_ACCOUNT_DISABLED` | Reject login; soft-deleted accounts cannot authenticate or obtain JWTs. |
+| Account Collision | REST `/admin/accounts` | HTTP `409` | `ERR_ACCOUNT_EXISTS` | Reject creation; username or email already registered in cluster. |
+| Account Not Found | REST `/admin/accounts` | HTTP `404` | `ERR_ACCOUNT_NOT_FOUND` | Reject mutation; target account ID does not exist in database. |
+| Insufficient RBAC Privilege | REST Authorization | HTTP `403` | `ERR_INSUFFICIENT_PRIVILEGES` | Reject request; role lacks required permission; emit audit event. |
+| Statutory Log Deletion Prohibited | REST `/admin/audit-logs` | HTTP `405` / `403` | `ERR_AUDIT_LOG_IMMUTABLE` | Reject deletion immediately; emit `AUDIT_LOG_TAMPER_ATTEMPT` audit entry. |
+| Audit Hash Chain Checksum Error | REST `/admin/audit-logs/verify`| HTTP `500` | `ERR_AUDIT_CHAIN_CORRUPTED` | Alert operator of tamper incident; isolate database and report sequence ID. |
 
 ---
 
