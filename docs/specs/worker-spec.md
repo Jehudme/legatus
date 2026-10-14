@@ -111,6 +111,9 @@ Compute nodes **MUST** resolve configuration files, state directories, sockets, 
 | **Local IPC Endpoint** (`nng` URI) | Linux / POSIX<br>macOS<br>Windows | `ipc:///tmp/legatus_worker.ipc`<br>`ipc:///tmp/legatus_worker.ipc`<br>`ipc://legatus_worker_ipc` (Named Pipe `\\.\pipe\legatus_worker_ipc`) | Environment: `LEGATUS_IPC_ENDPOINT` |
 | **Task Runner Binary** (`legatus-runner`) | Linux / macOS<br>Windows | Co-located in same directory as `legatusd`<br>`<exe_dir>/legatus-runner`<br>`<exe_dir>\legatus-runner.exe` | Dynamic path resolution relative to process binary location |
 
+> [!IMPORTANT] Windows Named Pipe Security Descriptors
+> When `legatusd` executes as a Windows Service under `NT AUTHORITY\SYSTEM`, the `nng` IPC listener **MUST** initialize the Named Pipe with an explicit Security Descriptor Definition Language (`SDDL`) string (`D:(A;;GRGW;;;AU)`) granting `GENERIC_READ | GENERIC_WRITE` to the `Authenticated Users` group. Omitting this descriptor causes unprivileged interactive `legatus` CLI commands to fail with Win32 error `5` (`ERROR_ACCESS_DENIED`).
+
 ---
 
 ## 4. Contractual State Machines & Data Flows
@@ -137,7 +140,7 @@ The `legatus` CLI **MUST NOT** interface directly with the centralized cloud ser
 * **`legatus down [-f, --force]`**:
   Directs the active daemon to terminate. If `--force` is omitted, the daemon enters a clean shutdown sequence, completing in-flight dispatches before stopping.
 * **`legatus drain [--timeout <sec>] [--disable]`**:
-  Toggles node drain mode. When draining, the node reports zero spare capacity in heartbeats, preventing the scheduler from dispatching new tasks while current tasks complete.
+  Toggles node drain mode. When draining, the worker **MUST** immediately transmit an expedited `DRAIN_NOTICE` frame over the LCTP WebSocket connection to the server broker (bypassing the 5000ms heartbeat interval) and report zero allocatable capacity, preventing the scheduler from dispatching new tasks while in-flight tasks finish.
 * **`legatus status [--json]`**:
   Queries and renders real-time daemon metrics, including active uptime, cloud WebSocket connection status, assigned cluster pool, and active task tables.
 * **`legatus log level <trace|debug|info|warn|error>`**:
@@ -325,30 +328,32 @@ To guarantee that guest tasks cannot compromise the supervisor daemon or corrupt
 |                  LEGATUS WORKER SUPERVISOR (Parent)                     |
 |                                                                         |
 |   Spawns child runner via reproc++                                      |
-|   CLI Parameters:                                                       |
+|   CLI Arguments (Metadata Only):                                        |
 |     legatus-runner --task-id <id> --budget <num> --max-mem <bytes>      |
-|                    <envelope_json_string>                               |
+|   Stdin Stream Injection:                                               |
+|     Writes <execution_envelope_json> to child stdin and closes (EOF)    |
 +------------------------------------+------------------------------------+
                                      |
                   Anonymous OS Pipes | Process Virtual Memory Boundary
+                  (Stdin / Stdout)   |
                                      |
 +------------------------------------v------------------------------------+
 |                  LEGATUS RUNNER PROCESS (Child)                         |
 |                                                                         |
-|   1. Extracts execution envelope from command-line arguments            |
+|   1. Parses CLI flags; streams full execution envelope from stdin       |
 |   2. Decodes compiled Solix bytecode payload                            |
 |   3. Initializes solix::RuntimeOptions:                                 |
-|      - opts.program_args = { envelope_json_string }                     |
+|      - opts.program_args = { execution_envelope_json_string }           |
 |      - opts.heap_capacity = max_memory_bytes / 8                        |
 |   4. Invokes Solix VM entry point: static int32 main(char[][] args)     |
 |   5. Guest script reads JSON input from args[0]                         |
-|   6. Result emitted to stdout; exit code returned to supervisor         |
+|   6. Result emitted to stdout pipe; exit code returned to supervisor    |
 +-------------------------------------------------------------------------+
 ```
 
 ### 5.2 Execution Envelope & Calling Convention
 
-1. **Parameter Assembly:** The supervisor combines task inputs, environment settings, and decrypted secrets into a structured JSON envelope string passed in `argv[4]`.
+1. **Parameter Assembly & Stdin Streaming:** The supervisor combines task inputs, environment settings, and decrypted secrets into a structured JSON envelope. To prevent operating system command-line buffer overflows (specifically the **32,767 character ceiling** enforced by Windows `CreateProcessW`), the supervisor **MUST** transmit the JSON envelope directly over the child process anonymous standard input pipe (`stdin`) and signal completion via `EOF`. The runner reads the full stream into an in-memory buffer before invoking the guest VM.
 2. **Solix VM Invocation Contract:** The guest entry point adheres to the contract:
    $$\texttt{static int32 main(char[][] args)}$$
    The runner passes the JSON envelope string in index 0 of program arguments. The VM allocates this as an array of character strings on the guest heap prior to entry.
@@ -426,7 +431,7 @@ Server Broker / CLI                           Supervisor Daemon                 
 2. **Stage 1 (Cooperative Stop):**
    * The supervisor executes `reproc::stop::terminate`.
    * **Linux / POSIX:** The OS delivers `SIGTERM`. The child runner traps the signal, breaks the VM instruction loop at the next branch instruction, and exits cleanly.
-   * **Windows:** The OS emits `CTRL_BREAK_EVENT` and closes the `stdin` pipe. The child's console control handler flags execution termination.
+   * **Windows:** On Windows, child processes **MUST** be spawned with the `CREATE_NEW_PROCESS_GROUP` flag in `reproc::options`. The supervisor delivers `CTRL_BREAK_EVENT` via `GenerateConsoleCtrlEvent`. The child's console control handler catches the event and breaks execution cleanly without propagating signals back to `legatusd`.
 3. **Grace Period (10 Seconds):**
    * The supervisor waits for child process termination for up to **10,000 milliseconds**.
 4. **Stage 2 (Hard Process Destruction):**
@@ -512,3 +517,5 @@ Reviewers and platform engineers **MUST** verify the following audit criteria:
 - [ ] **Exit Code Determinism:** All terminal states map to standard POSIX/BSD exit codes.
 - [ ] **Cross-Platform Parity:** Path resolution, IPC, and termination escalation are defined across Linux, macOS, and Windows.
 - [ ] **Sanitization Mandate:** Explicit zeroing (`explicit_bzero` / `SecureZeroMemory`) is mandated for all secret memory buffers.
+- [ ] **Windows 32KB Defense:** Task execution envelope is passed via `stdin` stream rather than command-line arguments.
+- [ ] **Process Group Isolation:** Windows child processes are configured with `CREATE_NEW_PROCESS_GROUP` to ensure safe `CTRL_BREAK_EVENT` delivery.

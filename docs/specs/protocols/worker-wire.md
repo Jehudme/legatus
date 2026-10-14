@@ -54,12 +54,16 @@ The Legatus Worker Wire Protocol operates as an outbound-only, persistent, bi-di
                   │ <── 7. DISPATCH_TASK ────────────────────────────────── │ [DISPATCH QUEUE]
 [EXECUTING]       │ ── 8. TASK_PROGRESS (Optional Checkpoints) ───────────> │
                   │ ── 9. TASK_RESULT (Terminal Frame) ───────────────────> │
+                  │ <── 10. TASK_RESULT_ACK (Ledger Receipt Committed) ──── │ [CAPACITY FREED]
                   │                                                         │
-[INTERRUPT]       │ <── 10. ABORT_TASK (Cancellation Forwarding) ────────── │
-                  │ ── 11. TASK_RESULT (status=ABORTED) ──────────────────> │
+[INTERRUPT]       │ <── 11. ABORT_TASK (Cancellation Forwarding) ────────── │
+                  │ ── 12. TASK_RESULT (status=ABORTED) ──────────────────> │
+                  │ <── 13. TASK_RESULT_ACK ─────────────────────────────── │
                   │                                                         │
-[TEARDOWN]        │ ── 12. WS Close Frame (Code 1000 / Normal) ───────────> │
-                  │ <── 13. WS Close Frame Acknowledgement ──────────────── │
+[DRAINING]        │ ── 14. DRAIN_NOTICE (Immediate Expedited Ejection) ───> │ [WITHDRAW SCHEDULER]
+                  │                                                         │
+[TEARDOWN]        │ ── 15. WS Close Frame (Code 1000 / Normal) ───────────> │
+                  │ <── 16. WS Close Frame Acknowledgement ──────────────── │
 ```
 
 ---
@@ -169,7 +173,7 @@ Every message transmitted across the WebSocket channel **MUST** be formatted as 
 
 ### 4.1 `SESSION_INIT` (Worker $\rightarrow$ Server)
 
-Transmitted by the worker daemon immediately upon receiving the HTTP `101 Switching Protocols` handshake. Declares identity, hardware architecture, guest VM parameters, and compute allocation boundaries.
+Transmitted by the worker daemon immediately upon receiving the HTTP `101 Switching Protocols` handshake. Declares identity, hardware architecture, guest VM parameters, allocatable capacity boundaries, and any actively supervised tasks surviving a transient reconnect.
 
 #### Frame Schema:
 ```json
@@ -179,6 +183,7 @@ Transmitted by the worker daemon immediately upon receiving the HTTP `101 Switch
   "timestamp": 1728907200100,
   "payload": {
     "worker_id": "compute-linux-east-042",
+    "previous_session_id": "sess-8823-4921-bc7e",
     "hostname": "wk-east-042.internal.corp",
     "os": "linux",
     "architecture": "x86_64",
@@ -200,13 +205,22 @@ Transmitted by the worker daemon immediately upon receiving the HTTP `101 Switch
       "allocatable_cores": 12,
       "max_memory_bytes": 17179869184,
       "max_instruction_budget_per_task": 50000000
-    }
+    },
+    "reconcile_tasks": [
+      {
+        "task_id": "task-20261013-0091",
+        "status": "EXECUTING",
+        "instructions_consumed": 24102900,
+        "elapsed_wall_time_ms": 1250
+      }
+    ]
   }
 }
 ```
 
 #### Field Definitions:
 * `payload.worker_id` (`String`): The unique, stable identity string stored in the compute node's `worker.toml`.
+* `payload.previous_session_id` (`String | null`): Prior session UUID if reconnecting after a transport drop within the 15-second dead-man's window; otherwise `null`.
 * `payload.hostname` (`String`): The network domain or host identity of the node machine.
 * `payload.os` (`String`): Normalized OS kernel identifier: `"linux"`, `"windows"`, or `"macos"`.
 * `payload.architecture` (`String`): Normalized processor architecture: `"x86_64"` or `"aarch64"`.
@@ -216,12 +230,13 @@ Transmitted by the worker daemon immediately upon receiving the HTTP `101 Switch
 * `payload.allocatable_capacity.allocatable_cores` (`Int32`): Maximum concurrent CPU threads the node permits the server broker to schedule at any single instant.
 * `payload.allocatable_capacity.max_memory_bytes` (`Int64`): Cumulative memory budget in bytes dedicated across all child runner processes.
 * `payload.allocatable_capacity.max_instruction_budget_per_task` (`Int64`): Upper instruction quota threshold accepted by this worker for a single task dispatch.
+* `payload.reconcile_tasks` (`Array[Object]`): In-flight tasks supervised locally that survived the network drop, preventing duplicate task re-scheduling.
 
 ---
 
 ### 4.2 `SESSION_ACK` (Server $\rightarrow$ Worker)
 
-Server response acknowledging registration, granting lease authorization, assigning cluster routing pools, and establishing heartbeat timing rules.
+Server response acknowledging registration, granting lease authorization, assigning cluster routing pools, establishing heartbeat timing rules, and confirming re-attached in-flight tasks.
 
 #### Frame Schema:
 ```json
@@ -235,7 +250,9 @@ Server response acknowledging registration, granting lease authorization, assign
     "assigned_cluster": "production-us-east",
     "heartbeat_interval_ms": 5000,
     "heartbeat_timeout_ms": 15000,
-    "server_time_utc": 1728907200248
+    "server_time_utc": 1728907200248,
+    "reconciled_task_ids": ["task-20261013-0091"],
+    "discarded_task_ids": []
   }
 }
 ```
@@ -347,7 +364,8 @@ Dispatches an executable compute job to the node. The payload contains Base64-en
       "format": "solix_bc_v1",
       "encoding": "base64",
       "sha256": "8a3f89b4c0e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7",
-      "payload": "U09MSVhfQkMxAQAAAAMAAQAAAAgAAAA="
+      "payload": "U09MSVhfQkMxAQAAAAMAAQAAAAgAAAA=",
+      "bytecode_url": "/api/v1/bytecode/8a3f89b4c0e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7"
     },
     "constraints": {
       "instruction_budget": 50000000,
@@ -374,7 +392,8 @@ Dispatches an executable compute job to the node. The payload contains Base64-en
 * `payload.entry_point` (`String`): Target entry method symbol in the bytecode (default: `"main"`).
 * `payload.bytecode.format` (`String`): Virtual machine binary format specification (`"solix_bc_v1"`).
 * `payload.bytecode.sha256` (`String`): SHA-256 cryptographic digest of the raw binary payload prior to Base64 encoding. The worker **MUST** verify this digest before spawning the execution runner.
-* `payload.bytecode.payload` (`String`): Standard RFC 4648 Base64-encoded bytecode binary.
+* `payload.bytecode.payload` (`String | null`): Standard RFC 4648 Base64-encoded bytecode binary. May be omitted (`null`) if `bytecode_url` is provided or if already present in local node cache.
+* `payload.bytecode.bytecode_url` (`String | null`): Direct HTTPS REST endpoint path for streaming raw binary bytecode, bypassing WebSocket Base64 overhead for binaries $> 1\text{ MB}$.
 * `payload.constraints.instruction_budget` (`Int64`): Maximum opcode instructions the guest VM is permitted to execute before trapping with exit code `75`.
 * `payload.constraints.max_memory_bytes` (`Int64`): Maximum virtual memory allocation boundary dedicated to the child process.
 * `payload.constraints.timeout_ms` (`Int32`): Hard wall-clock execution deadline in milliseconds.
@@ -474,7 +493,46 @@ Terminal frame emitted by the worker supervisor immediately upon child process e
 
 ---
 
-### 4.8 `ABORT_TASK` (Server $\rightarrow$ Worker)
+### 4.8 `TASK_RESULT_ACK` (Server $\rightarrow$ Worker)
+
+Acknowledges receipt and transactional persistence of a terminal `TASK_RESULT` frame into the server's database ledger. The worker **MUST** retain task output buffers until `TASK_RESULT_ACK` arrives; upon receipt, the worker frees all local task resources.
+
+#### Frame Schema:
+```json
+{
+  "type": "TASK_RESULT_ACK",
+  "id": "2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+  "timestamp": 1728907212400,
+  "payload": {
+    "task_id": "task-20261013-0091",
+    "status": "COMMITTED"
+  }
+}
+```
+
+---
+
+### 4.9 `DRAIN_NOTICE` (Worker $\rightarrow$ Server)
+
+Transmitted immediately by the worker upon receiving an administrative `legatus drain` signal. Bypasses the 5000ms heartbeat interval to immediately remove the node from the server's task dispatch ring.
+
+#### Frame Schema:
+```json
+{
+  "type": "DRAIN_NOTICE",
+  "id": "5f6a7b8c-9d0e-1f2a-3b4c-5d6e7f8a9b0c",
+  "timestamp": 1728907214000,
+  "payload": {
+    "draining": true,
+    "active_tasks_remaining": 2,
+    "reason": "OPERATOR_MAINTENANCE"
+  }
+}
+```
+
+---
+
+### 4.10 `ABORT_TASK` (Server $\rightarrow$ Worker)
 
 Initiates early termination of an executing task.
 
@@ -494,7 +552,7 @@ Initiates early termination of an executing task.
 
 ---
 
-### 4.9 `PROTOCOL_ERROR` (Bidirectional)
+### 4.11 `PROTOCOL_ERROR` (Bidirectional)
 
 Emitted when a node or broker receives a frame with an unrecognized `type`, an unparseable JSON envelope, or an incompatible schema.
 
@@ -521,6 +579,7 @@ Emitted when a node or broker receives a frame with an unrecognized `type`, an u
 To eliminate thundering herd synchronization spikes across thousands of cluster nodes:
 * The worker daemon **MUST** emit `HEARTBEAT` every $5000\text{ ms} \pm 500\text{ ms}$ (randomized uniform jitter).
 * The broker **MUST** reply with `HEARTBEAT_ACK` within **2000 milliseconds**.
+* **High-Density Telemetry Mode:** On nodes running $> 50$ concurrent tasks, the worker **MAY** omit individual task items in `running_tasks` and transmit aggregate core/memory counters in `host_metrics` unless detailed task debugging is requested by the broker.
 
 ### 5.2 Dead-Man's Switch Timeout
 
@@ -558,5 +617,8 @@ Protocol implementers and reviewers **MUST** verify the following audit criteria
 - [ ] **Finite State Machine:** All five connection states (`DISCONNECTED`, `CONNECTING`, `NEGOTIATING`, `OPERATIONAL`, `TERMINATING`) and timeout transitions are modeled.
 - [ ] **Timing Jitter:** Heartbeats specify randomized uniform jitter ($5000\text{ ms} \pm 500\text{ ms}$).
 - [ ] **Dead-Man's Switch:** 15,000ms dead-man's switch logic is enforced on both client and broker.
+- [ ] **Session Reconciliation:** `SESSION_INIT` transmits `reconcile_tasks` to prevent double-execution during brief drops.
+- [ ] **Immediate Drain:** `DRAIN_NOTICE` withdraws worker from dispatch immediately without awaiting the next heartbeat.
+- [ ] **Ledger Acknowledgment:** `TASK_RESULT_ACK` confirms database receipt prior to worker resource deallocation.
 - [ ] **Close Code Mappings:** Every protocol failure maps to an RFC 6455 close code.
 - [ ] **Frame Size Cap:** 32 MB frame ceiling enforced with close code `1009`.
