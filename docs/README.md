@@ -45,18 +45,13 @@ docs/
 ├── architecture/                  # High-level system topology, sequence flows, and wireframes
 │   ├── README.md                  # Architecture suite index
 │   ├── overview.md                # Cluster-wide architectural topology and invariants
-│   ├── sequences/                 # UML Sequence Specifications (Mermaid)
-│   │   ├── README.md              # Sequence catalog and diagramming standard
-│   │   ├── server-operations.md   # Master key derivation, H2 storage, dead-man sweeper
-│   │   ├── task-operations.md     # Stdin execution streaming, Solix metering, 2-stage abort
-│   │   ├── telemetry-operations.md# Viewport subscription scoping, 60Hz UI frame batching
-│   │   ├── user-operations.md     # Local nng CLI IPC, Studio visual attestation
-│   │   └── worker-operations.md   # First boot, LCTP handshake, session reconciliation, drain
-│   └── wireframes/                # UI/UX Specifications & Cockpit Visual Layouts
-│       ├── README.md              # Wireframe catalog
-│       └── studio/                # Legatus Studio UI Specifications
-│           ├── studio-wireframe.md# 4-zone persistent cockpit layout and view specifications
-│           └── studio-wireframe.png# High-fidelity visual mockup
+│   └── sequences/                 # UML Sequence Specifications (Mermaid)
+│       ├── README.md              # Sequence catalog and diagramming standard
+│       ├── server-operations.md   # Master key derivation, H2 storage, dead-man sweeper
+│       ├── task-operations.md     # Stdin execution streaming, Solix metering, 2-stage abort
+│       ├── telemetry-operations.md# Viewport subscription scoping, 60Hz UI frame batching
+│       ├── user-operations.md     # Local nng CLI IPC, Studio visual attestation
+│       └── worker-operations.md   # First boot, LCTP handshake, session reconciliation, drain
 ├── dev/                           # Internal engineering governance and developer standards
 │   ├── decisions/                 # Architecture Decision Records (ADRs, MADR schema)
 │   │   ├── README.md              # ADR index and immutability governance

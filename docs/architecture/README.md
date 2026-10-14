@@ -23,18 +23,13 @@ While Subsystem Specifications ([`docs/specs/`](../specs/)) define individual co
 docs/architecture/
 ├── README.md                      # Master architecture directory index (This file)
 ├── overview.md                    # Cluster-wide architectural topology, binary manifest & security model
-├── sequences/                     # Formal UML Sequence Specifications (Mermaid)
-│   ├── README.md                  # Sequence catalog and normative diagramming rules
-│   ├── server-operations.md       # Master key bootstrap, Liquibase migrations, dead-man sweeper
-│   ├── task-operations.md         # Stdin envelope injection, Solix VM metering, 2-stage abort
-│   ├── telemetry-operations.md    # Viewport subscription scoping, 60Hz UI frame coalescing
-│   ├── user-operations.md         # Local nng CLI IPC, Studio visual attestation, bytecode deploy
-│   └── worker-operations.md       # First boot, LCTP handshake, session reconciliation, node drain
-└── wireframes/                    # UI/UX Specifications & Cockpit Visual Layouts
-    ├── README.md                  # Wireframes catalog
-    └── studio/                    # Legatus Studio Native Desktop Cockpit
-        ├── studio-wireframe.md    # 4-zone persistent cockpit layout and navigation specification
-        └── studio-wireframe.png   # High-fidelity visual mockups
+└── sequences/                     # Formal UML Sequence Specifications (Mermaid)
+    ├── README.md                  # Sequence catalog and normative diagramming rules
+    ├── server-operations.md       # Master key bootstrap, Liquibase migrations, dead-man sweeper
+    ├── task-operations.md         # Stdin envelope injection, Solix VM metering, 2-stage abort
+    ├── telemetry-operations.md    # Viewport subscription scoping, 60Hz UI frame coalescing
+    ├── user-operations.md         # Local nng CLI IPC, Studio visual attestation, bytecode deploy
+    └── worker-operations.md       # First boot, LCTP handshake, session reconciliation, node drain
 ```
 
 ---

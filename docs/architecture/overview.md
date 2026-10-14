@@ -202,16 +202,11 @@ The architectural specifications in this directory detail each subsystem interac
 docs/architecture/
 ├── README.md                          # Master architectural navigation index
 ├── overview.md                        # Cluster-wide architectural topology and invariants (This file)
-├── sequences/                         # Formal UML Sequence Diagrams & Operational Protocols
-│   ├── README.md                      # Sequence specifications catalog
-│   ├── server-operations.md           # Master key derivation, enrollment, dead-man's switch
-│   ├── task-operations.md             # Scheduling, stdin streaming, execution, 2-stage abort
-│   ├── telemetry-operations.md        # WebSocket streaming, 60Hz coalescing, log ring buffers
-│   ├── user-operations.md             # Local CLI IPC commands, Studio attestation, bytecode deploy
-│   └── worker-operations.md           # First boot, LCTP handshake, reconciliation, graceful drain
-└── wireframes/
-    ├── README.md                      # UI/UX design specifications index
-    └── studio/
-        ├── studio-wireframe.md        # Legatus Studio 4-zone cockpit layout specification
-        └── studio-wireframe.png       # High-fidelity visual mockup of the administrative console
+└── sequences/                         # Formal UML Sequence Diagrams & Operational Protocols
+    ├── README.md                      # Sequence specifications catalog
+    ├── server-operations.md           # Master key derivation, enrollment, dead-man's switch
+    ├── task-operations.md             # Scheduling, stdin streaming, execution, 2-stage abort
+    ├── telemetry-operations.md        # WebSocket streaming, 60Hz coalescing, log ring buffers
+    ├── user-operations.md             # Local CLI IPC commands, Studio attestation, bytecode deploy
+    └── worker-operations.md           # First boot, LCTP handshake, reconciliation, graceful drain
 ```

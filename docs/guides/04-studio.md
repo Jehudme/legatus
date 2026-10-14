@@ -8,7 +8,6 @@
 * **Related Specifications:**
   * [`docs/specs/studio-spec.md`](../specs/studio-spec.md)
   * [`docs/specs/protocols/studio-wire.md`](../specs/protocols/studio-wire.md)
-  * [`docs/architecture/wireframes/studio/studio-wireframe.md`](../architecture/wireframes/studio/studio-wireframe.md)
   * [`docs/dev/decisions/0002-adopt-javafx-for-studio-ui.md`](../dev/decisions/0002-adopt-javafx-for-studio-ui.md)
 
 ---
