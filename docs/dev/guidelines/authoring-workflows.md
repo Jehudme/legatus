@@ -1,0 +1,206 @@
+# Engineering Lifecycle & Gate Checks Specification
+
+## Document Metadata
+* **Guideline ID:** GL-0003
+* **Scope:** Software Development Lifecycle & CI Gates (`.github/workflows/`, repo-wide)
+* **Status:** Final Implementation Standard
+* **Audience:** Core Systems Engineers, Platform Contributors, Maintainers
+* **Normative Conformance:** RFC 2119 / RFC 8174 (`MUST`, `MUST NOT`, `REQUIRED`, `SHALL`, `SHALL NOT`, `SHOULD`, `SHOULD NOT`, `RECOMMENDED`, `MAY`, `OPTIONAL`)
+
+---
+
+## 1. Executive Summary & Purpose
+
+In a distributed runtime coordinating native C++20 worker processes with a Java 21 orchestration cluster across Linux, macOS, and Windows, informal or haphazard development workflows guarantee regressions. Code merged without architectural documentation, untested across operating systems, or lacking local sanitizer validation degrades cluster reliability and increases technical debt.
+
+This specification establishes the mandatory **Eight-Stage Engineering Lifecycle** and formal gate checks governing all code and documentation contributions to Legatus. It defines the exact sequential progression from branch inception to non-fast-forward merge, codifies self-review requirements, and establishes automated CI status checks. Adherence to this lifecycle ensures that all modifications entering `master` are architecturally sound, thoroughly tested, zero-leak validated, and synchronized with living documentation.
+
+---
+
+## 2. Normative Invariants & Core Principles
+
+All contributors **MUST** strictly adhere to the following lifecycle invariants:
+
+1. **The Eight-Stage Sequence:** Engineering work **MUST** proceed through the eight discrete stages in exact chronological order:
+   $$\text{Branch} \to \text{Spec Update} \to \text{Implementation} \to \text{Test Matrix} \to \text{Local Verification} \to \text{Doc Sync} \to \text{CI Matrix} \to \text{Merge}$$
+2. **Specification-First Principle:** Prior to writing production code, the engineer **MUST** document the architectural changes, wire frames, or schema alterations in `docs/specs/` or an ADR (`docs/dev/decisions/`). Implementing code without prior or concurrent specification updates is prohibited.
+3. **Mandatory Multi-Platform Green CI:** A pull request **SHALL NOT** be merged unless the complete GitHub Actions CI matrix passes cleanly across all tier-1 operating systems:
+   * **Linux:** Ubuntu 22.04 LTS (GCC 13, Clang 18 with ASan/UBSan)
+   * **macOS:** macOS 14 Sonoma (AppleClang 15)
+   * **Windows:** Windows Server 2022 (MSVC v143 / Visual Studio 2022)
+4. **Non-Fast-Forward Merge Invariant:** All pull requests merged into `master` **MUST** use non-fast-forward merge commits (`git merge --no-ff`) to preserve branch topology and maintain atomic milestone histories. Rebasing and squashing at merge time that destroys discrete commit boundaries is strictly prohibited unless explicitly authorized for trivial chore branches.
+5. **Mandatory Two-Reviewer Approval:** PRs modifying core daemons (`legatusd`), process runners (`legatus-runner`), or wire protocols (`worker-wire.md`) **MUST** receive approval from at least two core maintainers.
+6. **No CI Bypassing:** Administrators **MUST NOT** use bypass permissions to force-merge PRs with failing checks or uncleared review comments.
+
+---
+
+## 3. Structural Specification & Schema
+
+### 3.1 The Eight-Stage Engineering Lifecycle
+
+```
+[1. BRANCH]            Create feat/<scope>-<desc> from master
+     │
+     ▼
+[2. SPEC FIRST]        Update docs/specs/ or create ADR in docs/dev/decisions/
+     │
+     ▼
+[3. IMPLEMENT]         Write polyglot code adhering to GL-0011 standards
+     │
+     ▼
+[4. TEST MATRIX]       Author test scenarios covering positive and negative cases
+     │
+     ▼
+[5. LOCAL VERIFY]      Execute ctest / mvn test under ASan and UBSan
+     │
+     ▼
+[6. DOC SYNC]          Update CLI help, user guides (GL-0010 zero-drift)
+     │
+     ▼
+[7. CI MATRIX]         Validate multi-platform matrix (Linux, macOS, Windows)
+     │
+     ▼
+[8. MERGE (--no-ff)]   Merge into master preserving commit graph, delete branch
+```
+
+### 3.2 Automated CI Matrix Gates
+
+| Gate Name | Platform / Environment | Tooling & Parameters | Blocking? |
+| :--- | :--- | :--- | :--- |
+| **Commitlint** | Linux (Node.js) | Conventional Commits v1.0.0 rules | **YES (P0)** |
+| **C++20 Build & Test** | Ubuntu 22.04 (GCC 13) | `cmake -B build -S . && cmake --build build && ctest` | **YES (P0)** |
+| **Sanitizers (ASan/UBSan)**| Ubuntu 22.04 (Clang 18) | `-fsanitize=address,undefined -fno-omit-frame-pointer` | **YES (P0)** |
+| **Java 21 Build & Test** | Ubuntu 22.04 (Temurin 21) | `mvn clean verify -Pprod` | **YES (P0)** |
+| **macOS Native Build** | macOS 14 (AppleClang) | `cmake --build build && ctest` | **YES (P0)** |
+| **Windows Native Build** | Win Server 2022 (MSVC) | `cmake -G "Visual Studio 17 2022" && ctest` | **YES (P0)** |
+| **Documentation Check** | Linux | `scripts/verify-cli-docs.sh` & Markdownlint | **YES (P1)** |
+
+---
+
+## 4. Production-Ready Template
+
+Engineers opening pull requests **MUST** populate the following Pull Request description template:
+
+```markdown
+<!-- PR Title MUST follow Conventional Commits: <type>(<scope>): <description> -->
+
+## Description & Technical Context
+<!-- 
+Provide a clear, high-level summary of the architectural problem and the solution.
+Reference relevant issue numbers and related ADRs.
+-->
+Resolves: #<issue-number>
+Related ADR: ADR-<XXXX>
+
+## Stage Verification Checklist
+- [ ] **Stage 2 (Spec):** Specifications updated in `docs/specs/` or ADR accepted.
+- [ ] **Stage 3 (Implementation):** Follows GL-0011 polyglot conventions (C++20/Java 21/Solix).
+- [ ] **Stage 4 (Test Matrix):** Dual test coverage (positive and negative cases) added.
+- [ ] **Stage 5 (Local Verify):** Passed `ctest` with zero memory leaks under ASan/UBSan.
+- [ ] **Stage 6 (Doc Sync):** Updated CLI help text, flags, and `docs/guides/`.
+
+## Subsystem Impact Matrix
+* [ ] `worker/daemon` (`legatusd`)
+* [ ] `worker/runner` (`legatus-runner`)
+* [ ] `worker/cli` (`legatus`)
+* [ ] `server` (`legatus-server`)
+* [ ] `studio` (`legatus-studio`)
+* [ ] `protocols` (Wire/LCTP)
+
+## Breaking Change Notice
+<!-- If breaking, detail the migration path and wire impacts. -->
+* **Breaking Change:** [YES / NO]
+* **SemVer Impact:** [Patch / Minor / Major]
+* **Migration Notes:** [Describe backward compatibility or state migration]
+
+## Local Verification Output
+```bash
+# Paste summary output from ctest or ASan run
+ctest --test-dir build --output-on-failure
+```
+```
+
+---
+
+## 5. Concrete Production Example
+
+### End-to-End Walkthrough: Implementing Task Abort in `legatusd`
+
+#### Step 1: Branch Creation
+```bash
+git checkout master
+git pull --rebase origin master
+git checkout -b feat/worker-task-abort
+```
+
+#### Step 2: Spec First Update
+The developer edits `docs/specs/protocols/worker-wire.md` to add the `ABORT_TASK` frame definition and updates the task supervisor state diagram in `docs/specs/worker-spec.md`.
+
+#### Step 3: Implementation
+The developer updates `worker/daemon/src/task_supervisor.cpp`, wrapping the child runner process in a cancelation listener that invokes `reproc::stop` with the two-stage escalation.
+
+#### Step 4: Test Matrix Authoring
+The developer adds `tests/unit/test_task_abort.cpp` containing:
+1. *Positive:* Active child receives SIGTERM, exits cleanly within 200ms, transmits `TASK_RESULT` with status `ABORTED`.
+2. *Negative:* Misbehaving child ignores SIGTERM; supervisor escalates to SIGKILL at 500ms and cleans up process handles without leaks.
+
+#### Step 5: Local Verification with Sanitizers
+```bash
+cmake -B build-asan -S . -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined"
+cmake --build build-asan -j$(nproc)
+ctest --test-dir build-asan --output-on-failure
+```
+*Result: 100% tests passed, 0 memory leaks reported.*
+
+#### Step 6: Documentation Synchronization
+The developer updates `docs/guides/05-worker.md` detailing the new `legatus abort <task-id>` CLI command.
+
+#### Step 7: Push and CI Green Check
+```bash
+git add .
+git commit -m "feat(worker): implement task abort handling with two-stage kill escalation"
+git push origin feat/worker-task-abort
+```
+*GitHub Actions executes the multi-platform CI matrix across Linux, macOS, and Windows. All checks pass.*
+
+#### Step 8: Non-Fast-Forward Merge
+```bash
+# After peer review approval:
+git checkout master
+git merge --no-ff feat/worker-task-abort -m "Merge branch 'feat/worker-task-abort' into master"
+git push origin master
+git branch -d feat/worker-task-abort
+```
+
+---
+
+## 6. Anti-Patterns & Counter-Examples (What NOT to Do)
+
+### Anti-Pattern 1: The "Code-First, Docs-Never" Workflow
+* **Flawed Practice:** Opening a PR with 2,000 lines of complex C++ IPC logic without touching a single document in `docs/specs/` or `docs/guides/`.
+* **Failure Mode:** Reviewers cannot verify if the implementation matches architectural intent. Downstream teams discover undocumented breaking changes only after deployment.
+* **Corrected Approach:** Reject PR immediately. Require Stage 2 (Spec Update) and Stage 6 (Doc Sync) before scheduling review.
+
+### Anti-Pattern 2: Linux-Only Verification (Ignoring Windows/macOS)
+* **Flawed Practice:** Developing and testing exclusively on Ubuntu, ignoring MSVC compiler warnings and POSIX-specific file path assumptions.
+* **Failure Mode:** Windows CI fails with missing header errors (`<unistd.h>`), or Windows runtime crashes due to invalid named pipe paths.
+* **Corrected Approach:** Rely on cross-platform abstractions (`nng`, `reproc++`, `std::filesystem`) and ensure all CI platform matrix jobs are green.
+
+### Anti-Pattern 3: Destructive Squash Merging of Multi-Commit Milestones
+* **Flawed Practice:** Using GitHub's "Squash and Merge" button to squash 20 granular commits into a single commit with message "Updates".
+* **Failure Mode:** Destroys git history; `git bisect` cannot isolate which specific commit introduced a regression. Conventional Commit types are lost, breaking `release-please`.
+* **Corrected Approach:** Keep commits clean and atomic, and merge using `--no-ff` merge commits.
+
+---
+
+## 7. Verification & Compliance Checklist
+
+Maintainers and PR authors **MUST** verify the following audit criteria prior to merging:
+
+- [ ] **Stage Order Maintained:** Development proceeded through the 8 stages in order.
+- [ ] **Conventional Commit Title:** PR title conforms to `feat(scope): ...` format.
+- [ ] **Multi-Platform CI Green:** Linux, macOS, and Windows matrix jobs have passed.
+- [ ] **Sanitizers Clean:** Clang AddressSanitizer and UndefinedBehaviorSanitizer report zero issues.
+- [ ] **Two Maintainer Approvals:** Core subsystem code reviewed and approved by two maintainers.
+- [ ] **Non-Fast-Forward Merge:** Merged using `--no-ff` to preserve branch graph integrity.
+- [ ] **Branch Deleted:** Topic branch deleted from remote immediately upon merge.
