@@ -22,7 +22,7 @@ This directory tracks all phased engineering milestones for the Legatus distribu
 
 | Milestone ID | Document Link | Target Version | Primary Scope | Status | Target Date |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **MS-001** | [`001-plan-documentation.md`](001-plan-documentation.md) | `v0.1.0-docs-foundation` | Guidelines (`GL-0000`–`GL-0011`), ADRs (`0001`–`0008`), Subsystem & Wire Specs | `VALIDATED` | 2026-10-14 |
+| **MS-001** | [`001-plan-documentation.md`](001-plan-documentation.md) | `v0.1.0-docs-foundation` | Guidelines (`GL-0000`–`GL-0011`), ADRs (`0001`–`0008`), Subsystem & Wire Specs | `CLOSED` | 2026-10-14 |
 | **MS-002** | [`002-server-mvp-implementation.md`](002-server-mvp-implementation.md) | `v1.0.0-server-mvp` | `legatus-server` (Java 21, Loom, LCTP/LSTCP Brokers, Scheduler, Encrypted H2) | `ACTIVE` | 2026-11-01 |
 | **MS-003** | [`003-worker-mvp-implementation.md`](003-worker-mvp-implementation.md) | `v1.0.0-worker-mvp` | `legatusd`, `legatus` CLI, `legatus-runner` (C++20, `nng`, `reproc++`, Solix VM) | `ACTIVE` | 2026-11-15 |
 | **MS-004** | [`004-studio-mvp-documentation.md`](004-studio-mvp-documentation.md) | `v1.0.0-studio-mvp` | `legatus-studio` (OpenJFX 21, AtlantaFX, 60Hz Telemetry) & Operational Guides | `DRAFT` | 2026-12-01 |
