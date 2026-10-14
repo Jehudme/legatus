@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    "worker": {
+      "release-type": "simple",
+      "package-name": "worker",
+      "component": "worker",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "server": {
+      "release-type": "maven",
+      "package-name": "server",
+      "component": "server",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "studio": {
+      "release-type": "maven",
+      "package-name": "studio",
+      "component": "studio",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

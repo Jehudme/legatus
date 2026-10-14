@@ -1,0 +1,60 @@
+name: Pipeline Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-worker:
+    name: Build & Publish Worker Deliverables (C++20)
+    if: startsWith(github.event.release.tag_name, 'worker-')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout Source Tree
+        uses: actions/checkout@v4
+
+      - name: Release Note Info
+        run: |
+          echo "Building worker binaries for release: ${{ github.event.release.tag_name }}"
+
+  publish-server:
+    name: Build & Publish Server Deliverables (Java 21)
+    if: startsWith(github.event.release.tag_name, 'server-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Tree
+        uses: actions/checkout@v4
+
+      - name: Set up OpenJDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Release Note Info
+        run: |
+          echo "Building server JAR for release: ${{ github.event.release.tag_name }}"
+
+  publish-studio:
+    name: Build & Publish Studio Installers (OpenJFX 21)
+    if: startsWith(github.event.release.tag_name, 'studio-')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout Source Tree
+        uses: actions/checkout@v4
+
+      - name: Set up OpenJDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Release Note Info
+        run: |
+          echo "Building studio native packages for release: ${{ github.event.release.tag_name }}"
