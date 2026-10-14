@@ -8,7 +8,7 @@
 * **Normative Specification:** [`docs/specs/studio-spec.md`](../docs/specs/studio-spec.md)
 * **Wire Protocol:** [`docs/specs/protocols/studio-wire.md`](../docs/specs/protocols/studio-wire.md)
 * **Operator Manual:** [`docs/guides/04-studio.md`](../docs/guides/04-studio.md)
-* **Cockpit Wireframe:** [`docs/architecture/wireframes/studio/studio-wireframe.md`](../docs/architecture/wireframes/studio/studio-wireframe.md)
+* **Cockpit Wireframe Guide:** [`docs/architecture/wireframes/README.md`](../docs/architecture/wireframes/README.md)
 
 ---
 
