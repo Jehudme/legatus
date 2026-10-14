@@ -48,7 +48,7 @@ sequenceDiagram
         H2-->>Boot: Database connection established & page decryption active
         Boot->>Liquibase: Execute db.changelog-master.xml
         Liquibase->>H2: Verify checksums in DATABASECHANGELOG table
-        Liquibase->>H2: Apply pending SQL changesets (workers, tasks, secrets_vault, audit_logs)
+        Liquibase->>H2: Apply pending SQL changesets (accounts, workers, functions, tasks, secrets_vault, audit_logs)
         Liquibase-->>Boot: Migrations verified & up to date
         Boot->>Loom: Initialize Virtual Thread Executor (Executors.newVirtualThreadPerTaskExecutor())
         Boot->>OS: Bind TLS 1.3 HTTP/WS Port (8443) -> Server Ready

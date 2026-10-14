@@ -128,10 +128,95 @@ sequenceDiagram
 
 ---
 
-## 5. Verification & Compliance Checklist
+## 5. Operator Account Provisioning & RBAC Lifecycle Sequence
+
+The cluster administrator provisions and manages multi-tier operator and auditor accounts through Legatus Studio or the REST API:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Admin as Human Administrator
+    participant Studio as Legatus Studio UI
+    participant REST as Server REST Gateway (/api/v1/admin)
+    participant Sec as Argon2id Bounded Pool (4 Threads)
+    participant DB as Embedded H2 Database
+    participant WORM as WORM Audit Append Engine
+
+    Admin->>Studio: Navigate to Account Management -> Click [Create Account]
+    Admin->>Studio: Input: "auditor@compliance.corp", Role: "AUDITOR", Initial Password
+    Studio->>REST: POST /api/v1/admin/accounts (Bearer JWT with CLUSTER_ADMIN)
+    REST->>REST: Verify JWT Role == CLUSTER_ADMIN
+    alt Non-Admin Role
+        REST-->>Studio: HTTP 403 Forbidden (ERR_INSUFFICIENT_PRIVILEGES)
+    else Authorized Admin
+        REST->>DB: Check if username/email already exists
+        alt Account Already Exists
+            REST-->>Studio: HTTP 409 Conflict (ERR_ACCOUNT_EXISTS)
+        else Unique Account
+            REST->>Sec: Queue Argon2id Hash Task (m=64MB, t=3, p=4)
+            Sec-->>REST: Return Salted Password Hash
+            REST->>DB: INSERT INTO accounts (id, username, email, password_hash, role, status)
+            REST->>WORM: Append Audit Event: ACCOUNT_CREATED (target: auditor@compliance.corp)
+            WORM->>WORM: Compute Sequential Hash H_i = SHA256(Seq_i || H_{i-1} || Payload)
+            WORM->>DB: INSERT INTO audit_logs (sequence_num, prev_record_hash, record_hash, ...)
+            REST-->>Studio: HTTP 201 Created {"account_id": "e9f0...", "role": "AUDITOR", "status": "ACTIVE"}
+            Studio->>Admin: Display Success: "Account auditor@compliance.corp created."
+        end
+    end
+```
+
+---
+
+## 6. Statutory Audit Trail Verification & Meta-Auditing Sequence
+
+Compliance auditors inspect and verify the tamper-evident WORM audit trail. Every audit action is itself recorded to ensure zero unmonitored access ("Auditing the Auditors"):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Auditor as Compliance Auditor
+    participant Studio as Legatus Studio UI
+    participant REST as Server REST Gateway (/api/v1/admin)
+    participant DB as Embedded H2 Database
+    participant WORM as WORM Audit Verification Engine
+
+    Auditor->>Studio: Navigate to Audit Explorer -> Click [Verify Chain Integrity]
+    Studio->>REST: GET /api/v1/admin/audit-logs/verify (Bearer JWT with AUDITOR)
+    REST->>REST: Verify JWT Role in [CLUSTER_ADMIN, AUDITOR]
+    REST->>WORM: Execute Sequential Verification (Sequence 1 to Head)
+    WORM->>DB: SELECT * FROM audit_logs ORDER BY sequence_num ASC
+    loop For Every Record i from 1 to N
+        WORM->>WORM: Verify prev_record_hash_i == record_hash_{i-1}
+        WORM->>WORM: Recompute Expected Hash H_i = SHA256(...)
+        WORM->>WORM: Verify H_i == record_hash_i
+    end
+    alt Hash Chain Intact (Zero Tampering)
+        WORM->>WORM: Create Meta-Audit Event: AUDIT_LOG_VERIFIED (status: SUCCESS)
+        WORM->>DB: INSERT INTO audit_logs (sequence_num: N+1, prev_record_hash: H_N, ...)
+        REST-->>Studio: HTTP 200 OK {"status": "VALID", "verified_records_count": N, "chain_integrity": true}
+        Studio->>Auditor: Display Shield Green: "Audit Trail Cryptographically Verified (N records)"
+    else Hash Discrepancy Detected (Tampered Row K)
+        REST-->>Studio: HTTP 500 Internal Server Error (ERR_AUDIT_CHAIN_CORRUPTED, sequence: K)
+        Studio->>Auditor: Display Warning Red: "SECURITY ALERT: Tampering detected at sequence K!"
+    end
+
+    opt Tamper Simulation (Attempting to Delete Logs)
+        Auditor->>REST: DELETE /api/v1/admin/audit-logs/all
+        REST->>WORM: Intercept & Enforce Statutory Zero-Deletion Invariant
+        WORM->>WORM: Append Meta-Audit Event: AUDIT_LOG_TAMPER_ATTEMPT (action_status: DENIED)
+        WORM->>DB: INSERT INTO audit_logs (sequence_num: N+2, event_type: 'AUDIT_LOG_TAMPER_ATTEMPT')
+        REST-->>Auditor: HTTP 405 Method Not Allowed (ERR_AUDIT_LOG_IMMUTABLE)
+    end
+```
+
+---
+
+## 7. Verification & Compliance Checklist
 
 - [ ] **Zero Implementation Code:** Contains zero raw C++ or Java implementation code blocks (`GL-0005`).
 - [ ] **Local IPC Architecture:** Enforces `nng` Request/Reply (`REQ0`/`REP0`) without binding to TCP loopback interfaces (`ADR-0007`).
 - [ ] **Visual Attestation Protocol:** Formally details the human-in-the-loop 3-word visual confirmation workflow (`Tiger-Galaxy-77`).
 - [ ] **Bytecode Deduplication:** Specifies SHA-256 content-addressable storage for Solix binaries in the central catalog.
-- [ ] **Automated Test Coverage:** Verified via `test_cli_ipc.cpp`, `FunctionCatalogIT.java`, and `StudioEnrollmentViewTest.java`.
+- [ ] **RBAC Provisioning Sequence:** Formally details multi-operator provisioning and privilege boundaries (`CLUSTER_ADMIN`, `OPERATOR`, `AUDITOR`).
+- [ ] **Statutory WORM Verification:** Sequences cryptographic hash-chain verification and meta-audit logging ("Auditing the Auditors").
+- [ ] **Automated Test Coverage:** Verified via `test_cli_ipc.cpp`, `FunctionCatalogIT.java`, `StudioEnrollmentViewTest.java`, and `AuditLogVerificationIT.java`.

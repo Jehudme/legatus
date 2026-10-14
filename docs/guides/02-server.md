@@ -154,6 +154,88 @@ curl -X POST https://localhost:8443/api/v1/admin/maintenance/purge-tasks \
   -d '{"retention_hours": 24}'
 ```
 
+> [!NOTE]
+> Under statutory regulatory compliance mandates, the `audit_logs` table is strictly exempted from all purge operations. Only transient records in `tasks` are purged.
+
+### 5.3 Operator Account Administration & RBAC Management
+Legatus Server enforces multi-operator Role-Based Access Control (RBAC) across three distinct privilege tiers:
+* **`CLUSTER_ADMIN`:** Full cluster management, operator account provisioning, worker approval, and secret vault manipulation.
+* **`OPERATOR`:** Day-to-day cluster operations, worker lease approvals, function deployments, and task dispatches. Cannot manage user accounts or read raw secrets.
+* **`AUDITOR`:** Read-only compliance authority, audit log queries, cryptographic hash-chain verifications, and signed audit exports.
+
+#### Bootstrapping Initial Admin
+Upon first boot, if the `accounts` table is empty, the server automatically provisions `admin@legatus.internal`. The initial password is read from the `LEGATUS_ADMIN_INITIAL_PASSWORD` environment variable, or randomly generated and printed to stdout once during startup.
+
+#### Provisioning an Auditor Account
+To provision a compliance auditor account:
+```bash
+curl -X POST https://localhost:8443/api/v1/admin/accounts \
+  -H "Authorization: Bearer <admin_jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "auditor@compliance.corp",
+    "email": "auditor@compliance.corp",
+    "role": "AUDITOR",
+    "initial_password": "super-secure-auditor-pass-2026!"
+  }'
+```
+
+#### Suspending or Soft-Deleting an Account
+Accounts **MUST NOT** be hard-deleted via SQL `DELETE` to preserve foreign key integrity with historical audit logs:
+```bash
+# Temporarily suspend an account
+curl -X PATCH https://localhost:8443/api/v1/admin/accounts/{account_id}/status \
+  -H "Authorization: Bearer <admin_jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "SUSPENDED", "reason": "Pending security review"}'
+
+# Deactivate (soft-delete) an account
+curl -X DELETE https://localhost:8443/api/v1/admin/accounts/{account_id} \
+  -H "Authorization: Bearer <admin_jwt>"
+```
+
+---
+
+### 5.4 Statutory Compliance, Immutable Audit Verification & Export
+Legatus Server implements a regulatory-grade Write-Once-Read-Many (WORM) audit ledger satisfying statutory compliance frameworks including **SOC 2 Type II (CC6.8, CC7.2)**, **ISO/IEC 27001:2022 (Control A.8.15)**, **HIPAA Security Rule (§ 164.312(b))**, and **GDPR Article 30**.
+
+#### Statutory Non-Deletability Invariant
+Audit logs can **never** be deleted or modified. The database rejects any direct `DELETE` or `UPDATE` statements via trigger invariants. Any REST attempt to delete logs (`DELETE /api/v1/admin/audit-logs/*`) is rejected with HTTP `405 Method Not Allowed` (`ERR_AUDIT_LOG_IMMUTABLE`) and recorded as an `AUDIT_LOG_TAMPER_ATTEMPT` security alert.
+
+#### Verifying Cryptographic Hash Chain Integrity
+Every audit record is cryptographically chained to its predecessor via SHA-256 sequential hashing ($H_i = \text{SHA256}(\text{Seq}_i \parallel H_{i-1} \parallel \dots)$). Run a chain verification scan:
+
+```bash
+curl -s -X GET https://localhost:8443/api/v1/admin/audit-logs/verify \
+  -H "Authorization: Bearer <auditor_jwt>"
+```
+
+Expected Response:
+```json
+{
+  "status": "VALID",
+  "verified_records_count": 1042,
+  "from_sequence": 1,
+  "to_sequence": 1042,
+  "genesis_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "head_hash": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+  "chain_integrity": true,
+  "tamper_detected": false
+}
+```
+
+> [!IMPORTANT]
+> **Meta-Auditing Invariant:** In compliance with regulatory standards ("Auditing the Auditors"), every execution of `/verify`, `/export`, or `/audit-logs` query automatically appends a meta-audit record to the immutable chain.
+
+#### Exporting Tamper-Evident Compliance Reports
+To export a signed audit report for external compliance certification:
+```bash
+curl -s -X POST https://localhost:8443/api/v1/admin/audit-logs/export \
+  -H "Authorization: Bearer <auditor_jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"format": "JSON_CANONICAL", "compliance_standard": "SOC2_TYPE2"}' > audit-report-$(date +%F).json
+```
+
 ---
 
 ## 6. Failure Modes & Troubleshooting
@@ -164,3 +246,6 @@ curl -X POST https://localhost:8443/api/v1/admin/maintenance/purge-tasks \
 | `File locked by another process: .../legatus.mv.db` | Multiple JVM instances attempting to open the H2 database without `AUTO_SERVER=TRUE`, or ungraceful crash leaving lock file. | Verify no orphaned `java` process is running. Inspect `/var/lib/legatus/db/` and remove stale `.lock.db` files if verified dead. |
 | `HTTP 429 ERR_ENROLLMENT_QUEUE_FULL` | Over 50 worker nodes attempting to register concurrently, or potential enrollment DoS attack. | Review pending nodes in Legatus Studio quarantine queue and approve or reject backlog. |
 | `WS 1011 ERR_WORKER_HEARTBEAT_TIMEOUT` | Worker node failed to transmit a `HEARTBEAT` frame within 15 seconds. | Check network connectivity between worker host and server. Check if worker host CPU is saturated. |
+| `HTTP 423 ERR_ACCOUNT_LOCKED` | Account locked due to 5 consecutive failed login attempts or manual suspension. | Wait 15 minutes for automatic unlock, or have a `CLUSTER_ADMIN` reset status via `/api/v1/admin/accounts/{id}/status`. |
+| `HTTP 405 ERR_AUDIT_LOG_IMMUTABLE` | REST request attempted to invoke `DELETE` on audit logs. | Statutory compliance strictly forbids deleting audit records. Do not attempt log deletion. |
+| `HTTP 500 ERR_AUDIT_CHAIN_CORRUPTED` | Cryptographic hash-chain verification failed during scan. | Indicates database corruption or unauthorized manual record mutation. Isolate database for forensic review. |
