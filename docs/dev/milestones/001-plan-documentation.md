@@ -22,7 +22,7 @@ Establish the complete, binding constitutional and architectural foundation for 
 * `docs/dev/decisions/`: Immutable MADR log (`ADR-0001` to `ADR-0008`) justifying technology selections and security models.
 * `docs/specs/`: Implementation-agnostic subsystem specifications (`worker-spec.md`, `server-spec.md`, `studio-spec.md`) with zero raw implementation code (`GL-0005`).
 * `docs/specs/protocols/`: Layer 7 network contracts (`worker-wire.md`, `studio-wire.md`, `api-endpoint.md`) with canonical JSON envelopes, FSMs, and timing jitter (`GL-0007`).
-* `docs/architecture/`: High-level topology diagrams and UML sequence flows (`server-operations`, `task-operations`, `telemetry-operations`, `user-operations`, `worker-operations`).
+* `docs/architecture/`: High-level topology diagrams, UML sequence flows, and Studio cockpit wireframe catalog.
 
 ---
 
@@ -36,7 +36,7 @@ Establish the complete, binding constitutional and architectural foundation for 
 
 ### 3.2 P1: High Priority (Milestone Core)
 - [x] `[P1]` **Milestone Delivery Governance (`MS-001` – `MS-004`):** Author phased milestone delivery plans and synchronize `docs/dev/milestones/README.md`. (PR #116)
-- [x] `[P1]` **Architecture Sequence & Topology Diagrams:** Synchronize `docs/architecture/overview.md` and `docs/architecture/sequences/` (`worker-operations`, `server-operations`, `task-operations`, `telemetry-operations`, `user-operations`). (PR #104)
+- [x] `[P1]` **Architecture Sequence & Topology Diagrams:** Synchronize `docs/architecture/overview.md`, `docs/architecture/sequences/` (`worker-operations`, `server-operations`, `task-operations`, `telemetry-operations`, `user-operations`), and `docs/architecture/wireframes/README.md`. (PR #104)
 - [x] `[P1]` **Cross-Platform Security & Boundary Hardening:** Specify Windows Named Pipe SDDL descriptors (`D:(A;;GRGW;;;AU)`), `stdin` execution envelope streaming (32KB `CreateProcessW` defense), and `CREATE_NEW_PROCESS_GROUP` console break isolation in `worker-spec.md`. (PR #115)
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
