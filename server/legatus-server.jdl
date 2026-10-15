@@ -1,0 +1,308 @@
+// ============================================================================
+// LEGATUS SERVER ORCHESTRATION BROKER - JHIPSTER DOMAIN LANGUAGE (JDL)
+// Governing Specifications:
+//   - docs/specs/server-spec.md (Sections 2, 4, & 5)
+//   - docs/specs/protocols/api-endpoint.md
+//   - docs/dev/decisions/0001-adopt-jhipster-for-server-backend.md (ADR-0001)
+// ============================================================================
+
+application {
+  config {
+    baseName legatusServer
+    applicationType monolith
+    packageName dev.legatus.server
+    authenticationType jwt
+    buildTool maven
+    databaseType sql
+    devDatabaseType h2Disk
+    prodDatabaseType h2Disk
+    cacheProvider caffeine
+    enableHibernateCache true
+    websocket spring-websocket
+    skipClient true
+    skipUserManagement true
+    serverPort 8443
+    enableTranslation false
+    nativeLanguage en
+    testFrameworks []
+  }
+  entities Account, WorkerNode, SolixFunction, ComputeTask, SecretEntry, AuditLog
+}
+
+// ============================================================================
+// 1. DOMAIN ENUMERATIONS
+// ============================================================================
+
+/**
+ * Multi-operator Role-Based Access Control (RBAC) privilege tiers
+ * (server-spec.md Section 4.5.1)
+ */
+enum OperatorRole {
+  CLUSTER_ADMIN,
+  OPERATOR,
+  AUDITOR
+}
+
+/**
+ * Operator account lifecycle states (server-spec.md Section 4.5)
+ */
+enum AccountStatus {
+  PENDING_ACTIVATION,
+  ACTIVE,
+  SUSPENDED,
+  DEACTIVATED
+}
+
+/**
+ * Worker node lifecycle and quarantine enrollment states
+ * (server-spec.md Section 4.1)
+ */
+enum WorkerState {
+  PENDING_APPROVAL,
+  APPROVED,
+  ONLINE,
+  DRAINING,
+  OFFLINE,
+  REVOKED,
+  EXPIRED
+}
+
+/**
+ * Normalized host operating system kernel identifiers (worker-wire.md Section 4.1)
+ */
+enum OperatingSystem {
+  LINUX,
+  WINDOWS,
+  MACOS
+}
+
+/**
+ * Normalized processor architectures (worker-wire.md Section 4.1)
+ */
+enum CpuArchitecture {
+  X86_64,
+  AARCH64
+}
+
+/**
+ * Deterministic task lifecycle states & terminal outcomes
+ * (server-spec.md Section 4.3 & worker-wire.md Section 4.7)
+ */
+enum TaskStatus {
+  QUEUED,
+  DISPATCHED,
+  EXECUTING,
+  ABORTING,
+  COMPLETED,
+  FAILED,
+  ERR_INSTRUCTION_BUDGET_EXCEEDED,
+  ERR_OUT_OF_MEMORY,
+  ERR_TIMEOUT,
+  ERR_BYTECODE_INVALID,
+  ERR_WORKER_LOST,
+  ABORTED,
+  KILLED_FORCIBLY,
+  CRASHED
+}
+
+/**
+ * Task scheduling queue priority tiers (api-endpoint.md Section 4.1)
+ */
+enum TaskPriority {
+  LOW,
+  NORMAL,
+  HIGH,
+  CRITICAL
+}
+
+/**
+ * Secret vault access scoping tiers (server-spec.md Section 5.1)
+ */
+enum SecretScope {
+  GLOBAL,
+  CLUSTER,
+  FUNCTION
+}
+
+/**
+ * Statutory audit trail action status outcomes (server-spec.md Section 5.3)
+ */
+enum AuditActionStatus {
+  SUCCESS,
+  DENIED,
+  FAILED
+}
+
+// ============================================================================
+// 2. PERSISTENT RELATIONAL ENTITIES (server-spec.md Section 5.1)
+// ============================================================================
+
+/**
+ * Multi-operator accounts with Argon2id password digests and brute-force
+ * lockout tracking (Table: accounts)
+ */
+entity Account (accounts) {
+  @Id
+  accountId UUID required unique
+  username String required unique minlength(3) maxlength(255)
+  email String required unique minlength(5) maxlength(255)
+  /** Salted Argon2id password hash (m=64MB, t=3, p=4) */
+  passwordHash String required maxlength(255)
+  role OperatorRole required
+  status AccountStatus required
+  failedLoginAttempts Integer required min(0)
+  lockoutUntil Instant
+  createdAt Instant required
+  updatedAt Instant required
+}
+
+/**
+ * Distributed C++20 worker compute nodes, Ed25519 visual attestation identity,
+ * and self-declared allocatable hardware quotas (Table: workers)
+ */
+entity WorkerNode (workers) {
+  @Id
+  workerId String required unique maxlength(64)
+  enrollmentId String unique maxlength(64)
+  hostname String required maxlength(255)
+  os OperatingSystem required
+  arch CpuArchitecture required
+  agentVersion String required maxlength(32)
+  /** RFC 4648 Base64-encoded 32-byte Ed25519 public key */
+  ed25519Pubkey String required maxlength(128)
+  /** Uppercase colon-separated SHA-256 fingerprint (XX:XX:XX:XX:XX:XX:XX:XX) */
+  fingerprint String required maxlength(64)
+  /** Deterministic 3-word visual confirmation code (e.g., Tiger-Galaxy-77) */
+  visualCode String required maxlength(64)
+  /** Argon2id hash of the issued 256-bit wk_sec_... token */
+  secretHash String maxlength(255)
+  state WorkerState required
+  assignedCluster String maxlength(64)
+  sourceIp String maxlength(45)
+  physicalCores Integer required min(1)
+  logicalCores Integer required min(1)
+  totalMemoryBytes Long required min(1) max(1099511627776)
+  gpuPresent Boolean required
+  gpuModel String maxlength(128)
+  allocatableCores Integer required min(1)
+  maxMemoryBytes Long required min(1048576) max(1099511627776)
+  maxInstructionBudget Long required min(1000) max(1000000000)
+  draining Boolean required
+  activeSessionId String maxlength(64)
+  enrollmentExpiresAt Instant
+  lastSeenAt Instant
+  createdAt Instant required
+}
+
+/**
+ * Cataloged Solix bytecode functions with SHA-256 content-addressable
+ * deduplication and default execution constraints (Table: functions)
+ */
+entity SolixFunction (functions) {
+  @Id
+  functionId UUID required unique
+  name String required maxlength(128)
+  semver String required maxlength(32)
+  entryPoint String required maxlength(128)
+  bytecodeFormat String required maxlength(32)
+  /** 64-character lowercase hex SHA-256 digest of raw bytecode */
+  bytecodeSha256 String required maxlength(64)
+  bytecodeBlob AnyBlob required
+  defaultBudget Long required min(1000) max(1000000000)
+  defaultMemoryBytes Long required min(8388608) max(1099511627776)
+  defaultTimeoutMs Integer required min(100) max(3600000)
+  createdAt Instant required
+}
+
+/**
+ *Metered guest Solix task executions, constraints, inputs, outputs,
+ * and terminal execution telemetry (Table: tasks)
+ */
+entity ComputeTask (tasks) {
+  @Id
+  taskId String required unique maxlength(64)
+  name String required maxlength(128)
+  status TaskStatus required
+  priority TaskPriority required
+  priorityWeight Integer required min(0) max(100)
+  idempotent Boolean required
+  entryPoint String required maxlength(128)
+  bytecodeSha256 String required maxlength(64)
+  instructionBudget Long required min(1000) max(1000000000)
+  maxMemoryBytes Long required min(8388608) max(1099511627776)
+  timeoutMs Integer required min(100) max(3600000)
+  exitCode Integer
+  instructionsConsumed Long min(0)
+  peakMemoryBytes Long min(0)
+  wallTimeMs Long min(0)
+  inputJson TextBlob
+  envJson TextBlob
+  secretRefsJson TextBlob
+  outputJson TextBlob
+  errorJson TextBlob
+  attemptCount Integer required min(0)
+  maxRetries Integer required min(0) max(10)
+  createdAt Instant required
+  startedAt Instant
+  completedAt Instant
+}
+
+/**
+ * Envelope-encrypted guest task secrets protected via AES-256-GCM
+ * derived from LEGATUS_MASTER_KEY (Table: secrets_vault)
+ */
+entity SecretEntry (secrets_vault) {
+  @Id
+  secretKey String required unique maxlength(128)
+  scope SecretScope required
+  /** AES-256-GCM encrypted secret payload */
+  cipherText AnyBlob required
+  /** 96-bit (12-byte) Initialization Vector */
+  gcmIv AnyBlob required
+  /** 128-bit (16-byte) GCM Authentication Tag */
+  authTag AnyBlob required
+  updatedAt Instant required
+}
+
+/**
+ * Statutory Write-Once-Read-Many (WORM) immutable audit ledger with
+ * sequential SHA-256 cryptographic hash chaining (Table: audit_logs)
+ */
+entity AuditLog (audit_logs) {
+  @Id
+  eventId UUID required unique
+  sequenceNum Long required unique min(1)
+  timestamp Instant required
+  actorId String required maxlength(255)
+  actorRole String required maxlength(32)
+  eventType String required maxlength(64)
+  targetType String required maxlength(64)
+  targetId String maxlength(255)
+  actionStatus AuditActionStatus required
+  metadataJson TextBlob
+  sourceIp String required maxlength(45)
+  /** 64-char hex SHA-256 hash of sequence_num - 1 (64 zeroes for Genesis) */
+  prevRecordHash String required minlength(64) maxlength(64)
+  /** 64-char hex SHA-256 hash of current record: H_i = SHA256(...) */
+  recordHash String required unique minlength(64) maxlength(64)
+  complianceFlag String required maxlength(64)
+}
+
+// ============================================================================
+// 3. ENTITY RELATIONSHIPS
+// ============================================================================
+
+relationship ManyToOne {
+  ComputeTask{function(name)} to SolixFunction
+  ComputeTask{assignedWorker(workerId)} to WorkerNode
+}
+
+// ============================================================================
+// 4. ARCHITECTURAL OPTIONS (DTOs, Services, Pagination & Filtering)
+// ============================================================================
+
+readOnly AuditLog
+dto * with mapstruct
+service * with serviceClass
+paginate Account, WorkerNode, SolixFunction, ComputeTask, AuditLog with pagination
+filter WorkerNode, ComputeTask, AuditLog

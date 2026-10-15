@@ -1,0 +1,26 @@
+{
+  "generator-jhipster": {
+    "applicationType": "monolith",
+    "authenticationType": "jwt",
+    "baseName": "legatusServer",
+    "buildTool": "maven",
+    "cacheProvider": "caffeine",
+    "creationTimestamp": 1703883753520,
+    "databaseType": "sql",
+    "devDatabaseType": "h2Disk",
+    "enableHibernateCache": true,
+    "enableTranslation": false,
+    "entities": ["Account", "WorkerNode", "SolixFunction", "ComputeTask", "SecretEntry", "AuditLog"],
+    "jhipsterVersion": "9.4.0",
+    "jwtSecretKey": "MDhkZTQxOTQ3MjA1YzgxM2VjYTkxMmJlNTFmZDA5Y2ViODk0ZjllYWY5OTNkN2YwMWZiOTIyMjcyZGI1MDk2MjBiMGIxMWU3MjA0NjAwNjY1ZTAxY2Y5MWMwNDlkM2FjNjVjZGNmMTc5YmZmN2M3YTMzMzIzNzY5ODIzODM3NTI=",
+    "lastLiquibaseTimestamp": 1703884113000,
+    "nativeLanguage": "en",
+    "packageName": "dev.legatus.server",
+    "prodDatabaseType": "h2Disk",
+    "serverPort": "8443",
+    "skipClient": true,
+    "skipUserManagement": true,
+    "testFrameworks": [],
+    "websocket": "spring-websocket"
+  }
+}

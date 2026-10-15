@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Added the entity WorkerNode.
+    -->
+    <changeSet id="20231229210433-1" author="jhipster">
+        <createTable tableName="workers" remarks="Distributed C++20 worker compute nodes, Ed25519 visual attestation identity,\nand self-declared allocatable hardware quotas (Table: workers)">
+            <column name="worker_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="enrollment_id" type="varchar(64)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="ux_workers__enrollment_id" />
+            </column>
+            <column name="hostname" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="os" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="arch" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="agent_version" type="varchar(32)">
+                <constraints nullable="false" />
+            </column>
+            <column name="ed_25519_pubkey" type="varchar(128)" remarks="RFC 4648 Base64-encoded 32-byte Ed25519 public key">
+                <constraints nullable="false" />
+            </column>
+            <column name="fingerprint" type="varchar(64)" remarks="Uppercase colon-separated SHA-256 fingerprint (XX:XX:XX:XX:XX:XX:XX:XX)">
+                <constraints nullable="false" />
+            </column>
+            <column name="visual_code" type="varchar(64)" remarks="Deterministic 3-word visual confirmation code (e.g., Tiger-Galaxy-77)">
+                <constraints nullable="false" />
+            </column>
+            <column name="secret_hash" type="varchar(255)" remarks="Argon2id hash of the issued 256-bit wk_sec_... token">
+                <constraints nullable="true" />
+            </column>
+            <column name="state" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="assigned_cluster" type="varchar(64)">
+                <constraints nullable="true" />
+            </column>
+            <column name="source_ip" type="varchar(45)">
+                <constraints nullable="true" />
+            </column>
+            <column name="physical_cores" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="logical_cores" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="total_memory_bytes" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="gpu_present" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="gpu_model" type="varchar(128)">
+                <constraints nullable="true" />
+            </column>
+            <column name="allocatable_cores" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="max_memory_bytes" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="max_instruction_budget" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="draining" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="active_session_id" type="varchar(64)">
+                <constraints nullable="true" />
+            </column>
+            <column name="enrollment_expires_at" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="last_seen_at" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+            <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
+        </createTable>
+        <dropDefaultValue tableName="workers" columnName="enrollment_expires_at" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="workers" columnName="last_seen_at" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="workers" columnName="created_at" columnDataType="${datetimeType}"/>
+    </changeSet>
+
+    <!-- jhipster-needle-liquibase-add-changeset - JHipster will add changesets here -->
+
+    <!--
+        Load sample data generated with Faker.js
+        - This data can be easily edited using a CSV editor (or even MS Excel) and
+          is located in the 'src/main/resources/config/liquibase/fake-data' directory
+        - By default this data is applied when running with the JHipster 'dev' profile.
+          This can be customized by adding or removing 'faker' in the 'spring.liquibase.contexts'
+          Spring Boot configuration key.
+    -->
+    <changeSet id="20231229210433-1-data" author="jhipster" context="faker">
+        <loadData
+                  file="../fake-data/workers.csv"
+                  relativeToChangelogFile="true"
+                  separator=";"
+                  tableName="workers"
+                  usePreparedStatements="true">
+            <column name="worker_id" type="string"/>
+            <column name="enrollment_id" type="string"/>
+            <column name="hostname" type="string"/>
+            <column name="os" type="string"/>
+            <column name="arch" type="string"/>
+            <column name="agent_version" type="string"/>
+            <column name="ed_25519_pubkey" type="string"/>
+            <column name="fingerprint" type="string"/>
+            <column name="visual_code" type="string"/>
+            <column name="secret_hash" type="string"/>
+            <column name="state" type="string"/>
+            <column name="assigned_cluster" type="string"/>
+            <column name="source_ip" type="string"/>
+            <column name="physical_cores" type="numeric"/>
+            <column name="logical_cores" type="numeric"/>
+            <column name="total_memory_bytes" type="numeric"/>
+            <column name="gpu_present" type="boolean"/>
+            <column name="gpu_model" type="string"/>
+            <column name="allocatable_cores" type="numeric"/>
+            <column name="max_memory_bytes" type="numeric"/>
+            <column name="max_instruction_budget" type="numeric"/>
+            <column name="draining" type="boolean"/>
+            <column name="active_session_id" type="string"/>
+            <column name="enrollment_expires_at" type="date"/>
+            <column name="last_seen_at" type="date"/>
+            <column name="created_at" type="date"/>
+            <!-- jhipster-needle-liquibase-add-loadcolumn - JHipster (and/or extensions) can add load columns here -->
+        </loadData>
+    </changeSet>
+</databaseChangeLog>

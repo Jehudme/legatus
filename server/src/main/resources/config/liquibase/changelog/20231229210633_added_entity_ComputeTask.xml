@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Added the entity ComputeTask.
+    -->
+    <changeSet id="20231229210633-1" author="jhipster">
+        <createTable tableName="tasks" remarks="Metered guest Solix task executions, constraints, inputs, outputs,\nand terminal execution telemetry (Table: tasks)">
+            <column name="task_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(128)">
+                <constraints nullable="false" />
+            </column>
+            <column name="status" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="priority" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="priority_weight" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="idempotent" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="entry_point" type="varchar(128)">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytecode_sha_256" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+            <column name="instruction_budget" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="max_memory_bytes" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="timeout_ms" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="exit_code" type="integer">
+                <constraints nullable="true" />
+            </column>
+            <column name="instructions_consumed" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="peak_memory_bytes" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="wall_time_ms" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="input_json" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="env_json" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="secret_refs_json" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="output_json" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="error_json" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="attempt_count" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="max_retries" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="started_at" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="completed_at" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="function_function_id" type="${uuidType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="assigned_worker_worker_id" type="varchar(64)">
+                <constraints nullable="true" />
+            </column>
+            <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
+        </createTable>
+        <dropDefaultValue tableName="tasks" columnName="created_at" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="tasks" columnName="started_at" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="tasks" columnName="completed_at" columnDataType="${datetimeType}"/>
+    </changeSet>
+
+    <!-- jhipster-needle-liquibase-add-changeset - JHipster will add changesets here -->
+
+    <!--
+        Load sample data generated with Faker.js
+        - This data can be easily edited using a CSV editor (or even MS Excel) and
+          is located in the 'src/main/resources/config/liquibase/fake-data' directory
+        - By default this data is applied when running with the JHipster 'dev' profile.
+          This can be customized by adding or removing 'faker' in the 'spring.liquibase.contexts'
+          Spring Boot configuration key.
+    -->
+    <changeSet id="20231229210633-1-data" author="jhipster" context="faker">
+        <loadData
+                  file="../fake-data/tasks.csv"
+                  relativeToChangelogFile="true"
+                  separator=";"
+                  tableName="tasks"
+                  usePreparedStatements="true">
+            <column name="task_id" type="string"/>
+            <column name="name" type="string"/>
+            <column name="status" type="string"/>
+            <column name="priority" type="string"/>
+            <column name="priority_weight" type="numeric"/>
+            <column name="idempotent" type="boolean"/>
+            <column name="entry_point" type="string"/>
+            <column name="bytecode_sha_256" type="string"/>
+            <column name="instruction_budget" type="numeric"/>
+            <column name="max_memory_bytes" type="numeric"/>
+            <column name="timeout_ms" type="numeric"/>
+            <column name="exit_code" type="numeric"/>
+            <column name="instructions_consumed" type="numeric"/>
+            <column name="peak_memory_bytes" type="numeric"/>
+            <column name="wall_time_ms" type="numeric"/>
+            <column name="input_json" type="clob"/>
+            <column name="env_json" type="clob"/>
+            <column name="secret_refs_json" type="clob"/>
+            <column name="output_json" type="clob"/>
+            <column name="error_json" type="clob"/>
+            <column name="attempt_count" type="numeric"/>
+            <column name="max_retries" type="numeric"/>
+            <column name="created_at" type="date"/>
+            <column name="started_at" type="date"/>
+            <column name="completed_at" type="date"/>
+            <!-- jhipster-needle-liquibase-add-loadcolumn - JHipster (and/or extensions) can add load columns here -->
+        </loadData>
+    </changeSet>
+</databaseChangeLog>

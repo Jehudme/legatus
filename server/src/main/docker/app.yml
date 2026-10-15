@@ -1,0 +1,28 @@
+# This configuration is intended for development purpose, it's **your** responsibility to harden it for production
+name: legatusserver
+services:
+  app:
+    image: legatusserver
+    environment:
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs,secret-samples
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
+      - SPRING_SECURITY_USER_NAME=admin
+      - SPRING_SECURITY_USER_PASSWORD=admin
+      - SPRING_SECURITY_USER_ROLES=ADMIN,USER
+      - SPRING_DATASOURCE_URL=jdbc:h2:file:/var/lib/legatus/db/legatus;AUTO_SERVER=TRUE;FILE_LOCK=FS;LOCK_TIMEOUT=10000
+      - SPRING_DATASOURCE_USERNAME=legatus
+      - SPRING_DATASOURCE_PASSWORD=
+    volumes:
+      - ~/volumes/jhipster/legatusServer/h2/:/var/lib/legatus/db/
+    ports:
+      - 127.0.0.1:8443:8443
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8443; printf \"GET
+          /management/health HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3;
+          grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"
+      interval: 5s
+      timeout: 5s
+      retries: 40
