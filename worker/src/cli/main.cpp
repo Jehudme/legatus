@@ -22,6 +22,37 @@ int main(int argc, char* argv[]) {
         return legatus::daemon::IpcClient(ep);
     };
 
+    // 0. legatus up
+    auto* up_cmd = app.add_subcommand("up", "Start the legatusd supervisor daemon in the background");
+    std::string config_arg;
+    up_cmd->add_option("-c,--config", config_arg, "Path to worker.toml configuration file");
+    up_cmd->callback([&]() {
+        auto client = get_client();
+        auto res = client.daemon_status();
+        if (res.status == "SUCCESS") {
+            std::cout << "[INFO] legatusd daemon is already running (state: "
+                      << res.data.value("state", "UNKNOWN") << ").\n";
+            return;
+        }
+
+        std::string cfg = config_arg.empty()
+            ? legatus::common::PathResolver::get_config_path().string()
+            : config_arg;
+
+        std::cout << "[INFO] Launching legatusd daemon with config: " << cfg << "\n";
+#if defined(_WIN32)
+        std::string cmd = "start /B legatusd.exe --config \"" + cfg + "\"";
+#else
+        std::string cmd = "legatusd --config \"" + cfg + "\" >/dev/null 2>&1 &";
+#endif
+        int rc = std::system(cmd.c_str());
+        if (rc == 0) {
+            std::cout << "[OK] legatusd daemon launched in background.\n";
+        } else {
+            std::cerr << "[ERROR] Failed to start legatusd (system exit code: " << rc << ").\n";
+        }
+    });
+
     // 1. legatus down
     auto* down_cmd = app.add_subcommand("down", "Gracefully terminate the active legatusd daemon");
     bool down_force = false;
