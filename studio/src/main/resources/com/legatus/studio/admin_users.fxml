@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane dividerPositions="0.6" stylesheets="@styles.css"
+           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.legatus.studio.controllers.AdminUsersController">
+
+    <!-- Left side: Operator Accounts Table -->
+    <VBox spacing="12.0">
+        <padding>
+            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+        </padding>
+
+        <HBox spacing="12.0" alignment="CENTER_LEFT">
+            <Label text="Operator Accounts" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Button fx:id="toggleStatusButton" text="Toggle Status" disable="true" onAction="#onToggleStatusClicked" style="-fx-background-color: #d97706; -fx-text-fill: white;" />
+            <Button fx:id="deleteAccountButton" text="Delete Account" disable="true" onAction="#onDeleteClicked" style="-fx-background-color: #dc2626; -fx-text-fill: white;" />
+        </HBox>
+
+        <TableView fx:id="accountsTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="usernameCol" text="Username" prefWidth="160.0" />
+                <TableColumn fx:id="emailCol" text="Email Address" prefWidth="200.0" />
+                <TableColumn fx:id="roleCol" text="Role" prefWidth="120.0" />
+                <TableColumn fx:id="statusCol" text="Status" prefWidth="100.0" />
+            </columns>
+        </TableView>
+    </VBox>
+
+    <!-- Right side: Provision Account Form -->
+    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
+        <padding>
+            <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+        </padding>
+
+        <Label text="Provision Operator Account" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+
+        <VBox spacing="12.0" styleClass="attestation-card">
+            <VBox spacing="4.0">
+                <Label text="Username" styleClass="gauge-title" />
+                <TextField fx:id="newUsernameField" promptText="e.g. jdoe_ops" />
+            </VBox>
+
+            <VBox spacing="4.0">
+                <Label text="Email Address" styleClass="gauge-title" />
+                <TextField fx:id="newEmailField" promptText="jdoe@corp.internal" />
+            </VBox>
+
+            <VBox spacing="4.0">
+                <Label text="Temporary Password" styleClass="gauge-title" />
+                <PasswordField fx:id="newPasswordField" promptText="••••••••" />
+            </VBox>
+
+            <Button fx:id="createAccountButton" text="Create Account" onAction="#onCreateClicked"
+                    style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+        </VBox>
+
+        <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
+    </VBox>
+</SplitPane>

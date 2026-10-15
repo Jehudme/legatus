@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="20.0" stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.ClusterOverviewController">
+    <padding>
+        <Insets top="24.0" right="24.0" bottom="24.0" left="24.0" />
+    </padding>
+
+    <Label text="Cluster Overview" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+
+    <HBox spacing="16.0">
+        <VBox spacing="6.0" styleClass="gauge-card" prefWidth="220.0">
+            <Label text="ONLINE WORKERS" styleClass="gauge-title" />
+            <Label fx:id="onlineWorkersCountLabel" text="0" styleClass="gauge-value" />
+        </VBox>
+
+        <VBox spacing="6.0" styleClass="gauge-card" prefWidth="220.0">
+            <Label text="CLUSTER CPU LOAD" styleClass="gauge-title" />
+            <Label fx:id="cpuLoadLabel" text="0.0%" styleClass="gauge-value" />
+        </VBox>
+
+        <VBox spacing="6.0" styleClass="gauge-card" prefWidth="220.0">
+            <Label text="ACTIVE TASKS" styleClass="gauge-title" />
+            <Label fx:id="activeTasksLabel" text="0" styleClass="gauge-value" />
+        </VBox>
+    </HBox>
+</VBox>

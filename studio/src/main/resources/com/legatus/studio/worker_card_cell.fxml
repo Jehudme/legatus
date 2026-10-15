@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.Polyline?>
+
+<HBox alignment="CENTER_LEFT" spacing="16.0" styleClass="gauge-card" stylesheets="@styles.css"
+      prefHeight="50.0" maxWidth="Infinity"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.WorkerCardCellController">
+    <padding>
+        <Insets top="8.0" right="16.0" bottom="8.0" left="16.0" />
+    </padding>
+
+    <VBox spacing="2.0" prefWidth="180.0">
+        <Label fx:id="workerIdLabel" text="compute-node" style="-fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+        <Label fx:id="hostnameLabel" text="hostname.internal" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+    </VBox>
+
+    <Label fx:id="stateBadge" text="ONLINE" styleClass="badge-online" prefWidth="80.0" alignment="CENTER" />
+
+    <VBox spacing="2.0" prefWidth="90.0">
+        <Label text="CPU" styleClass="gauge-title" />
+        <Label fx:id="cpuLabel" text="0.0%" style="-fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+    </VBox>
+
+    <Region HBox.hgrow="ALWAYS" />
+
+    <!-- Dynamic CPU utilization sparkline graph -->
+    <VBox alignment="CENTER" spacing="2.0">
+        <Label text="60s CPU TREND" style="-fx-font-size: 9px; -fx-text-fill: #64748b;" />
+        <Polyline fx:id="sparklinePolyline" stroke="#38bdf8" strokeWidth="2.0" fill="transparent" />
+    </VBox>
+</HBox>

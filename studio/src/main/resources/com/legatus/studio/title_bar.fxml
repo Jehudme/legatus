@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox alignment="CENTER_LEFT" spacing="12.0" prefHeight="36.0" styleClass="title-bar"
+      stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.TitleBarController">
+
+    <Label fx:id="titleLabel" text="LEGATUS STUDIO" style="-fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+    <Label fx:id="profileLabel" text="Cluster: Local Dev" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+
+    <Region HBox.hgrow="ALWAYS" />
+
+    <HBox spacing="6.0" alignment="CENTER_RIGHT">
+        <Button text="—" onAction="#onMinimizeClicked" style="-fx-background-color: transparent; -fx-text-fill: #94a3b8;" />
+        <Button text="□" onAction="#onMaximizeClicked" style="-fx-background-color: transparent; -fx-text-fill: #94a3b8;" />
+        <Button text="✕" onAction="#onCloseClicked" style="-fx-background-color: transparent; -fx-text-fill: #f87171;" />
+    </HBox>
+</HBox>

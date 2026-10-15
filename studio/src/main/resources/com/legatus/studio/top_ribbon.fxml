@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox alignment="CENTER_LEFT" spacing="16.0" prefHeight="54.0" styleClass="top-ribbon"
+      stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.TopRibbonController">
+
+    <Label fx:id="statusPill" text="CONNECTED" styleClass="badge-online" />
+
+    <Separator orientation="VERTICAL" />
+
+    <HBox spacing="8.0" styleClass="gauge-card" alignment="CENTER_LEFT">
+        <Label text="CPU" styleClass="gauge-title" />
+        <Label fx:id="cpuLabel" text="0.0%" styleClass="gauge-value" />
+    </HBox>
+
+    <HBox spacing="8.0" styleClass="gauge-card" alignment="CENTER_LEFT">
+        <Label text="RAM" styleClass="gauge-title" />
+        <Label fx:id="memoryLabel" text="0.0 / 0.0 GB" styleClass="gauge-value" />
+    </HBox>
+
+    <HBox spacing="8.0" styleClass="gauge-card" alignment="CENTER_LEFT">
+        <Label text="WORKERS" styleClass="gauge-title" />
+        <Label fx:id="workersLabel" text="0" styleClass="gauge-value" />
+    </HBox>
+
+    <HBox spacing="8.0" styleClass="gauge-card" alignment="CENTER_LEFT">
+        <Label text="TASKS" styleClass="gauge-title" />
+        <Label fx:id="tasksLabel" text="0 active | 0 queued" styleClass="gauge-value" />
+    </HBox>
+
+    <Region HBox.hgrow="ALWAYS" />
+
+    <HBox spacing="6.0" styleClass="gauge-card" alignment="CENTER_RIGHT">
+        <Label text="RTT" styleClass="gauge-title" />
+        <Label fx:id="rttLabel" text="-- ms" style="-fx-font-weight: bold; -fx-text-fill: #34d399;" />
+    </HBox>
+</HBox>

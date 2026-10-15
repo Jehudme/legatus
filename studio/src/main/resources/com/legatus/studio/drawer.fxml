@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox prefHeight="180.0" styleClass="bottom-drawer"
+      stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.DrawerController">
+
+    <HBox alignment="CENTER_LEFT" spacing="12.0" style="-fx-padding: 6 12 6 12; -fx-background-color: #0b1120;">
+        <Label text="LIVE CONSOLE" style="-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #38bdf8;" />
+        <TextField fx:id="filterField" promptText="Filter logs..." prefWidth="200.0" />
+        <CheckBox fx:id="autoScrollCheckBox" text="Auto-Scroll" selected="true" style="-fx-text-fill: #94a3b8;" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="Clear" onAction="#onClearClicked" style="-fx-font-size: 11px;" />
+    </HBox>
+
+    <ListView fx:id="consoleListView" VBox.vgrow="ALWAYS" styleClass="terminal-console" />
+</VBox>

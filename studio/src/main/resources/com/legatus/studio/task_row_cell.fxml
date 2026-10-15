@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox alignment="CENTER_LEFT" spacing="16.0" styleClass="gauge-card" stylesheets="@styles.css"
+      prefHeight="40.0" maxWidth="Infinity"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.TaskRowCellController">
+    <padding>
+        <Insets top="6.0" right="12.0" bottom="6.0" left="12.0" />
+    </padding>
+
+    <Label fx:id="taskIdLabel" text="task-001" style="-fx-font-weight: bold; -fx-text-fill: #f8fafc;" prefWidth="140.0" />
+    <Label fx:id="nameLabel" text="matrix-factorization" style="-fx-text-fill: #cbd5e1;" prefWidth="180.0" />
+    <Label fx:id="statusBadge" text="EXECUTING" styleClass="badge-online" prefWidth="90.0" alignment="CENTER" />
+
+    <Region HBox.hgrow="ALWAYS" />
+
+    <HBox spacing="8.0" alignment="CENTER_RIGHT" prefWidth="180.0">
+        <ProgressBar fx:id="progressBar" progress="0.5" prefWidth="100.0" />
+        <Label fx:id="progressLabel" text="50.0%" style="-fx-font-size: 11px; -fx-text-fill: #94a3b8;" />
+    </HBox>
+</HBox>

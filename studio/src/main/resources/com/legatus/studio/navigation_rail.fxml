@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox alignment="TOP_CENTER" spacing="8.0" prefWidth="200.0" styleClass="navigation-rail"
+      stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.NavigationRailController">
+    <padding>
+        <Insets top="16.0" bottom="16.0" left="8.0" right="8.0" />
+    </padding>
+
+    <Button fx:id="overviewBtn" text="Overview" onAction="#onOverviewClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+    <Button fx:id="fleetBtn" text="Worker Fleet" onAction="#onFleetClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+
+    <HBox alignment="CENTER_LEFT" spacing="6.0" maxWidth="Infinity">
+        <Button fx:id="quarantineBtn" text="Quarantine" onAction="#onQuarantineClicked" maxWidth="Infinity" HBox.hgrow="ALWAYS" alignment="BASELINE_LEFT" />
+        <Label fx:id="quarantineBadge" text="0" styleClass="badge-quarantined" visible="false" />
+    </HBox>
+
+    <Button fx:id="functionsBtn" text="Functions" onAction="#onFunctionsClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+    <Button fx:id="tasksBtn" text="Tasks Explorer" onAction="#onTasksClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+    <Button fx:id="secretsBtn" text="Secrets Vault" onAction="#onSecretsClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+
+    <Separator />
+
+    <Button fx:id="usersBtn" text="User Admin" onAction="#onUsersClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+    <Button fx:id="auditBtn" text="Audit Trail" onAction="#onAuditClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+
+    <Region VBox.vgrow="ALWAYS" />
+
+    <Button fx:id="settingsBtn" text="Settings" onAction="#onSettingsClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+</VBox>

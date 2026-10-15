@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane dividerPositions="0.65" stylesheets="@styles.css"
+           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.legatus.studio.controllers.FleetTopologyController">
+
+    <!-- Left side: Worker Fleet list and search -->
+    <VBox spacing="12.0">
+        <padding>
+            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+        </padding>
+
+        <HBox spacing="12.0" alignment="CENTER_LEFT">
+            <Label text="Worker Fleet" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <TextField fx:id="searchField" promptText="Search workers..." prefWidth="220.0" />
+        </HBox>
+
+        <TableView fx:id="workersTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="workerIdCol" text="Worker ID" prefWidth="180.0" />
+                <TableColumn fx:id="hostnameCol" text="Hostname" prefWidth="200.0" />
+                <TableColumn fx:id="stateCol" text="State" prefWidth="100.0" />
+                <TableColumn fx:id="cpuCol" text="CPU Load" prefWidth="100.0" />
+            </columns>
+        </TableView>
+    </VBox>
+
+    <!-- Right side: Worker details inspector -->
+    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
+        <padding>
+            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+        </padding>
+
+        <Label text="Worker Node Inspector" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+
+        <VBox spacing="10.0" styleClass="gauge-card">
+            <Label text="WORKER ID" styleClass="gauge-title" />
+            <Label fx:id="selectedWorkerIdLabel" text="Select a worker..." styleClass="gauge-value" />
+
+            <Label text="HOSTNAME" styleClass="gauge-title" />
+            <Label fx:id="selectedHostLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
+
+            <Label text="CURRENT STATE" styleClass="gauge-title" />
+            <Label fx:id="selectedStateLabel" text="--" styleClass="badge-online" />
+
+            <Label text="CPU LOAD" styleClass="gauge-title" />
+            <Label fx:id="selectedCpuLabel" text="--" styleClass="gauge-value" />
+        </VBox>
+
+        <HBox spacing="12.0">
+            <Button fx:id="drainButton" text="Drain Worker" onAction="#onDrainClicked" style="-fx-background-color: #d97706; -fx-text-fill: white; -fx-font-weight: bold;" />
+            <Button fx:id="revokeButton" text="Revoke Lease" onAction="#onRevokeClicked" style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold;" />
+        </HBox>
+    </VBox>
+</SplitPane>

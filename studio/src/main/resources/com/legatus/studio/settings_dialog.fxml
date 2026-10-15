@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="20.0" stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.SettingsDialogController">
+    <padding>
+        <Insets top="24.0" right="24.0" bottom="24.0" left="24.0" />
+    </padding>
+
+    <Label text="Studio Preferences &amp; Theme" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+
+    <VBox spacing="14.0" styleClass="gauge-card" maxWidth="600.0">
+        <HBox spacing="16.0" alignment="CENTER_LEFT">
+            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                <Label text="CURRENT ATLANTAFX THEME" styleClass="gauge-title" />
+                <Label fx:id="currentThemeLabel" text="PRIMER_DARK" styleClass="gauge-value" />
+            </VBox>
+            <Button fx:id="toggleThemeButton" text="Toggle Primer / Nord" onAction="#onToggleThemeClicked"
+                    style="-fx-background-color: #334155; -fx-text-fill: white;" />
+        </HBox>
+
+        <Separator />
+
+        <VBox spacing="4.0">
+            <Label text="FILESYSTEM CONFIGURATION PATH" styleClass="gauge-title" />
+            <Label fx:id="configPathLabel" text="~/.config/legatus/studio.json" style="-fx-text-fill: #38bdf8; -fx-font-family: monospace; -fx-font-size: 11px;" wrapText="true" />
+        </VBox>
+
+        <VBox spacing="4.0">
+            <Label text="APPLICATION LOG FILE PATH" styleClass="gauge-title" />
+            <Label fx:id="logPathLabel" text="~/.local/state/legatus/studio.log" style="-fx-text-fill: #38bdf8; -fx-font-family: monospace; -fx-font-size: 11px;" wrapText="true" />
+        </VBox>
+
+        <Separator />
+
+        <Button text="Save Preferences" onAction="#onSaveClicked"
+                style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+
+        <Label fx:id="statusLabel" style="-fx-text-fill: #34d399; -fx-font-size: 12px;" />
+    </VBox>
+</VBox>

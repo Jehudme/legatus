@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox alignment="CENTER" spacing="20.0" prefWidth="500.0" prefHeight="600.0"
+      stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.LoginController">
+    <padding>
+        <Insets bottom="30.0" left="40.0" right="40.0" top="30.0" />
+    </padding>
+
+    <VBox alignment="CENTER" spacing="6.0">
+        <Label text="LEGATUS STUDIO" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+        <Label text="Distributed Runtime Administration Cockpit" style="-fx-font-size: 13px; -fx-text-fill: #94a3b8;" />
+    </VBox>
+
+    <VBox spacing="14.0" styleClass="gauge-card" maxWidth="420.0">
+        <VBox spacing="4.0">
+            <Label text="Connection Profile" styleClass="gauge-title" />
+            <ComboBox fx:id="profileComboBox" promptText="Select Profile..." maxWidth="Infinity" />
+        </VBox>
+
+        <VBox spacing="4.0">
+            <Label text="Server Cluster URL" styleClass="gauge-title" />
+            <TextField fx:id="serverUrlField" promptText="https://127.0.0.1:8443" />
+        </VBox>
+
+        <VBox spacing="4.0">
+            <Label text="Operator Username" styleClass="gauge-title" />
+            <TextField fx:id="usernameField" promptText="e.g. admin" />
+        </VBox>
+
+        <VBox spacing="4.0">
+            <Label text="Password" styleClass="gauge-title" />
+            <PasswordField fx:id="passwordField" promptText="••••••••" />
+        </VBox>
+
+        <HBox spacing="16.0" alignment="CENTER_LEFT">
+            <CheckBox fx:id="trustAllCertsCheckBox" text="Trust Self-Signed TLS" style="-fx-text-fill: #94a3b8;" />
+            <CheckBox fx:id="rememberPasswordCheckBox" text="Remember Profile" selected="true" style="-fx-text-fill: #94a3b8;" />
+        </HBox>
+
+        <Label fx:id="errorLabel" style="-fx-text-fill: #f87171; -fx-font-size: 12px;" wrapText="true" />
+
+        <HBox alignment="CENTER" spacing="12.0">
+            <Button fx:id="connectButton" text="Connect to Cluster" onAction="#onConnectClicked"
+                    style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 24 8 24;"
+                    maxWidth="Infinity" HBox.hgrow="ALWAYS" />
+            <ProgressIndicator fx:id="progressSpinner" visible="false" prefWidth="24.0" prefHeight="24.0" />
+        </HBox>
+    </VBox>
+</VBox>

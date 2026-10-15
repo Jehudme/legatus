@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane dividerPositions="0.65" stylesheets="@styles.css"
+           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.legatus.studio.controllers.TaskExplorerController">
+
+    <!-- Left side: Task Ledger Table -->
+    <VBox spacing="12.0">
+        <padding>
+            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+        </padding>
+
+        <HBox spacing="12.0" alignment="CENTER_LEFT">
+            <Label text="Task Ledger" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <TextField fx:id="searchField" promptText="Search tasks..." prefWidth="200.0" />
+        </HBox>
+
+        <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="taskIdCol" text="Task ID" prefWidth="180.0" />
+                <TableColumn fx:id="nameCol" text="Function Name" prefWidth="200.0" />
+                <TableColumn fx:id="statusCol" text="Status" prefWidth="120.0" />
+                <TableColumn fx:id="instructionsCol" text="Instructions" prefWidth="120.0" />
+            </columns>
+        </TableView>
+    </VBox>
+
+    <!-- Right side: Task Live Inspector Card -->
+    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
+        <padding>
+            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+        </padding>
+
+        <Label text="Task Live Inspector" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+
+        <VBox spacing="10.0" styleClass="gauge-card">
+            <Label text="TASK ID" styleClass="gauge-title" />
+            <Label fx:id="selectedTaskIdLabel" text="Select a task..." styleClass="gauge-value" />
+
+            <Label text="FUNCTION NAME" styleClass="gauge-title" />
+            <Label fx:id="selectedNameLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
+
+            <Label text="LIFECYCLE STATUS" styleClass="gauge-title" />
+            <Label fx:id="selectedStatusLabel" text="--" styleClass="badge-online" />
+
+            <Label text="ASSIGNED COMPUTE WORKER" styleClass="gauge-title" />
+            <Label fx:id="selectedWorkerLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
+
+            <Label text="INSTRUCTION BUDGET PROGRESS" styleClass="gauge-title" />
+            <ProgressBar fx:id="instructionProgressBar" progress="0.0" maxWidth="Infinity" />
+            <Label fx:id="selectedInstructionsLabel" text="0 / 10,000,000" style="-fx-font-size: 11px; -fx-text-fill: #94a3b8;" />
+        </VBox>
+
+        <Button fx:id="abortButton" text="Abort Task (Two-Stage)" onAction="#onAbortClicked"
+                style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+    </VBox>
+</SplitPane>

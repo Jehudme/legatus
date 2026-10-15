@@ -19,7 +19,7 @@ public class Application extends javafx.application.Application {
         // Bootstrap AtlantaFX Dark-Mode theme
         ThemeService.applyTheme(ThemeService.Theme.PRIMER_DARK);
 
-        var result = ViewLoaderService.load("primary");
+        var result = ViewLoaderService.load("login");
         scene = new Scene(result.root(), 1280, 800);
 
         stage.setTitle("Legatus Studio");
