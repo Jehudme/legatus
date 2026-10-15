@@ -18,7 +18,7 @@ class TechnicalStructureTest {
         .consideringAllDependencies()
         .layer("Config").definedBy("..config..")
         .layer("Web").definedBy("..web..")
-        .optionalLayer("Service").definedBy("..service..")
+        .optionalLayer("Service").definedBy("..service..", "..storage..")
         .layer("Security").definedBy("..security..")
         .optionalLayer("Persistence").definedBy("..repository..")
         .layer("Domain").definedBy("..domain..")
@@ -33,6 +33,11 @@ class TechnicalStructureTest {
         .ignoreDependency(belongToAnyOf(LegatusServerApp.class), alwaysTrue())
         .ignoreDependency(alwaysTrue(), belongToAnyOf(
             dev.legatus.server.config.Constants.class,
-            dev.legatus.server.config.ApplicationProperties.class
+            dev.legatus.server.config.ApplicationProperties.class,
+            dev.legatus.server.config.LegatusProperties.class,
+            dev.legatus.server.config.LegatusProperties.Storage.class,
+            dev.legatus.server.config.LegatusProperties.Security.class,
+            dev.legatus.server.config.LegatusProperties.Security.Argon2.class,
+            dev.legatus.server.config.LegatusProperties.Security.RateLimit.class
         ));
 }
