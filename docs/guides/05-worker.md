@@ -100,21 +100,22 @@ legatus drain --timeout 60
 
 ### 3.3 Inspecting and Terminating Guest Tasks
 ```bash
-# List all active tasks running locally on this node
+# List all active tasks running locally on this node (optionally format with --json)
 legatus tasks list
 
-# Trigger cooperative termination of a specific task (10s grace period)
-legatus tasks kill tsk_01HXYZ...
-
-# Forcibly destroy a hanging task immediately (SIGKILL / TerminateProcess)
-legatus tasks kill tsk_01HXYZ... --force
+# Trigger termination of a specific task with optional audit reason
+legatus tasks kill tsk_01HXYZ... --reason "Operator manual abort"
 ```
 
-### 3.4 Dynamically Tuning Log Levels
+### 3.4 Dynamically Tuning Log Levels and Viewing Logs
 Change the supervisor daemon's log verbosity at runtime without restarting the process:
 ```bash
+# Dynamically switch logging filter level (trace, debug, info, warn, error)
 legatus log level debug
 legatus log level info
+
+# Display trailing lines from the daemon log file
+legatus log show --lines 100
 ```
 
 ---

@@ -18,15 +18,32 @@
 
 ### 1.1 Running from Source
 ```bash
-mvn javafx:run -pl studio
+# Run directly with the OpenJFX Maven plugin
+./server/mvnw -f studio/pom.xml javafx:run
+
+# Or build the executable JAR and run with standard Java 21
+./server/mvnw -f studio/pom.xml package -DskipTests
+java -jar studio/target/legatus-studio.jar
 ```
 
-### 1.2 Installing Native Packages
-Self-contained native packages bundled via `jpackage` require zero pre-installed Java runtimes:
-* **Linux (Debian/Ubuntu):** `sudo dpkg -i legatus-studio_1.0.0_amd64.deb`
-* **Linux (RHEL/Fedora):** `sudo rpm -i legatus-studio-1.0.0.x86_64.rpm`
-* **macOS:** Open `LegatusStudio-1.0.0.dmg` and drag to `Applications`.
-* **Windows:** Run `LegatusStudio-1.0.0.msi` installer.
+### 1.2 Building Native Binaries & Packages (`jpackage`)
+Studio includes an integrated Maven `jpackage` profile (`-Pjpackage`) that generates self-contained native desktop app-images and installers requiring zero pre-installed Java runtimes:
+
+```bash
+# Build standalone native app-image in studio/target/dist/legatus-studio/
+./server/mvnw -f studio/pom.xml package -Pjpackage -DskipTests
+```
+
+The resulting native bundle can be launched directly:
+* **Linux:** `./studio/target/dist/legatus-studio/bin/legatus-studio`
+* **macOS:** `./studio/target/dist/legatus-studio/bin/legatus-studio`
+* **Windows:** `.\studio\target\dist\legatus-studio\bin\legatus-studio.exe`
+
+Platform-native system installers:
+* **Linux (Debian/Ubuntu):** `jpackage --type deb ...` $\rightarrow$ `sudo dpkg -i legatus-studio_1.0.0_amd64.deb`
+* **Linux (RHEL/Fedora):** `jpackage --type rpm ...` $\rightarrow$ `sudo rpm -i legatus-studio-1.0.0.x86_64.rpm`
+* **macOS:** `jpackage --type dmg ...` $\rightarrow$ `LegatusStudio-1.0.0.dmg`
+* **Windows:** `jpackage --type msi ...` $\rightarrow$ `LegatusStudio-1.0.0.msi`
 
 ---
 
