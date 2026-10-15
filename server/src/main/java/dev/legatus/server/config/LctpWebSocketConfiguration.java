@@ -51,7 +51,10 @@ public class LctpWebSocketConfiguration implements WebSocketConfigurer {
     }
 
     @Bean
-    public ServletServerContainerFactoryBean createWebSocketContainer() {
+    public ServletServerContainerFactoryBean createWebSocketContainer(jakarta.servlet.ServletContext servletContext) {
+        if (servletContext == null || servletContext.getAttribute("jakarta.websocket.server.ServerContainer") == null) {
+            return null;
+        }
         ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
         container.setMaxTextMessageBufferSize(BUFFER_CEILING_BYTES);
         container.setMaxBinaryMessageBufferSize(BUFFER_CEILING_BYTES);

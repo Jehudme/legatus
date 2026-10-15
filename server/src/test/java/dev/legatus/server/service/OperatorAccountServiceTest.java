@@ -70,7 +70,11 @@ class OperatorAccountServiceTest {
     void testBootstrapAdminWhenEmpty() {
         when(accountRepository.count()).thenReturn(0L);
         when(argon2idService.hash(anyString())).thenReturn("$argon2id$v=19$m=65536,t=3,p=4$hash");
-        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
+            Account a = invocation.getArgument(0);
+            a.setAccountId(UUID.randomUUID());
+            return a;
+        });
 
         operatorAccountService.bootstrapAdminIfNeeded();
 

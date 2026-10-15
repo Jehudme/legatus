@@ -93,7 +93,6 @@ public class OperatorAccountService {
             Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
             Account admin = new Account()
-                .accountId(UUID.randomUUID())
                 .username("admin")
                 .email("admin@legatus.internal")
                 .role(OperatorRole.CLUSTER_ADMIN)
@@ -376,7 +375,6 @@ public class OperatorAccountService {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
         Account account = new Account()
-            .accountId(UUID.randomUUID())
             .username(request.username())
             .email(request.email())
             .role(request.role())

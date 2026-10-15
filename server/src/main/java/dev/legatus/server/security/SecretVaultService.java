@@ -20,6 +20,7 @@ import org.bouncycastle.crypto.generators.HKDFBytesGenerator;
 import org.bouncycastle.crypto.params.HKDFParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
@@ -62,6 +63,7 @@ public class SecretVaultService {
         this(legatusProperties, environment, null);
     }
 
+    @Autowired
     public SecretVaultService(
         LegatusProperties legatusProperties,
         Environment environment,
