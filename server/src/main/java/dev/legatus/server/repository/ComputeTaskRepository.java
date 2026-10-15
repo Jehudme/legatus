@@ -49,7 +49,7 @@ public interface ComputeTaskRepository extends JpaRepository<ComputeTask, String
 
     long countByStatus(dev.legatus.server.domain.enumeration.TaskStatus status);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM ComputeTask t WHERE t.status IN :terminalStatuses AND t.completedAt < :cutoff")
     int deleteCompletedTasksOlderThan(
         @Param("terminalStatuses") java.util.Collection<dev.legatus.server.domain.enumeration.TaskStatus> terminalStatuses,
