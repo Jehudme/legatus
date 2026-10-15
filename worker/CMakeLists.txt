@@ -218,6 +218,7 @@ add_executable(legatus_tests
     tests/unit/test_common_scaffold.cpp
     tests/unit/test_runner_engine.cpp
     tests/unit/test_process_supervisor.cpp
+    tests/unit/test_crypto_enrollment.cpp
 )
 
 target_compile_definitions(legatus_tests PRIVATE
