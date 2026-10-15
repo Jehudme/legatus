@@ -487,7 +487,18 @@ Ingests arbitrary incoming JSON payloads from third-party services (e.g., GitHub
 | `POST /api/v1/admin/workers/enrollments/{id}/reject` | Rejects a quarantined node and optionally blacklists the source IP. | `CLUSTER_ADMIN` / `OPERATOR` | `200 OK` |
 | `POST /api/v1/admin/workers/{worker_id}/drain` | Remotely toggles drain mode on an active worker. | `CLUSTER_ADMIN` / `OPERATOR` | `200 OK` |
 | `POST /api/v1/admin/workers/{worker_id}/revoke` | Immediately revokes a worker's credentials and severs its active WebSocket session. | `CLUSTER_ADMIN` / `OPERATOR` | `200 OK` |
+| `DELETE /api/v1/admin/workers/{worker_id}` | Permanently deletes a dead, offline, or revoked worker from the fleet registry. | `CLUSTER_ADMIN` / `OPERATOR` | `200 OK` |
 | `GET /api/v1/cluster/stats` | Returns aggregate cluster cores, memory, queue depth, and 24h throughput statistics. | Any Authenticated | `200 OK` |
+
+### 5.7 Delete Worker Node (`DELETE /api/v1/admin/workers/{worker_id}`)
+Permanently deletes a dead, offline, or revoked worker node from the fleet registry. Active (`ONLINE`) workers cannot be deleted directly; they must first be drained or revoked (returns `409 Conflict`).
+
+#### Response (`200 OK`):
+```json
+{
+  "status": "DELETED"
+}
+```
 
 ---
 

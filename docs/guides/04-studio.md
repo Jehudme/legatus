@@ -61,6 +61,7 @@ Studio organizes operations into a persistent four-zone layout:
    * Keyboard shortcuts (`Ctrl+1` through `Ctrl+6` on Linux/Windows; `Cmd+1` through `Cmd+6` on macOS).
 3. **Center Primary Workspace (Zone 3):**
    * Master-detail interface displaying tabular data, charts, and contextual inspector forms.
+   * **Fleet Topology Management:** Worker fleet view displays all registered nodes sorted by state priority (`ONLINE` nodes pinned to top, followed by `DRAINING`, `PENDING_APPROVAL`, `QUARANTINED`, `OFFLINE`, and `REVOKED`). Operators can drain active nodes, revoke credentials, and permanently delete offline or dead workers from the registry with instant table updates.
 4. **Bottom Collapsible Drawer (Zone 4):**
    * Expandable drawer housing the **Task Console Log Stream**, **Cluster Event Log**, and **Security Audit Trail**.
    * Toggle with `Ctrl+` `~` (backtick) or click the drawer expand button.
