@@ -26,6 +26,7 @@ springdoc:
 ---
 management:
   endpoints:
+    prometheus: ${MANAGEMENT_ENDPOINTS_PROMETHEUS:false}
     web:
       base-path: /management
       exposure:
@@ -55,6 +56,8 @@ management:
           include: readinessState,db
     jhimetrics:
       access: read-only
+    prometheus:
+      enabled: ${MANAGEMENT_ENDPOINTS_PROMETHEUS:false}
   info:
     git:
       mode: full

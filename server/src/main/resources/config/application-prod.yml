@@ -20,10 +20,15 @@ logging:
     dev.legatus.server: INFO
 
 management:
+  endpoints:
+    prometheus: ${MANAGEMENT_ENDPOINTS_PROMETHEUS:false}
+  endpoint:
+    prometheus:
+      enabled: ${MANAGEMENT_ENDPOINTS_PROMETHEUS:false}
   prometheus:
     metrics:
       export:
-        enabled: false
+        enabled: ${MANAGEMENT_ENDPOINTS_PROMETHEUS:false}
 
 spring:
   devtools:
