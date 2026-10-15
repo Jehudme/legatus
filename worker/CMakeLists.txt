@@ -164,6 +164,7 @@ add_library(legatus_daemon_core
     src/daemon/process_supervisor.cpp
     src/daemon/worker_config.cpp
     src/daemon/enrollment_client.cpp
+    src/daemon/ipc_bus.cpp
 )
 
 target_include_directories(legatus_daemon_core PUBLIC
