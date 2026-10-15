@@ -122,6 +122,7 @@ FetchContent_MakeAvailable(fmt spdlog nlohmann_json cli11 tomlplusplus nng repro
 # -----------------------------------------------------------------------------
 add_library(legatus_common
     src/common/crypto_utils.cpp
+    src/common/base64.cpp
 )
 
 target_include_directories(legatus_common PUBLIC
@@ -139,6 +140,24 @@ target_link_libraries(legatus_common PUBLIC
 )
 
 # -----------------------------------------------------------------------------
+# Runner Library: legatus_runner_core
+# -----------------------------------------------------------------------------
+add_library(legatus_runner_core
+    src/runner/legatus_runtime_context.cpp
+    src/runner/runner_engine.cpp
+)
+
+target_include_directories(legatus_runner_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(legatus_runner_core PUBLIC
+    legatus_common
+    solix_core
+)
+
+# -----------------------------------------------------------------------------
 # Executables
 # -----------------------------------------------------------------------------
 
@@ -147,8 +166,7 @@ add_executable(legatus-runner
     src/runner/main.cpp
 )
 target_link_libraries(legatus-runner PRIVATE
-    legatus_common
-    solix_core
+    legatus_runner_core
 )
 
 # 2. legatusd
@@ -183,6 +201,7 @@ add_executable(legatus_tests
 
 target_link_libraries(legatus_tests PRIVATE
     legatus_common
+    legatus_runner_core
     Catch2::Catch2WithMain
     solix_core
     nng
