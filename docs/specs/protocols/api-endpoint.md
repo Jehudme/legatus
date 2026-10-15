@@ -115,6 +115,149 @@ Polled by the quarantined worker every `3000ms` (+/- `500ms` jitter).
 }
 ```
 
+### 2.3 List Quarantined Enrollments (`GET /api/v1/admin/workers/enrollments`)
+Retrieves all pending worker enrollments currently awaiting operator attestation.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Response (`200 OK`):
+```json
+[
+  {
+    "enrollment_id": "enr-8821-4920-a1b2",
+    "worker_id": "compute-linux-east-042",
+    "hostname": "wk-east-042.internal.corp",
+    "source_ip": "10.0.4.12",
+    "os": "linux",
+    "architecture": "x86_64",
+    "fingerprint_hex": "4E:8A:BC:31:09:FF:7D:12",
+    "visual_code": "Tiger-Galaxy-77",
+    "allocatable_cores": 16,
+    "max_memory_bytes": 34359738368,
+    "submitted_at": "2026-10-15T15:00:00Z"
+  }
+]
+```
+
+### 2.4 Approve Worker Enrollment (`POST /api/v1/admin/workers/enrollments/{enrollment_id}/approve`)
+Approves a quarantined node, generating a cryptographically secure 256-bit secret token.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Request Payload:
+```json
+{
+  "assigned_cluster": "production-us-east"
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "status": "APPROVED",
+  "assigned_cluster": "production-us-east"
+}
+```
+
+### 2.5 Reject Worker Enrollment (`POST /api/v1/admin/workers/enrollments/{enrollment_id}/reject`)
+Rejects a quarantined node and optionally blacklists its source IP.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Request Payload:
+```json
+{
+  "reason": "Host fingerprint mismatch with datacenter inventory",
+  "blacklist_ip": true
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "status": "REJECTED"
+}
+```
+
+### 2.6 List Fleet Workers (`GET /api/v1/workers`)
+Retrieves all enrolled fleet workers with active telemetry, resource utilization, and status.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Response (`200 OK`):
+```json
+[
+  {
+    "worker_id": "compute-linux-east-042",
+    "hostname": "wk-east-042.internal.corp",
+    "source_ip": "10.0.4.12",
+    "os": "linux",
+    "architecture": "x86_64",
+    "state": "ONLINE",
+    "allocatable_cores": 16,
+    "max_memory_bytes": 34359738368,
+    "cpu_load_pct": 24.5,
+    "memory_used_bytes": 8589934592,
+    "active_tasks_count": 3,
+    "last_heartbeat": "2026-10-15T15:04:12Z"
+  }
+]
+```
+
+### 2.7 Toggle Worker Drain Mode (`POST /api/v1/admin/workers/{worker_id}/drain`)
+Toggles drain mode on an active worker node (`ONLINE` <-> `DRAINING`). When draining, scheduler assigns no new tasks to the node while in-flight tasks finish execution.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "draining": true,
+  "state": "DRAINING"
+}
+```
+
+### 2.8 Revoke Worker Node (`POST /api/v1/admin/workers/{worker_id}/revoke`)
+Revokes a worker's cluster lease, terminates active LCTP WebSocket sessions, and transitions state to `REVOKED`.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "status": "REVOKED"
+}
+```
+
+### 2.9 Cluster Aggregate Statistics (`GET /api/v1/cluster/stats`)
+Returns high-level cluster metrics for cockpit telemetry ribbons.
+
+#### Request Headers:
+* `Authorization: Bearer <operator_jwt>`
+
+#### Response (`200 OK`):
+```json
+{
+  "total_workers": 42,
+  "online_workers": 38,
+  "draining_workers": 2,
+  "offline_workers": 2,
+  "total_allocatable_cores": 512,
+  "total_allocatable_memory_bytes": 1099511627776,
+  "queue_depth": 0
+}
+```
+
 ---
 
 ## 3. Ephemeral Ticket Authentication Endpoints
