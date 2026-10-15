@@ -36,22 +36,22 @@ Deliver the native cross-platform **Legatus Studio** (`legatus-studio`) desktop 
 
 ### 3.1 P0: Critical Blockers (Release Gate)
 - [x] `[P0]` **Virtual Thread Transport & 60Hz Telemetry Coalescer (`GL-0011`):** Isolate all HTTP/2 REST calls and `/ws/studio` WebSocket frame deserialization onto Java 21 Virtual Threads, buffering incoming events and marshaling UI property updates via `Platform.runLater()` at most once every `16.6ms` (60Hz) so the JavaFX Application Thread never blocks or stutters. (Issue #401)
-- [ ] `[P0]` **Quarantine Visual Attestation Modal (`ADR-0005`):** Implement real-time `EVENT_ENROLLMENT_REQUESTED` toast notifications and the side-by-side attestation modal displaying node hardware specs, colon-separated SHA-256 hex fingerprint (`4E:8A:BC:31:09:FF:7D:12`), and highlighted 3-word visual confirmation code (`Tiger-Galaxy-77`) with **[Approve & Issue Lease]** and **[Reject & Block IP]** actions. (Issue #402)
+- [x] `[P0]` **Quarantine Visual Attestation Modal (`ADR-0005`):** Implement real-time `EVENT_ENROLLMENT_REQUESTED` toast notifications and the side-by-side attestation modal displaying node hardware specs, colon-separated SHA-256 hex fingerprint (`4E:8A:BC:31:09:FF:7D:12`), and highlighted 3-word visual confirmation code (`Tiger-Galaxy-77`) with **[Approve & Issue Lease]** and **[Reject & Block IP]** actions. (Issue #402)
 - [x] `[P0]` **Bounded 10,000-Line Task Log Ring Buffer:** Implement `SUBSCRIBE_TASK_LOGS` / `UNSUBSCRIBE_TASK_LOGS` streaming console tabs backed by a fixed-capacity circular buffer capped at 10,000 lines or $8\text{ MB}$ of UTF-8 text to prevent desktop OOM on verbose guest tasks (`studio-spec.md` Section 5.2). (Issue #403)
 - [x] `[P0]` **OS Keychain Credential Encryption:** Encrypt saved operator refresh tokens and cluster connection profiles in `studio.json` using AES-256-GCM backed by host OS native credential stores (`libsecret`, macOS `Keychain`, Windows `DPAPI`) with zero plaintext token storage on disk. (Issue #404)
 
 ### 3.2 P1: High Priority (Milestone Core)
-- [ ] `[P1]` **Fleet Topology View & Viewport Subscription Filtering:** Implement live worker fleet tables, CPU/RAM utilization heatmaps, remote **[Drain]** and **[Revoke]** controls, and `viewport_filter` scoping in `STUDIO_SESSION_INIT` (`studio-wire.md` Section 3.1). (Issue #405)
-- [ ] `[P1]` **Task & Function Workbench (Bytecode Upload & Two-Stage Abort):** Implement Solix `.slxb` bytecode file upload with automatic SHA-256 calculation, task dispatch form, live instruction/memory progress gauges, and **[Abort Task]** button with 10-second Stage 1 grace period countdown. (Issue #406)
+- [x] `[P1]` **Fleet Topology View & Viewport Subscription Filtering:** Implement live worker fleet tables, CPU/RAM utilization heatmaps, remote **[Drain]** and **[Revoke]** controls, and `viewport_filter` scoping in `STUDIO_SESSION_INIT` (`studio-wire.md` Section 3.1). (Issue #405)
+- [x] `[P1]` **Task & Function Workbench (Bytecode Upload & Two-Stage Abort):** Implement Solix `.slxb` bytecode file upload with automatic SHA-256 calculation, task dispatch form, live instruction/memory progress gauges, and **[Abort Task]** button with 10-second Stage 1 grace period countdown. (Issue #406)
 - [ ] `[P1]` **End-to-End Living Operational Guides (`docs/guides/`):** Author and verify `01-getting-started.md`, `02-server.md`, `04-studio.md`, and `05-worker.md` against actual `CLI11` flags, `server.yml` properties, and REST DTOs (`GL-0010`). (Issue #407)
 - [ ] `[P1]` **Cross-Platform Native Packaging (`jpackage`):** Configure Maven `jpackage` profiles to build self-contained native desktop installers (`.deb`, `.rpm`, `.dmg`, `.msi`) with a stripped modular JRE image. (Issue #408)
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
-- [ ] `[P2]` **Secrets Vault Management View:** Implement write-only AES-256-GCM secret key creation, rotation, and deletion UI in Studio (`secrets_vault` table). (Issue #409)
-- [ ] `[P2]` **AtlantaFX Theme Switcher & Keyboard Shortcuts:** Support instant toggling between `PrimerDark` and `NordDark` themes and keyboard navigation shortcuts (`Ctrl+K` command palette). (Issue #410)
+- [x] `[P2]` **Secrets Vault Management View:** Implement write-only AES-256-GCM secret key creation, rotation, and deletion UI in Studio (`secrets_vault` table). (Issue #409)
+- [x] `[P2]` **AtlantaFX Theme Switcher & Keyboard Shortcuts:** Support instant toggling between `PrimerDark` and `NordDark` themes and keyboard navigation shortcuts (`Ctrl+K` command palette). (Issue #410)
 
 ### 3.4 P3: Low Priority (Opportunistic Cleanups)
-- [ ] `[P3]` **Exportable Cluster Audit Log CSV/JSON:** Allow operators to export filtered security audit log records (`audit_logs`) from the bottom drawer to local JSON or CSV files. (Issue #411)
+- [x] `[P3]` **Exportable Cluster Audit Log CSV/JSON:** Allow operators to export filtered security audit log records (`audit_logs`) from the bottom drawer to local JSON or CSV files. (Issue #411)
 
 ---
 
