@@ -5,6 +5,7 @@ import dev.legatus.server.domain.WorkerNode;
 import dev.legatus.server.domain.enumeration.TaskStatus;
 import dev.legatus.server.repository.ComputeTaskRepository;
 import dev.legatus.server.security.SecretVaultService;
+import dev.legatus.server.service.dto.lctp.AbortTaskFrame;
 import dev.legatus.server.service.dto.lctp.DispatchTaskFrame;
 import dev.legatus.server.service.scheduler.TaskDispatcher;
 import java.io.IOException;
@@ -128,6 +129,38 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         return sessionRegistry.getByWorkerId(workerId)
             .map(LctpWorkerSession::getActiveTaskIds)
             .orElse(Set.of());
+    }
+
+    @Override
+    public boolean abortTask(String workerId, String taskId, String reason, int gracePeriodMs) {
+        if (workerId == null || taskId == null) {
+            return false;
+        }
+        Optional<LctpWorkerSession> sessionOpt = sessionRegistry.getByWorkerId(workerId);
+        if (sessionOpt.isEmpty()) {
+            LOG.warn("Cannot abort task {}: worker {} has no active transport session", taskId, workerId);
+            return false;
+        }
+        LctpWorkerSession session = sessionOpt.get();
+        if (!session.getWebSocketSession().isOpen()) {
+            LOG.warn("Cannot abort task {}: worker {} transport session is closed", taskId, workerId);
+            return false;
+        }
+        try {
+            AbortTaskFrame frame = new AbortTaskFrame(
+                UUID.randomUUID(),
+                System.currentTimeMillis(),
+                new AbortTaskFrame.Payload(taskId, reason != null ? reason : "OPERATOR_CANCELLED", gracePeriodMs)
+            );
+            String json = objectMapper.writeValueAsString(frame);
+            session.sendText(json);
+            LOG.info("Transmitted ABORT_TASK frame for task {} to worker {} (session: {})",
+                taskId, workerId, session.getSessionId());
+            return true;
+        } catch (Exception e) {
+            LOG.error("Failed to transmit ABORT_TASK frame for task {} to worker {}", taskId, workerId, e);
+            return false;
+        }
     }
 
     private List<String> parseSecretRefs(String json) {

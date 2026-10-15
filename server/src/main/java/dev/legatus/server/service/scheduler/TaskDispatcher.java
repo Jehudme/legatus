@@ -34,4 +34,15 @@ public interface TaskDispatcher {
      * @return set of active task IDs
      */
     Set<String> getActiveTaskIds(String workerId);
+
+    /**
+     * Transmits an ABORT_TASK frame to cancel an in-flight task on a worker node.
+     *
+     * @param workerId worker node identifier
+     * @param taskId task identifier to abort
+     * @param reason cancellation reason
+     * @param gracePeriodMs graceful termination deadline in milliseconds
+     * @return true if frame successfully transmitted over active transport session
+     */
+    boolean abortTask(String workerId, String taskId, String reason, int gracePeriodMs);
 }

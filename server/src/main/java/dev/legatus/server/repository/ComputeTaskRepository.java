@@ -46,4 +46,6 @@ public interface ComputeTaskRepository extends JpaRepository<ComputeTask, String
         dev.legatus.server.domain.enumeration.TaskStatus status,
         Pageable pageable
     );
+
+    long countByStatus(dev.legatus.server.domain.enumeration.TaskStatus status);
 }
