@@ -228,6 +228,7 @@ add_executable(legatus_tests
     tests/unit/test_ipc_bus.cpp
     tests/unit/test_lctp_client.cpp
     tests/unit/test_telemetry_and_cache.cpp
+    tests/unit/test_cli_and_logging.cpp
 )
 
 target_compile_definitions(legatus_tests PRIVATE

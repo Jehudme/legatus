@@ -58,6 +58,8 @@ bool set_log_level_string(const std::string& level) {
         spdlog::set_level(spdlog::level::err);
     } else if (level == "critical") {
         spdlog::set_level(spdlog::level::critical);
+    } else if (level == "off") {
+        spdlog::set_level(spdlog::level::off);
     } else {
         return false;
     }
@@ -73,6 +75,7 @@ std::string get_active_log_level_string() {
         case spdlog::level::warn: return "warn";
         case spdlog::level::err: return "error";
         case spdlog::level::critical: return "critical";
+        case spdlog::level::off: return "off";
         default: return "unknown";
     }
 }
