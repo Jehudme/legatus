@@ -38,6 +38,7 @@ class TechnicalStructureTest {
             dev.legatus.server.config.LegatusProperties.Storage.class,
             dev.legatus.server.config.LegatusProperties.Security.class,
             dev.legatus.server.config.LegatusProperties.Security.Argon2.class,
-            dev.legatus.server.config.LegatusProperties.Security.RateLimit.class
+            dev.legatus.server.config.LegatusProperties.Security.RateLimit.class,
+            dev.legatus.server.config.LegatusProperties.Scheduler.class
         ));
 }
