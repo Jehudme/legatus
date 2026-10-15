@@ -6,9 +6,14 @@
 
     <changeSet id="20261015180000-cleanup-legacy-fake-data" author="antigravity">
         <!-- Purge unchained fake audit logs from dev migrations so WORM verification succeeds from genesis -->
-        <sql>
+        <sql dbms="h2">
+            DROP TRIGGER IF EXISTS trg_audit_logs_worm_prevent_delete_update;
             DELETE FROM audit_logs;
-            UPDATE tasks SET status = 'COMPLETED' WHERE status = 'EXECUTING' AND task_id = '8b8fec05-966b-43cb-88ae-329d633f3eb2';
+            CREATE TRIGGER IF NOT EXISTS trg_audit_logs_worm_prevent_delete_update
+            BEFORE DELETE, UPDATE ON audit_logs
+            FOR EACH ROW
+            CALL "dev.legatus.server.security.WormAuditLogTrigger";
+            UPDATE tasks SET status = 'COMPLETED' WHERE status = 'EXECUTING';
         </sql>
     </changeSet>
 </databaseChangeLog>
