@@ -37,4 +37,6 @@ public interface ComputeTaskRepository extends JpaRepository<ComputeTask, String
 
     @Query("select computeTask from ComputeTask computeTask left join fetch computeTask.function where computeTask.id =:id")
     Optional<ComputeTask> findOneWithToOneRelationships(@Param("id") String id);
+
+    List<ComputeTask> findAllByAssignedWorkerWorkerIdAndStatusIn(String workerId, java.util.Collection<dev.legatus.server.domain.enumeration.TaskStatus> statuses);
 }
