@@ -56,4 +56,9 @@ public class BytecodeService {
         return restClient.postBinary("/api/v1/bytecode", bytecodeBytes, "application/octet-stream", com.legatus.studio.protocol.RestDto.BytecodeUploadResponse.class)
                 .thenApply(resp -> resp != null && resp.sha256() != null ? resp.sha256() : sha256);
     }
+
+    public CompletableFuture<java.util.List<com.legatus.studio.protocol.RestDto.SolixFunctionDto>> getCatalogedFunctions() {
+        return restClient.get("/api/solix-functions", com.legatus.studio.protocol.RestDto.SolixFunctionDto[].class)
+                .thenApply(arr -> arr != null ? java.util.List.of(arr) : java.util.List.of());
+    }
 }

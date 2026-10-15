@@ -29,13 +29,19 @@ public class TelemetryService implements AutoCloseable {
 
     private final TelemetryCoalescer coalescer;
     private final LstcpClient lstcpClient;
+    private final com.legatus.studio.transport.LogStreamBuffer logStreamBuffer;
 
     public TelemetryService(LstcpClient lstcpClient) {
-        this(lstcpClient, true);
+        this(lstcpClient, true, null);
     }
 
     public TelemetryService(LstcpClient lstcpClient, boolean dispatchOnFxThread) {
+        this(lstcpClient, dispatchOnFxThread, null);
+    }
+
+    public TelemetryService(LstcpClient lstcpClient, boolean dispatchOnFxThread, com.legatus.studio.transport.LogStreamBuffer logStreamBuffer) {
         this.lstcpClient = Objects.requireNonNull(lstcpClient, "lstcpClient must not be null");
+        this.logStreamBuffer = logStreamBuffer;
         this.coalescer = new TelemetryCoalescer(this::applyBatch, dispatchOnFxThread, TelemetryCoalescer.COALESCE_INTERVAL_MS);
 
         // Attach listeners from LstcpClient directly into Coalescer ring buffer
@@ -79,6 +85,12 @@ public class TelemetryService implements AutoCloseable {
                 workersMap.put(update.worker_id(), created);
                 workersList.add(created);
             }
+            if (logStreamBuffer != null) {
+                logStreamBuffer.appendLine(String.format("[%s] [WORKER] Node %s -> %s (CPU: %.1f%%, Memory: %d MB, Tasks: %d)",
+                        java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
+                        update.worker_id(), update.current_state(), update.cpu_load_pct(),
+                        update.memory_used_bytes() / (1024 * 1024), update.active_tasks_count()));
+            }
         });
 
         // 3. Task lifecycle events
@@ -104,6 +116,12 @@ public class TelemetryService implements AutoCloseable {
                 );
                 tasksList.add(newRecord);
             }
+            if (logStreamBuffer != null) {
+                logStreamBuffer.appendLine(String.format("[%s] [TASK] Task %s status: %s (Worker: %s)",
+                        java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
+                        taskEvent.task_id(), taskEvent.status(),
+                        taskEvent.assigned_worker_id() != null ? taskEvent.assigned_worker_id() : "unassigned"));
+            }
         }
 
         // 4. Quarantine enrollments
@@ -116,6 +134,11 @@ public class TelemetryService implements AutoCloseable {
                         enr.allocatable_cores(), enr.max_memory_bytes(), String.valueOf(enr.expires_at())
                 );
                 enrollmentsList.add(model);
+            }
+            if (logStreamBuffer != null) {
+                logStreamBuffer.appendLine(String.format("[%s] [QUARANTINE] Worker enrollment requested: %s (%s, IP: %s)",
+                        java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
+                        enr.worker_id(), enr.visual_code(), enr.source_ip()));
             }
         }
     }

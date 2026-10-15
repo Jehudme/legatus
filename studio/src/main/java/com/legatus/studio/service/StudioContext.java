@@ -27,6 +27,7 @@ public class StudioContext {
     private LogStreamBuffer logStreamBuffer;
     private LstcpClient lstcpClient;
     private TelemetryService telemetryService;
+    private com.legatus.studio.viewmodel.FunctionsViewModel functionsViewModel;
     private final MainViewModel mainViewModel = new MainViewModel();
 
     private StudioContext() {
@@ -47,6 +48,8 @@ public class StudioContext {
         this.userManagementService = new UserManagementService(restClient);
         this.auditLogService = new AuditLogService(restClient);
 
+        this.functionsViewModel = new com.legatus.studio.viewmodel.FunctionsViewModel(this.bytecodeService, this.taskService);
+
         // Derive ws/wss URL
         String trimmed = serverUrl.trim();
         String wsBase;
@@ -62,11 +65,28 @@ public class StudioContext {
         }
         String wsUrl = wsBase + "/ws/studio";
 
+        this.logStreamBuffer.appendLine(String.format("[%s] [SYSTEM] Initializing Legatus Studio session with %s",
+                java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS), serverUrl));
+
         this.lstcpClient = new LstcpClient(wsUrl, trustAllCerts);
-        this.telemetryService = new TelemetryService(lstcpClient);
+        this.telemetryService = new TelemetryService(lstcpClient, true, logStreamBuffer);
 
         this.lstcpClient.setStateListener(state -> {
             FxAsync.runOnFxThread(() -> mainViewModel.updateConnectionState(state));
+            logStreamBuffer.appendLine(String.format("[%s] [SYSTEM] Telemetry streaming state: %s",
+                    java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS), state));
+        });
+
+        this.lstcpClient.setSessionAckListener(ack -> {
+            logStreamBuffer.appendLine(String.format("[%s] [SYSTEM] Connected to Legatus cluster (session=%s, heartbeat=%dms)",
+                    java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
+                    ack.session_id(), ack.heartbeat_interval_ms()));
+        });
+
+        this.lstcpClient.setTaskLogChunkListener(chunk -> {
+            if (chunk != null && chunk.log_chunk() != null) {
+                logStreamBuffer.appendChunk(chunk.log_chunk());
+            }
         });
 
         // If studio WebSocket ticket is present from login, connect immediately
@@ -80,6 +100,9 @@ public class StudioContext {
     }
 
     public void refreshInitialData() {
+        if (functionsViewModel != null) {
+            functionsViewModel.loadCatalogedFunctions();
+        }
         if (workerService == null || telemetryService == null) return;
 
         // Fetch workers snapshot
@@ -147,4 +170,5 @@ public class StudioContext {
     public LstcpClient getLstcpClient() { return lstcpClient; }
     public TelemetryService getTelemetryService() { return telemetryService; }
     public MainViewModel getMainViewModel() { return mainViewModel; }
+    public com.legatus.studio.viewmodel.FunctionsViewModel getFunctionsViewModel() { return functionsViewModel; }
 }

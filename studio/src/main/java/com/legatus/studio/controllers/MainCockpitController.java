@@ -92,8 +92,12 @@ public class MainCockpitController {
                 }
                 case FUNCTIONS -> {
                     FunctionsWorkbenchController c = ViewLoaderService.switchView(contentContainer, module.getFxmlName());
-                    if (c != null && ctx.getBytecodeService() != null) {
-                        c.setViewModel(new com.legatus.studio.viewmodel.FunctionsViewModel(ctx.getBytecodeService()));
+                    if (c != null) {
+                        if (ctx.getFunctionsViewModel() != null) {
+                            c.setViewModel(ctx.getFunctionsViewModel());
+                        } else if (ctx.getBytecodeService() != null) {
+                            c.setViewModel(new com.legatus.studio.viewmodel.FunctionsViewModel(ctx.getBytecodeService(), ctx.getTaskService()));
+                        }
                     }
                 }
                 case TASKS -> {

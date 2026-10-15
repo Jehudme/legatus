@@ -16,6 +16,8 @@
         <Region HBox.hgrow="ALWAYS" />
         <TextField fx:id="actorFilterField" promptText="Filter by Actor..." prefWidth="180.0" />
         <TextField fx:id="actionFilterField" promptText="Filter by Action..." prefWidth="180.0" />
+        <Button text="Refresh Ledger" onAction="#onRefreshClicked"
+                style="-fx-background-color: #334155; -fx-text-fill: white;" />
         <Button fx:id="verifyChainButton" text="Verify Hash Chain" onAction="#onVerifyClicked"
                 style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold;" />
     </HBox>

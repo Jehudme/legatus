@@ -4,7 +4,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.6" stylesheets="@styles.css"
+<SplitPane dividerPositions="0.55" stylesheets="@styles.css"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.legatus.studio.controllers.FunctionsWorkbenchController">
 
@@ -14,48 +14,90 @@
             <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
         </padding>
 
-        <Label text="Registered Functions &amp; Bytecode" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+        <HBox alignment="CENTER_LEFT" spacing="12.0">
+            <Label text="Registered Functions &amp; Bytecode" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Button text="Refresh Catalog" onAction="#onRefreshCatalogClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
+        </HBox>
 
         <TableView fx:id="bytecodeTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="functionNameCol" text="Function" prefWidth="180.0" />
-                <TableColumn fx:id="sha256Col" text="SHA-256 Digest" prefWidth="240.0" />
-                <TableColumn fx:id="sizeCol" text="Size (bytes)" prefWidth="100.0" />
+                <TableColumn fx:id="functionNameCol" text="Function" prefWidth="160.0" />
+                <TableColumn fx:id="sha256Col" text="SHA-256 Digest" prefWidth="260.0" />
+                <TableColumn fx:id="sizeCol" text="Size (bytes)" prefWidth="90.0" />
             </columns>
         </TableView>
     </VBox>
 
-    <!-- Right side: Bytecode Upload Dropzone -->
-    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
-        <padding>
-            <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
-        </padding>
+    <!-- Right side: Bytecode Upload Dropzone & Execution Workbench -->
+    <ScrollPane fitToWidth="true" style="-fx-background-color: #0b1120; -fx-background: #0b1120;">
+        <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
+            <padding>
+                <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+            </padding>
 
-        <Label text="Upload Solix Bytecode (.slxb)" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+            <!-- Card 1: Upload Bytecode -->
+            <Label text="Upload Solix Bytecode (.slxb)" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
 
-        <VBox spacing="10.0" styleClass="attestation-card">
-            <Button text="Choose File..." onAction="#onChooseFileClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
-            <Label fx:id="filePathLabel" text="No file selected." style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" wrapText="true" />
+            <VBox spacing="10.0" styleClass="attestation-card">
+                <Button text="Choose File..." onAction="#onChooseFileClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                <Label fx:id="filePathLabel" text="No file selected." style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" wrapText="true" />
 
-            <Separator />
+                <Separator />
 
-            <Label text="CALCULATED SHA-256 DIGEST:" styleClass="gauge-title" />
-            <Label fx:id="sha256Label" text="--" style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
+                <Label text="CALCULATED SHA-256 DIGEST:" styleClass="gauge-title" />
+                <Label fx:id="sha256Label" text="--" style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
+            </VBox>
+
+            <VBox spacing="4.0">
+                <Label text="Function Name" styleClass="gauge-title" />
+                <TextField fx:id="functionNameField" promptText="e.g. matrix-factorization" />
+            </VBox>
+
+            <VBox spacing="4.0">
+                <Label text="Entry Point" styleClass="gauge-title" />
+                <TextField fx:id="entrypointField" text="main" />
+            </VBox>
+
+            <Button fx:id="uploadButton" text="Register Bytecode" onAction="#onUploadClicked"
+                    style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+
+            <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
+
+            <Separator style="-fx-padding: 8 0 8 0;" />
+
+            <!-- Card 2: Execution & Parameters -->
+            <Label text="Execute Workload &amp; Parameters" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #10b981;" />
+
+            <VBox spacing="6.0" styleClass="attestation-card">
+                <Label text="SELECTED TARGET FUNCTION:" styleClass="gauge-title" />
+                <Label fx:id="selectedTargetLabel" text="Select a function from the table or upload bytecode." style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #38bdf8;" wrapText="true" />
+            </VBox>
+
+            <VBox spacing="4.0">
+                <Label text="Arguments (JSON)" styleClass="gauge-title" />
+                <TextArea fx:id="argumentsArea" prefRowCount="3" promptText="{&quot;key&quot;: &quot;value&quot;}" text="{}" style="-fx-font-family: monospace; -fx-font-size: 12px;" />
+            </VBox>
+
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                    <Label text="Instruction Budget" styleClass="gauge-title" />
+                    <TextField fx:id="budgetField" text="10000000" />
+                </VBox>
+                <VBox spacing="4.0" prefWidth="100.0">
+                    <Label text="Memory (MB)" styleClass="gauge-title" />
+                    <TextField fx:id="memoryField" text="64" />
+                </VBox>
+                <VBox spacing="4.0" prefWidth="120.0">
+                    <Label text="Priority" styleClass="gauge-title" />
+                    <ComboBox fx:id="priorityCombo" prefWidth="120.0" />
+                </VBox>
+            </HBox>
+
+            <Button fx:id="executeButton" text="Execute Function" onAction="#onExecuteClicked"
+                    style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+
+            <Label fx:id="executionStatusLabel" style="-fx-text-fill: #34d399; -fx-font-size: 12px;" wrapText="true" />
         </VBox>
-
-        <VBox spacing="4.0">
-            <Label text="Function Name" styleClass="gauge-title" />
-            <TextField fx:id="functionNameField" promptText="e.g. matrix-factorization" />
-        </VBox>
-
-        <VBox spacing="4.0">
-            <Label text="Entry Point" styleClass="gauge-title" />
-            <TextField fx:id="entrypointField" text="main" />
-        </VBox>
-
-        <Button fx:id="uploadButton" text="Register Bytecode" onAction="#onUploadClicked"
-                style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
-
-        <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
-    </VBox>
+    </ScrollPane>
 </SplitPane>

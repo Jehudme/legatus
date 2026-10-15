@@ -28,9 +28,16 @@ public class DrawerController {
 
     private void bindViewModel() {
         if (viewModel == null) return;
-        consoleListView.setItems(viewModel.getConsoleLines());
+        consoleListView.setItems(viewModel.getFilteredConsoleLines());
         autoScrollCheckBox.selectedProperty().bindBidirectional(viewModel.isAutoScrollProperty());
         filterField.textProperty().bindBidirectional(viewModel.filterTextProperty());
+
+        // Auto-scroll when new console log lines arrive
+        viewModel.getFilteredConsoleLines().addListener((javafx.collections.ListChangeListener<String>) c -> {
+            if (viewModel.isAutoScrollProperty().get() && !viewModel.getFilteredConsoleLines().isEmpty()) {
+                consoleListView.scrollTo(viewModel.getFilteredConsoleLines().size() - 1);
+            }
+        });
     }
 
     @FXML

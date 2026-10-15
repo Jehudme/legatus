@@ -52,10 +52,24 @@ public class AuditLogController {
         verifyChainButton.disableProperty().bind(viewModel.isBusyProperty());
         verificationBadge.textProperty().bind(viewModel.verificationStatusProperty());
         verificationDetailsLabel.textProperty().bind(viewModel.verificationDetailsProperty());
+
+        // Automatically fetch ledger logs on display
+        viewModel.refreshAuditLogs();
+    }
+
+    @FXML
+    private void onRefreshClicked() {
+        if (viewModel != null) {
+            viewModel.refreshAuditLogs();
+        }
     }
 
     @FXML
     private void onVerifyClicked() {
-        if (viewModel != null) viewModel.verifyChainIntegrity();
+        if (viewModel != null) {
+            viewModel.verifyChainIntegrity().thenRun(() -> {
+                viewModel.refreshAuditLogs();
+            });
+        }
     }
 }

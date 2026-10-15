@@ -93,18 +93,61 @@ public final class RestDto {
     public record RejectEnrollmentRequest(String reason, boolean blacklist_ip) {}
 
     // Tasks & Bytecode
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CreateTaskRequest(
-            String name,
-            String bytecode_sha256,
-            String entrypoint,
-            long instruction_budget,
-            long max_memory_bytes,
-            String input_data_base64
+            @JsonProperty("name") String name,
+            @JsonProperty("priority") String priority,
+            @JsonProperty("entry_point") String entry_point,
+            @JsonProperty("bytecode") BytecodeRef bytecode,
+            @JsonProperty("constraints") ConstraintsPayload constraints,
+            @JsonProperty("arguments") java.util.Map<String, Object> arguments
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record CreateTaskResponse(String task_id, String status, String created_at) {}
+    public record BytecodeRef(
+            @JsonProperty("format") String format,
+            @JsonProperty("sha256") String sha256
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ConstraintsPayload(
+            @JsonProperty("instruction_budget") Long instruction_budget,
+            @JsonProperty("max_memory_bytes") Long max_memory_bytes,
+            @JsonProperty("timeout_ms") Integer timeout_ms
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record CreateTaskResponse(
+            @JsonProperty("task_id") String task_id,
+            @JsonProperty("status") String status,
+            @JsonProperty("submitted_at") Object submitted_at
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SolixFunctionDto(
+            @JsonProperty("functionId") java.util.UUID functionId,
+            @JsonProperty("name") String name,
+            @JsonProperty("semver") String semver,
+            @JsonProperty("entryPoint") String entryPoint,
+            @JsonProperty("bytecodeFormat") String bytecodeFormat,
+            @JsonProperty("bytecodeSha256") String bytecodeSha256,
+            @JsonProperty("defaultBudget") Long defaultBudget,
+            @JsonProperty("defaultMemoryBytes") Long defaultMemoryBytes,
+            @JsonProperty("defaultTimeoutMs") Integer defaultTimeoutMs,
+            @JsonProperty("createdAt") Object createdAt
+    ) {
+        public String effectiveSha256() {
+            return bytecodeSha256 != null ? bytecodeSha256 : "";
+        }
+        public String effectiveEntryPoint() {
+            return entryPoint != null && !entryPoint.isBlank() ? entryPoint : "main";
+        }
+    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TaskStatusResponse(

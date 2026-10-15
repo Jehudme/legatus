@@ -23,16 +23,38 @@ public class TaskService {
             String entrypoint,
             long instructionBudget,
             long maxMemoryBytes,
-            String inputDataBase64) {
-        RestDto.CreateTaskRequest request = new RestDto.CreateTaskRequest(
-                name,
-                bytecodeSha256,
-                entrypoint != null ? entrypoint : "main",
+            int timeoutMs,
+            String priority,
+            java.util.Map<String, Object> arguments) {
+        RestDto.BytecodeRef bytecodeRef = new RestDto.BytecodeRef("RAW", bytecodeSha256);
+        RestDto.ConstraintsPayload constraints = new RestDto.ConstraintsPayload(
                 instructionBudget > 0 ? instructionBudget : 10_000_000L,
                 maxMemoryBytes > 0 ? maxMemoryBytes : 67_108_864L,
-                inputDataBase64
+                timeoutMs > 0 ? timeoutMs : 60_000
+        );
+        RestDto.CreateTaskRequest request = new RestDto.CreateTaskRequest(
+                name != null && !name.isBlank() ? name : "task-" + System.currentTimeMillis(),
+                priority != null && !priority.isBlank() ? priority : "NORMAL",
+                entrypoint != null && !entrypoint.isBlank() ? entrypoint : "main",
+                bytecodeRef,
+                constraints,
+                arguments != null ? arguments : java.util.Map.of()
         );
         return restClient.post("/api/v1/tasks", request, RestDto.CreateTaskResponse.class);
+    }
+
+    public CompletableFuture<RestDto.CreateTaskResponse> createTask(
+            String name,
+            String bytecodeSha256,
+            String entrypoint,
+            long instructionBudget,
+            long maxMemoryBytes,
+            String inputDataBase64) {
+        java.util.Map<String, Object> args = new java.util.HashMap<>();
+        if (inputDataBase64 != null && !inputDataBase64.isBlank()) {
+            args.put("input_data_base64", inputDataBase64);
+        }
+        return createTask(name, bytecodeSha256, entrypoint, instructionBudget, maxMemoryBytes, 60_000, "NORMAL", args);
     }
 
     public CompletableFuture<RestDto.TaskStatusResponse> getTask(String taskId) {
