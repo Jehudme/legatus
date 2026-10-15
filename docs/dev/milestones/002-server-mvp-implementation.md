@@ -61,7 +61,7 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
 - [x] `[P2]` **Built-In Cron & Webhook Ingestion Gateways:** Implement configurable cron trigger scheduling (`legatus.features.cron-scheduler`) and third-party webhook ingestion (`/api/v1/webhooks/{function_name}`). (Issue #210)
-- [ ] `[P2]` **Task History Retention Sweeper:** Implement background auto-purge job (`legatus.retention.auto-purge`) deleting completed task records older than 168 hours (7 days). (Issue #211)
+- [x] `[P2]` **Task History Retention Sweeper:** Implement background auto-purge job (`legatus.retention.auto-purge`) deleting completed task records older than 168 hours (7 days). (Issue #211)
 
 ### 3.4 P3: Low Priority (Opportunistic Cleanups)
 - [ ] `[P3]` **Optional Prometheus Actuator Exporter:** Configure optional Micrometer `/actuator/prometheus` endpoint (`management.endpoints.prometheus=false` by default) for external scraping. (Issue #212)
