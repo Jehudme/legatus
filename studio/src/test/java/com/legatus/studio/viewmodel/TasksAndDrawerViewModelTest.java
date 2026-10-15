@@ -35,6 +35,17 @@ public class TasksAndDrawerViewModelTest {
         });
 
         server.createContext("/api/v1/tasks", ex -> {
+            if ("GET".equalsIgnoreCase(ex.getRequestMethod())) {
+                byte[] bytes = MAPPER.writeValueAsBytes(java.util.List.of(
+                        new RestDto.TaskStatusResponse("task-sync-1", "catalog-fn", "QUEUED", null, null, null, null, null, null, null)
+                ));
+                ex.getResponseHeaders().set("Content-Type", "application/json");
+                ex.sendResponseHeaders(200, bytes.length);
+                try (OutputStream os = ex.getResponseBody()) {
+                    os.write(bytes);
+                }
+                return;
+            }
             byte[] bytes = MAPPER.writeValueAsBytes(new RestDto.CreateTaskResponse("task-new-123", "QUEUED", "2026-10-15T15:00:00Z"));
             ex.getResponseHeaders().set("Content-Type", "application/json");
             ex.sendResponseHeaders(200, bytes.length);
@@ -96,6 +107,11 @@ public class TasksAndDrawerViewModelTest {
             vm.dispatchBytecodeShaProperty().set("abcdef123456");
             String newTaskId = vm.executeDispatch().get();
             assertEquals("task-new-123", newTaskId);
+
+            // Refresh tasks
+            vm.refreshTasks().get();
+            assertEquals(3, tasks.size());
+            assertTrue(tasks.stream().anyMatch(t -> "task-sync-1".equals(t.getTaskId())));
         }
     }
 

@@ -28,20 +28,28 @@ class LctpTaskDispatcherTest {
     private WorkerSessionRegistry sessionRegistry;
     private SecretVaultService secretVaultService;
     private ComputeTaskRepository computeTaskRepository;
+    private dev.legatus.server.storage.BytecodeStorageService bytecodeStorageService;
+    private dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
     private ObjectMapper objectMapper;
     private LctpTaskDispatcher dispatcher;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         sessionRegistry = new WorkerSessionRegistry();
         secretVaultService = mock(SecretVaultService.class);
         computeTaskRepository = mock(ComputeTaskRepository.class);
+        bytecodeStorageService = mock(dev.legatus.server.storage.BytecodeStorageService.class);
+        studioEventPublisher = mock(dev.legatus.server.service.studio.StudioEventPublisher.class);
         objectMapper = new ObjectMapper();
+
+        when(bytecodeStorageService.load(anyString())).thenReturn(Optional.of("test-bytecode".getBytes()));
 
         dispatcher = new LctpTaskDispatcher(
             sessionRegistry,
             secretVaultService,
             computeTaskRepository,
+            bytecodeStorageService,
+            studioEventPublisher,
             objectMapper
         );
     }
@@ -99,6 +107,7 @@ class LctpTaskDispatcherTest {
 
         verify(wsSession).sendMessage(any(TextMessage.class));
         verify(computeTaskRepository).saveAndFlush(task);
+        verify(studioEventPublisher).publishTaskLifecycle(any());
     }
 
     @Test

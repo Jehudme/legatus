@@ -149,6 +149,34 @@ class TaskResourceIT {
     }
 
     @Test
+    @DisplayName("ROLE_OPERATOR should be allowed to list all tasks (200 OK)")
+    @WithMockUser(username = "operator@legatus.internal", roles = { "OPERATOR" })
+    void testListTasksAsOperator() throws Exception {
+        ComputeTask task1 = new ComputeTask()
+            .taskId("task-list-1")
+            .name("list-task-1")
+            .status(TaskStatus.COMPLETED)
+            .entryPoint("main")
+            .bytecodeSha256(sampleSha256)
+            .createdAt(Instant.now());
+        ComputeTask task2 = new ComputeTask()
+            .taskId("task-list-2")
+            .name("list-task-2")
+            .status(TaskStatus.QUEUED)
+            .entryPoint("main")
+            .bytecodeSha256(sampleSha256)
+            .createdAt(Instant.now().plusMillis(100));
+
+        computeTaskRepository.saveAndFlush(task1);
+        computeTaskRepository.saveAndFlush(task2);
+
+        mockMvc.perform(get(API_URL))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(2))))
+            .andExpect(jsonPath("$[*].task_id", hasItems("task-list-1", "task-list-2")));
+    }
+
+    @Test
     @DisplayName("ROLE_OPERATOR should abort a queued task (202 Accepted)")
     @WithMockUser(username = "operator@legatus.internal", roles = { "OPERATOR" })
     void testAbortQueuedTaskAsOperator() throws Exception {
