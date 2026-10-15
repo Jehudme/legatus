@@ -52,7 +52,7 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
   - [x] Secret repository persistence integration, zeroizable task dispatch callback, and `SecretAdminResource` (`/api/v1/admin/secrets`) with RBAC enforcement and WORM audit logging.
 
 ### 3.2 P1: High Priority (Milestone Core)
-- [ ] `[P1]` **Deterministic Bin-Packing Task Scheduler:** Implement the 5-predicate worker eligibility filter and pluggable scheduling strategies (`LEAST_LOADED` default, `BIN_PACK`, `ROUND_ROBIN`, `LOCALITY_FIRST`) with JPA `@Version` optimistic locking retry logic. (Issue #206)
+- [x] `[P1]` **Deterministic Bin-Packing Task Scheduler:** Implement the 5-predicate worker eligibility filter and pluggable scheduling strategies (`LEAST_LOADED` default, `BIN_PACK`, `ROUND_ROBIN`, `LOCALITY_FIRST`) with JPA `@Version` optimistic locking retry logic. (Issue #206)
 - [ ] `[P1]` **REST Task & Bytecode Gateway (`/api/v1/tasks`, `/api/v1/bytecode/{sha256}`):** Implement task submission (`202 Accepted`), status/metrics querying, two-stage task abort forwarding (`POST /tasks/{id}/abort`), and raw `application/octet-stream` bytecode downloading with `ETag` / `304 Not Modified` support. (Issue #207)
   - [x] Pluggable Bytecode Storage SPI (`BytecodeStorageService`, `LocalFilesystemBytecodeStorage`) with SHA-256 validation, path traversal defense, and 100% test coverage.
   - [ ] REST Controller for Bytecode ingestion & download with ETag caching.
