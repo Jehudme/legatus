@@ -27,6 +27,11 @@ Deliver the native cross-platform **Legatus Studio** (`legatus-studio`) desktop 
 
 ## 3. Prioritized Deliverables & Task Matrix
 
+### 3.0 P0: Foundation, Dependencies & Vector Assets (Completed)
+- [x] `[P0]` **Modular OpenJFX 21 & AtlantaFX 2.0.1 Foundation:** Configure Java 21 LTS release target, OpenJFX 21.0.5 controls/fxml/graphics/base, AtlantaFX 2.0.1, Ikonli 12.3.1, Jackson 2.17.2, and TestFX 4.0.18. (Issue #400)
+- [x] `[P0]` **Dynamic ViewLoaderService & ThemeService:** Provide decoupled FXML loader (`ViewLoaderService`) supporting classpath resolution and dynamic container view switching, and live AtlantaFX theme switcher (`ThemeService`). (Issue #400)
+- [x] `[P0]` **Vector Icon Suite:** Author 18 high-fidelity SVG icon assets for OS badges, cluster telemetry gauges, status dots, and cryptographic attestation cards. (Issue #400)
+
 ### 3.1 P0: Critical Blockers (Release Gate)
 - [ ] `[P0]` **Virtual Thread Transport & 60Hz Telemetry Coalescer (`GL-0011`):** Isolate all HTTP/2 REST calls and `/ws/studio` WebSocket frame deserialization onto Java 21 Virtual Threads, buffering incoming events and marshaling UI property updates via `Platform.runLater()` at most once every `16.6ms` (60Hz) so the JavaFX Application Thread never blocks or stutters. (Issue #401)
 - [ ] `[P0]` **Quarantine Visual Attestation Modal (`ADR-0005`):** Implement real-time `EVENT_ENROLLMENT_REQUESTED` toast notifications and the side-by-side attestation modal displaying node hardware specs, colon-separated SHA-256 hex fingerprint (`4E:8A:BC:31:09:FF:7D:12`), and highlighted 3-word visual confirmation code (`Tiger-Galaxy-77`) with **[Approve & Issue Lease]** and **[Reject & Block IP]** actions. (Issue #402)
