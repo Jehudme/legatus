@@ -46,4 +46,11 @@ TEST_CASE("WorkerScaffold - Common Utilities & Solix Linkage", "[worker][scaffol
         REQUIRE(opts.instruction_budget == 5000);
         REQUIRE(opts.sandboxed == true);
     }
+
+    SECTION("Precompiled header symbols and packaging version consistency") {
+        REQUIRE(std::string(legatus::VERSION).starts_with("1.0.0"));
+        REQUIRE(legatus::VERSION_MAJOR == 1);
+        REQUIRE(legatus::VERSION_MINOR == 0);
+        REQUIRE(legatus::VERSION_PATCH == 0);
+    }
 }
