@@ -1,14 +1,14 @@
 package com.legatus.studio;
 
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
+import com.legatus.studio.service.ThemeService;
+import com.legatus.studio.service.ViewLoaderService;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
 
 /**
- * JavaFX App
+ * Main JavaFX Application for Legatus Studio.
  */
 public class Application extends javafx.application.Application {
 
@@ -16,22 +16,23 @@ public class Application extends javafx.application.Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        scene = new Scene(loadFXML("primary"), 640, 480);
+        // Bootstrap AtlantaFX Dark-Mode theme
+        ThemeService.applyTheme(ThemeService.Theme.PRIMER_DARK);
+
+        var result = ViewLoaderService.load("primary");
+        scene = new Scene(result.root(), 1280, 800);
+
+        stage.setTitle("Legatus Studio");
         stage.setScene(scene);
         stage.show();
     }
 
     public static void setRoot(String fxml) throws IOException {
-        scene.setRoot(loadFXML(fxml));
-    }
-
-    private static Parent loadFXML(String fxml) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(Application.class.getResource(fxml + ".fxml"));
-        return fxmlLoader.load();
+        var result = ViewLoaderService.load(fxml);
+        scene.setRoot(result.root());
     }
 
     public static void main(String[] args) {
         launch();
     }
-
 }
