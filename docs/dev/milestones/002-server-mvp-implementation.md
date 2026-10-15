@@ -30,6 +30,8 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 
 ### 3.1 P0: Critical Blockers (Release Gate)
 - [ ] `[P0]` **Quarantine Enrollment & Rate Limiter (`/api/v1/workers/register`):** Implement Ed25519 public key ingestion, SHA-256 hex fingerprint (`XX:XX:...`) and deterministic 3-word visual code (`Tiger-Galaxy-77`) derivation, 5 req/min/IP token-bucket rate limiter, 50-node global pending queue cap (`429 Too Many Requests`), and 15-minute TTL expiration sweeper. (Issue #201)
+  - [x] Ed25519 Fingerprint & Visual Code Service (`Ed25519FingerprintService`) with SHA-256 colon-delimited fingerprints, deterministic 3-word visual confirmation codes, Base64/Hex support, and 100% test coverage.
+  - [ ] Rate-limited `/api/v1/workers/register` controller and pending queue capacity manager.
 - [ ] `[P0]` **Bounded Argon2id Verification Pool & Ticket Broker (`/api/v1/auth/worker`):** Implement Argon2id ($m=64\text{ MB}, t=3, p=4$) token hashing pinned to a bounded 4-thread pool (`Executors.newFixedThreadPool(4)`) and issue 30-second single-use `ws_tkt_<uuid>` tickets in Caffeine with atomic `asMap().remove(ticket)` burn-on-read during WebSocket handshake. (Issue #202)
   - [x] Bounded Argon2id Service (`Argon2idService`) with 4-carrier thread pool, $m=64\text{ MB}$, $t=3$, $p=4$, and 100% test coverage.
   - [ ] Caffeine 30-second atomic burn-on-read ticket exchange broker.
@@ -38,6 +40,8 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 - [ ] `[P0]` **LCTP WebSocket Broker & Session Reconciliation (`/ws/worker`):** Implement Java 21 `sealed interface` wire records (`GL-0011`) for `SESSION_INIT`, `SESSION_ACK`, `HEARTBEAT`, `HEARTBEAT_ACK`, `DISPATCH_TASK`, `TASK_PROGRESS`, `TASK_RESULT`, `TASK_RESULT_ACK`, `DRAIN_NOTICE`, `ABORT_TASK`, and `PROTOCOL_ERROR`, including in-flight `reconcile_tasks` re-attachment on transient reconnects and 32 MB frame ceiling (`1009`). (Issue #203)
 - [ ] `[P0]` **Heartbeat Dead-Man's Switch & Orphan Task Recovery:** Implement the 1000ms Virtual Thread liveness sweeper that closes silent worker sockets after 15,000ms (`Close Code 1011`), transitions nodes to `OFFLINE`, and re-queues idempotent tasks (`attempt_count < max_retries`) or marks them `FAILED` (`ERR_WORKER_LOST`). (Issue #204)
 - [ ] `[P0]` **AES-256-GCM Secret Vault & H2 Encryption at Rest:** Enforce `LEGATUS_MASTER_KEY` HKDF-SHA256 bootstrap (aborting with exit code `78` in `prod` if missing), per-secret AES-256-GCM encryption with 96-bit IVs, plaintext zeroing after `DISPATCH_TASK` serialization, and H2 `CIPHER=AES;FILE_LOCK=FS` persistence. (Issue #205)
+  - [x] AES-256-GCM Secret Vault Service (`SecretVaultService`) with HKDF-SHA256 master key derivation, production exit code 78 abort enforcement, tamper-evident authenticated decryption, and memory zeroization.
+  - [ ] Secret repository persistence integration and DISPATCH_TASK frame zeroization.
 
 ### 3.2 P1: High Priority (Milestone Core)
 - [ ] `[P1]` **Deterministic Bin-Packing Task Scheduler:** Implement the 5-predicate worker eligibility filter and pluggable scheduling strategies (`LEAST_LOADED` default, `BIN_PACK`, `ROUND_ROBIN`, `LOCALITY_FIRST`) with JPA `@Version` optimistic locking retry logic. (Issue #206)
