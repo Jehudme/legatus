@@ -67,16 +67,20 @@ public class FunctionsViewModel {
 
             return bytecodeService.uploadBytecode(bytes, name)
                     .thenApply(sha -> {
-                        BytecodeItem item = new BytecodeItem(sha, name, entry, bytes.length, java.time.Instant.now().toString());
-                        bytecodeItems.add(item);
-                        selectedBytecode.set(item);
-                        isUploading.set(false);
-                        statusMessage.set("Bytecode registered: " + sha.substring(0, 16) + "...");
+                        com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                            BytecodeItem item = new BytecodeItem(sha, name, entry, bytes.length, java.time.Instant.now().toString());
+                            bytecodeItems.add(item);
+                            selectedBytecode.set(item);
+                            isUploading.set(false);
+                            statusMessage.set("Bytecode registered: " + sha.substring(0, 16) + "...");
+                        });
                         return true;
                     })
                     .exceptionally(ex -> {
-                        isUploading.set(false);
-                        statusMessage.set("Upload failed: " + ex.getCause().getMessage());
+                        com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                            isUploading.set(false);
+                            statusMessage.set("Upload failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        });
                         return false;
                     });
         } catch (IOException e) {

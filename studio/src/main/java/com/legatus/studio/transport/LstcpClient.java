@@ -86,6 +86,9 @@ public class LstcpClient implements WebSocket.Listener {
         if (trimmed.endsWith("/")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
+        if (trimmed.endsWith("/ws/studio")) {
+            trimmed = trimmed.substring(0, trimmed.length() - "/ws/studio".length());
+        }
         return trimmed;
     }
 

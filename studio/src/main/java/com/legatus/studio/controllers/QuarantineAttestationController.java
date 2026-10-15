@@ -49,6 +49,15 @@ public class QuarantineAttestationController {
                 coresMemLabel.setText(newV.getAllocatableCores() + " cores | " + (newV.getMaxMemoryBytes() / (1024 * 1024 * 1024)) + " GB");
                 fingerprintLabel.setText(newV.getFingerprintHex());
                 visualCodeLabel.setText(newV.getVisualCode());
+            } else {
+                viewModel.setSelectedEnrollment(null);
+                workerIdLabel.setText("-");
+                hostnameLabel.setText("-");
+                ipLabel.setText("-");
+                osArchLabel.setText("-");
+                coresMemLabel.setText("-");
+                fingerprintLabel.setText("-");
+                visualCodeLabel.setText("-");
             }
         });
 

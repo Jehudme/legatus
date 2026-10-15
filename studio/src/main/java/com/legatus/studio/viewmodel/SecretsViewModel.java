@@ -34,13 +34,17 @@ public class SecretsViewModel {
         isBusy.set(true);
         return secretsService.getSecrets()
                 .thenAccept(list -> {
-                    secrets.clear();
-                    list.forEach(dto -> secrets.add(new SecretItem(dto.key(), dto.scope(), dto.created_at(), dto.updated_at())));
-                    isBusy.set(false);
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        secrets.clear();
+                        list.forEach(dto -> secrets.add(new SecretItem(dto.key(), dto.scope(), dto.created_at(), dto.updated_at())));
+                        isBusy.set(false);
+                    });
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Failed to load secrets: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to load secrets: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return null;
                 });
     }
@@ -58,18 +62,22 @@ public class SecretsViewModel {
         isBusy.set(true);
         return secretsService.createSecret(key, scope, val)
                 .thenApply(v -> {
-                    SecretItem item = new SecretItem(key, scope, Instant.now().toString(), Instant.now().toString());
-                    secrets.add(item);
-                    selectedSecret.set(item);
-                    newKeyInput.set("");
-                    newValueInput.set("");
-                    isBusy.set(false);
-                    statusMessage.set("Secret '" + key + "' stored securely.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        SecretItem item = new SecretItem(key, scope, Instant.now().toString(), Instant.now().toString());
+                        secrets.add(item);
+                        selectedSecret.set(item);
+                        newKeyInput.set("");
+                        newValueInput.set("");
+                        isBusy.set(false);
+                        statusMessage.set("Secret '" + key + "' stored securely.");
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Failed to create secret: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to create secret: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }
@@ -81,15 +89,19 @@ public class SecretsViewModel {
         isBusy.set(true);
         return secretsService.deleteSecret(current.getKey())
                 .thenApply(v -> {
-                    secrets.remove(current);
-                    selectedSecret.set(secrets.isEmpty() ? null : secrets.get(0));
-                    isBusy.set(false);
-                    statusMessage.set("Secret '" + current.getKey() + "' deleted.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        secrets.remove(current);
+                        selectedSecret.set(secrets.isEmpty() ? null : secrets.get(0));
+                        isBusy.set(false);
+                        statusMessage.set("Secret '" + current.getKey() + "' deleted.");
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Failed to delete secret: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to delete secret: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }

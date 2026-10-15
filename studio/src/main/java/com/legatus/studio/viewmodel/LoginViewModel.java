@@ -98,16 +98,7 @@ public class LoginViewModel {
     }
 
     private void runOnFxThread(Runnable action) {
-        try {
-            if (javafx.application.Platform.isFxApplicationThread()) {
-                action.run();
-            } else {
-                javafx.application.Platform.runLater(action);
-            }
-        } catch (IllegalStateException e) {
-            // Toolkit not initialized in headless unit tests
-            action.run();
-        }
+        com.legatus.studio.service.FxAsync.runOnFxThread(action);
     }
 
     public StringProperty serverUrlProperty() { return serverUrl; }

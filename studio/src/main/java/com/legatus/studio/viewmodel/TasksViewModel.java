@@ -78,16 +78,20 @@ public class TasksViewModel implements AutoCloseable {
 
         return taskService.abortTask(current.getTaskId(), reason)
                 .thenApply(v -> {
-                    isBusy.set(false);
-                    current.setStatus("ABORTING");
-                    startAbortCountdown(current);
-                    statusMessage.set("Task " + current.getTaskId() + " abort initiated (Stage 1 Grace Period - 10s).");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        current.setStatus("ABORTING");
+                        startAbortCountdown(current);
+                        statusMessage.set("Task " + current.getTaskId() + " abort initiated (Stage 1 Grace Period - 10s).");
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    current.setIsAborting(false);
-                    statusMessage.set("Abort request failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        current.setIsAborting(false);
+                        statusMessage.set("Abort request failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }
@@ -95,14 +99,16 @@ public class TasksViewModel implements AutoCloseable {
     private void startAbortCountdown(TaskRecord task) {
         ScheduledFuture<?>[] futureHolder = new ScheduledFuture<?>[1];
         futureHolder[0] = countdownExecutor.scheduleAtFixedRate(() -> {
-            int current = task.getAbortCountdownSeconds();
-            if (current <= 1 || !"ABORTING".equalsIgnoreCase(task.getStatus())) {
-                futureHolder[0].cancel(false);
-                task.setAbortCountdownSeconds(0);
-                task.setIsAborting(false);
-            } else {
-                task.setAbortCountdownSeconds(current - 1);
-            }
+            com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                int current = task.getAbortCountdownSeconds();
+                if (current <= 1 || !"ABORTING".equalsIgnoreCase(task.getStatus())) {
+                    futureHolder[0].cancel(false);
+                    task.setAbortCountdownSeconds(0);
+                    task.setIsAborting(false);
+                } else {
+                    task.setAbortCountdownSeconds(current - 1);
+                }
+            });
         }, 1, 1, TimeUnit.SECONDS);
     }
 
@@ -121,12 +127,16 @@ public class TasksViewModel implements AutoCloseable {
                 dispatchMemory.get(),
                 null
         ).thenApply(resp -> {
-            isBusy.set(false);
-            statusMessage.set("Task dispatched: " + resp.task_id());
+            com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                isBusy.set(false);
+                statusMessage.set("Task dispatched: " + resp.task_id());
+            });
             return resp.task_id();
         }).exceptionally(ex -> {
-            isBusy.set(false);
-            statusMessage.set("Dispatch failed: " + ex.getCause().getMessage());
+            com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                isBusy.set(false);
+                statusMessage.set("Dispatch failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+            });
             return null;
         });
     }

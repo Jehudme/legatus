@@ -63,13 +63,17 @@ public class FleetViewModel {
         isLoading.set(true);
         return workerService.drainWorker(worker.getWorkerId())
                 .thenAccept(v -> {
-                    worker.setState("DRAINING");
-                    isLoading.set(false);
-                    statusMessage.set("Worker " + worker.getWorkerId() + " marked as DRAINING.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        worker.setState("DRAINING");
+                        isLoading.set(false);
+                        statusMessage.set("Worker " + worker.getWorkerId() + " marked as DRAINING.");
+                    });
                 })
                 .exceptionally(ex -> {
-                    isLoading.set(false);
-                    statusMessage.set("Failed to drain worker: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to drain worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return null;
                 });
     }
@@ -81,13 +85,17 @@ public class FleetViewModel {
         isLoading.set(true);
         return workerService.revokeWorker(worker.getWorkerId())
                 .thenAccept(v -> {
-                    worker.setState("REVOKED");
-                    isLoading.set(false);
-                    statusMessage.set("Worker " + worker.getWorkerId() + " lease revoked.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        worker.setState("REVOKED");
+                        isLoading.set(false);
+                        statusMessage.set("Worker " + worker.getWorkerId() + " lease revoked.");
+                    });
                 })
                 .exceptionally(ex -> {
-                    isLoading.set(false);
-                    statusMessage.set("Failed to revoke worker: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to revoke worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return null;
                 });
     }

@@ -29,19 +29,23 @@ public class WorkerService {
 
     public CompletableFuture<Void> approveEnrollment(String enrollmentId, String leaseDuration) {
         RestDto.ApproveEnrollmentRequest request = new RestDto.ApproveEnrollmentRequest(leaseDuration != null ? leaseDuration : "24h");
-        return restClient.post("/api/v1/admin/workers/enrollments/" + enrollmentId + "/approve", request, Void.class);
+        String encoded = java.net.URLEncoder.encode(enrollmentId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+        return restClient.post("/api/v1/admin/workers/enrollments/" + encoded + "/approve", request, Void.class);
     }
 
     public CompletableFuture<Void> rejectEnrollment(String enrollmentId, String reason, boolean blacklistIp) {
         RestDto.RejectEnrollmentRequest request = new RestDto.RejectEnrollmentRequest(reason, blacklistIp);
-        return restClient.post("/api/v1/admin/workers/enrollments/" + enrollmentId + "/reject", request, Void.class);
+        String encoded = java.net.URLEncoder.encode(enrollmentId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+        return restClient.post("/api/v1/admin/workers/enrollments/" + encoded + "/reject", request, Void.class);
     }
 
     public CompletableFuture<Void> drainWorker(String workerId) {
-        return restClient.post("/api/v1/admin/workers/" + workerId + "/drain", null, Void.class);
+        String encoded = java.net.URLEncoder.encode(workerId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+        return restClient.post("/api/v1/admin/workers/" + encoded + "/drain", null, Void.class);
     }
 
     public CompletableFuture<Void> revokeWorker(String workerId) {
-        return restClient.post("/api/v1/admin/workers/" + workerId + "/revoke", null, Void.class);
+        String encoded = java.net.URLEncoder.encode(workerId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+        return restClient.post("/api/v1/admin/workers/" + encoded + "/revoke", null, Void.class);
     }
 }

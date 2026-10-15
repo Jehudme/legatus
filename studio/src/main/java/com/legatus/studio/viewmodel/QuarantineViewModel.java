@@ -44,15 +44,19 @@ public class QuarantineViewModel {
         isProcessing.set(true);
         return workerService.approveEnrollment(current.getEnrollmentId(), leaseDuration.get())
                 .thenApply(v -> {
-                    enrollments.remove(current);
-                    selectedEnrollment.set(enrollments.isEmpty() ? null : enrollments.get(0));
-                    isProcessing.set(false);
-                    statusMessage.set("Lease issued for worker: " + current.getWorkerId());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        enrollments.remove(current);
+                        selectedEnrollment.set(enrollments.isEmpty() ? null : enrollments.get(0));
+                        isProcessing.set(false);
+                        statusMessage.set("Lease issued for worker: " + current.getWorkerId());
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isProcessing.set(false);
-                    statusMessage.set("Approval failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isProcessing.set(false);
+                        statusMessage.set("Approval failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }
@@ -64,15 +68,19 @@ public class QuarantineViewModel {
         isProcessing.set(true);
         return workerService.rejectEnrollment(current.getEnrollmentId(), rejectionReason.get(), blacklistIp.get())
                 .thenApply(v -> {
-                    enrollments.remove(current);
-                    selectedEnrollment.set(enrollments.isEmpty() ? null : enrollments.get(0));
-                    isProcessing.set(false);
-                    statusMessage.set("Node " + current.getWorkerId() + " rejected.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        enrollments.remove(current);
+                        selectedEnrollment.set(enrollments.isEmpty() ? null : enrollments.get(0));
+                        isProcessing.set(false);
+                        statusMessage.set("Node " + current.getWorkerId() + " rejected.");
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isProcessing.set(false);
-                    statusMessage.set("Rejection failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isProcessing.set(false);
+                        statusMessage.set("Rejection failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }

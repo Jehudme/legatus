@@ -66,7 +66,7 @@ public class StudioContext {
         this.telemetryService = new TelemetryService(lstcpClient);
 
         this.lstcpClient.setStateListener(state -> {
-            Platform.runLater(() -> mainViewModel.updateConnectionState(state));
+            FxAsync.runOnFxThread(() -> mainViewModel.updateConnectionState(state));
         });
 
         // If studio WebSocket ticket is present from login, connect immediately
@@ -84,7 +84,7 @@ public class StudioContext {
 
         // Fetch workers snapshot
         workerService.getWorkers().thenAccept(workers -> {
-            Platform.runLater(() -> {
+            FxAsync.runOnFxThread(() -> {
                 for (var w : workers) {
                     WorkerNode node = new WorkerNode(
                         w.worker_id(),
@@ -110,7 +110,7 @@ public class StudioContext {
 
         // Fetch quarantined enrollments snapshot
         workerService.getEnrollments().thenAccept(enrollments -> {
-            Platform.runLater(() -> {
+            FxAsync.runOnFxThread(() -> {
                 for (var enr : enrollments) {
                     boolean exists = telemetryService.getEnrollmentsList().stream()
                         .anyMatch(e -> e.getEnrollmentId().equals(enr.enrollment_id()));

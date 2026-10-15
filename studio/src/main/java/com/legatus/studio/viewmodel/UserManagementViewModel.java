@@ -34,15 +34,19 @@ public class UserManagementViewModel {
         isBusy.set(true);
         return userService.getAccounts()
                 .thenAccept(list -> {
-                    accounts.clear();
-                    list.forEach(a -> accounts.add(new OperatorAccount(
-                            a.account_id(), a.username(), a.email(), a.role(), a.status(), a.created_at(), a.last_login_at()
-                    )));
-                    isBusy.set(false);
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        accounts.clear();
+                        list.forEach(a -> accounts.add(new OperatorAccount(
+                                a.account_id(), a.username(), a.email(), a.role(), a.status(), a.created_at(), a.last_login_at()
+                        )));
+                        isBusy.set(false);
+                    });
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Failed to load accounts: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to load accounts: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return null;
                 });
     }
@@ -62,16 +66,20 @@ public class UserManagementViewModel {
         return userService.createAccount(u, em, pw, r)
                 .thenApply(v -> {
                     refreshAccounts();
-                    newUsername.set("");
-                    newEmail.set("");
-                    newPassword.set("");
-                    isBusy.set(false);
-                    statusMessage.set("Account '" + u + "' created successfully.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        newUsername.set("");
+                        newEmail.set("");
+                        newPassword.set("");
+                        isBusy.set(false);
+                        statusMessage.set("Account '" + u + "' created successfully.");
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Account creation failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Account creation failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }
@@ -85,14 +93,18 @@ public class UserManagementViewModel {
 
         return userService.updateAccountStatus(current.getAccountId(), newStatus)
                 .thenApply(v -> {
-                    current.setStatus(newStatus);
-                    isBusy.set(false);
-                    statusMessage.set("Account status updated to " + newStatus);
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        current.setStatus(newStatus);
+                        isBusy.set(false);
+                        statusMessage.set("Account status updated to " + newStatus);
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Status update failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Status update failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }
@@ -104,15 +116,19 @@ public class UserManagementViewModel {
         isBusy.set(true);
         return userService.deleteAccount(current.getAccountId())
                 .thenApply(v -> {
-                    accounts.remove(current);
-                    selectedAccount.set(accounts.isEmpty() ? null : accounts.get(0));
-                    isBusy.set(false);
-                    statusMessage.set("Account deleted.");
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        accounts.remove(current);
+                        selectedAccount.set(accounts.isEmpty() ? null : accounts.get(0));
+                        isBusy.set(false);
+                        statusMessage.set("Account deleted.");
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    statusMessage.set("Delete failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Delete failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }

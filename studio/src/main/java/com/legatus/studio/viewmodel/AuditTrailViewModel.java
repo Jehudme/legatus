@@ -54,17 +54,21 @@ public class AuditTrailViewModel {
         isBusy.set(true);
         return auditLogService.getAuditLogs()
                 .thenAccept(list -> {
-                    allAuditLogs.clear();
-                    list.forEach(dto -> allAuditLogs.add(new AuditLogEntry(
-                            dto.sequence_number(), dto.event_id(), dto.timestamp(), dto.actor_id(),
-                            dto.action(), dto.resource_type(), dto.resource_id(), dto.status(),
-                            dto.sha256_hash(), dto.previous_hash()
-                    )));
-                    isBusy.set(false);
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        allAuditLogs.clear();
+                        list.forEach(dto -> allAuditLogs.add(new AuditLogEntry(
+                                dto.sequence_number(), dto.event_id(), dto.timestamp(), dto.actor_id(),
+                                dto.action(), dto.resource_type(), dto.resource_id(), dto.status(),
+                                dto.sha256_hash(), dto.previous_hash()
+                        )));
+                        isBusy.set(false);
+                    });
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    verificationDetails.set("Failed to load audit logs: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        verificationDetails.set("Failed to load audit logs: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return null;
                 });
     }
@@ -74,21 +78,24 @@ public class AuditTrailViewModel {
         verificationStatus.set("VERIFYING");
         return auditLogService.verifyHashChain()
                 .thenApply(res -> {
-                    isBusy.set(false);
-                    if (res.valid()) {
-                        verificationStatus.set("VALID_CHAIN");
-                        verificationDetails.set(String.format("Verified %d records from genesis to head without break.", res.records_verified()));
-                        return true;
-                    } else {
-                        verificationStatus.set("CORRUPTED_CHAIN");
-                        verificationDetails.set("Hash chain corruption detected: " + res.error());
-                        return false;
-                    }
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        if (res.valid()) {
+                            verificationStatus.set("VALID_CHAIN");
+                            verificationDetails.set(String.format("Verified %d records from genesis to head without break.", res.records_verified()));
+                        } else {
+                            verificationStatus.set("CORRUPTED_CHAIN");
+                            verificationDetails.set("Hash chain corruption detected: " + res.error());
+                        }
+                    });
+                    return res.valid();
                 })
                 .exceptionally(ex -> {
-                    isBusy.set(false);
-                    verificationStatus.set("ERROR");
-                    verificationDetails.set("Verification check failed: " + ex.getCause().getMessage());
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        verificationStatus.set("ERROR");
+                        verificationDetails.set("Verification check failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
     }

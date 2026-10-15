@@ -103,7 +103,9 @@ public class RestClient {
     }
 
     private HttpRequest buildRequest(String path, String method, Object body) {
-        String fullUri = baseUrl + (path.startsWith("/") ? path : "/" + path);
+        String fullPath = path.startsWith("/") ? path : "/" + path;
+        String encodedPath = fullPath.replace(" ", "%20");
+        String fullUri = baseUrl + encodedPath;
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(fullUri))
                 .timeout(DEFAULT_TIMEOUT)
