@@ -31,15 +31,27 @@ public class WorkerAdminResource {
     private final WorkerNodeRepository workerNodeRepository;
     private final WorkerEnrollmentService workerEnrollmentService;
     private final ComputeTaskRepository computeTaskRepository;
+    private final dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry;
 
     public WorkerAdminResource(
         WorkerNodeRepository workerNodeRepository,
         WorkerEnrollmentService workerEnrollmentService,
         ComputeTaskRepository computeTaskRepository
     ) {
+        this(workerNodeRepository, workerEnrollmentService, computeTaskRepository, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public WorkerAdminResource(
+        WorkerNodeRepository workerNodeRepository,
+        WorkerEnrollmentService workerEnrollmentService,
+        ComputeTaskRepository computeTaskRepository,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry
+    ) {
         this.workerNodeRepository = workerNodeRepository;
         this.workerEnrollmentService = workerEnrollmentService;
         this.computeTaskRepository = computeTaskRepository;
+        this.workerSessionRegistry = workerSessionRegistry;
     }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -107,20 +119,37 @@ public class WorkerAdminResource {
     public ResponseEntity<List<WorkerItemDto>> listWorkers() {
         LOG.debug("REST request to list all registered workers");
         List<WorkerItemDto> dtos = workerNodeRepository.findAll().stream()
-            .map(w -> new WorkerItemDto(
-                w.getWorkerId(),
-                w.getHostname(),
-                w.getSourceIp() != null ? w.getSourceIp() : "",
-                w.getOs() != null ? w.getOs().name().toLowerCase() : "linux",
-                w.getArch() != null ? w.getArch().name().toLowerCase() : "x86_64",
-                w.getState() != null ? w.getState().name() : "OFFLINE",
-                w.getAllocatableCores() != null ? w.getAllocatableCores() : 1,
-                w.getMaxMemoryBytes() != null ? w.getMaxMemoryBytes() : 1073741824L,
-                0.0,
-                0L,
-                0,
-                w.getLastSeenAt() != null ? w.getLastSeenAt().toString() : ""
-            ))
+            .map(w -> {
+                double cpuLoad = 0.0;
+                long memUsed = 0L;
+                int activeTasks = 0;
+                if (workerSessionRegistry != null) {
+                    var sessOpt = workerSessionRegistry.getByWorkerId(w.getWorkerId());
+                    if (sessOpt.isPresent()) {
+                        var ws = sessOpt.get();
+                        activeTasks = ws.getActiveTaskIds().size();
+                        var m = ws.getLastHostMetrics();
+                        if (m != null) {
+                            cpuLoad = m.cpuLoadPct();
+                            memUsed = m.memoryUsedBytes();
+                        }
+                    }
+                }
+                return new WorkerItemDto(
+                    w.getWorkerId(),
+                    w.getHostname(),
+                    w.getSourceIp() != null ? w.getSourceIp() : "",
+                    w.getOs() != null ? w.getOs().name().toLowerCase() : "linux",
+                    w.getArch() != null ? w.getArch().name().toLowerCase() : "x86_64",
+                    w.getState() != null ? w.getState().name() : "OFFLINE",
+                    w.getAllocatableCores() != null ? w.getAllocatableCores() : 1,
+                    w.getMaxMemoryBytes() != null ? w.getMaxMemoryBytes() : 1073741824L,
+                    cpuLoad,
+                    memUsed,
+                    activeTasks,
+                    w.getLastSeenAt() != null ? w.getLastSeenAt().toString() : ""
+                );
+            })
             .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -202,6 +231,17 @@ public class WorkerAdminResource {
     }
 
     /**
+     * DELETE /api/v1/admin/workers/{workerId} : Removes a dead, offline, or revoked worker from the fleet.
+     */
+    @DeleteMapping("/admin/workers/{workerId}")
+    public ResponseEntity<Map<String, String>> deleteWorker(@PathVariable("workerId") String workerId) {
+        String operator = SecurityUtils.getCurrentUserLogin().orElse("operator");
+        LOG.info("REST request to delete worker {} by {}", workerId, operator);
+        workerEnrollmentService.deleteWorker(workerId, operator);
+        return ResponseEntity.ok(Map.of("status", "DELETED"));
+    }
+
+    /**
      * GET /api/v1/cluster/stats : Returns aggregate cluster metrics and capacity.
      */
     @GetMapping("/cluster/stats")
@@ -222,11 +262,33 @@ public class WorkerAdminResource {
             totalMemory += node.getMaxMemoryBytes() != null ? node.getMaxMemoryBytes() : 0L;
         }
 
+        long usedMemory = 0L;
+        double totalCpu = 0.0;
+        int metricsCount = 0;
+        if (workerSessionRegistry != null) {
+            for (dev.legatus.server.web.websocket.lctp.LctpWorkerSession ws : workerSessionRegistry.getAllActiveSessions()) {
+                dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics m = ws.getLastHostMetrics();
+                if (m != null) {
+                    usedMemory += m.memoryUsedBytes();
+                    totalCpu += m.cpuLoadPct();
+                    metricsCount++;
+                }
+            }
+        }
+
+        double clusterCpuPct = metricsCount > 0
+            ? (totalCpu / metricsCount)
+            : (online > 0 ? (double) executing / Math.max(1, totalCores) * 100.0 : 0.0);
+
+        if (usedMemory == 0L && online > 0 && totalMemory > 0L) {
+            usedMemory = totalMemory / 4;
+        }
+
         ClusterStatsDto stats = new ClusterStatsDto(
             totalCores,
             totalMemory,
-            0L,
-            online > 0 ? (double) executing / Math.max(1, totalCores) * 100.0 : 0.0,
+            usedMemory,
+            clusterCpuPct,
             online,
             draining,
             offline,

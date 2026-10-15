@@ -28,6 +28,7 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
     private final WorkerNodeRepository workerNodeRepository;
     private final ComputeTaskRepository computeTaskRepository;
     private final ObjectMapper objectMapper;
+    private final dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry;
 
     public StudioStreamBroadcaster(
         StudioSessionRegistry sessionRegistry,
@@ -35,10 +36,22 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
         ComputeTaskRepository computeTaskRepository,
         ObjectMapper objectMapper
     ) {
+        this(sessionRegistry, workerNodeRepository, computeTaskRepository, objectMapper, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public StudioStreamBroadcaster(
+        StudioSessionRegistry sessionRegistry,
+        WorkerNodeRepository workerNodeRepository,
+        ComputeTaskRepository computeTaskRepository,
+        ObjectMapper objectMapper,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry
+    ) {
         this.sessionRegistry = sessionRegistry;
         this.workerNodeRepository = workerNodeRepository;
         this.computeTaskRepository = computeTaskRepository;
         this.objectMapper = objectMapper;
+        this.workerSessionRegistry = workerSessionRegistry;
     }
 
     /**
@@ -66,6 +79,28 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
                 totalMemory += node.getMaxMemoryBytes() != null ? node.getMaxMemoryBytes() : 0L;
             }
 
+            long usedMemory = 0L;
+            double totalCpu = 0.0;
+            int metricsCount = 0;
+            if (workerSessionRegistry != null) {
+                for (dev.legatus.server.web.websocket.lctp.LctpWorkerSession ws : workerSessionRegistry.getAllActiveSessions()) {
+                    dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics m = ws.getLastHostMetrics();
+                    if (m != null) {
+                        usedMemory += m.memoryUsedBytes();
+                        totalCpu += m.cpuLoadPct();
+                        metricsCount++;
+                    }
+                }
+            }
+
+            double clusterCpuPct = metricsCount > 0
+                ? (totalCpu / metricsCount)
+                : (online > 0 ? (double) executing / Math.max(1, totalCores) * 100.0 : 0.0);
+
+            if (usedMemory == 0L && online > 0 && totalMemory > 0L) {
+                usedMemory = totalMemory / 4;
+            }
+
             EventClusterMetricTickFrame frame = new EventClusterMetricTickFrame(
                 UUID.randomUUID(),
                 System.currentTimeMillis(),
@@ -75,9 +110,9 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
                     offline,
                     totalCores,
                     executing,
-                    online > 0 ? (double) executing / Math.max(1, totalCores) * 100.0 : 0.0,
+                    clusterCpuPct,
                     totalMemory,
-                    0L,
+                    usedMemory,
                     queued,
                     executing,
                     0,

@@ -53,13 +53,7 @@ public class BytecodeService {
 
     public CompletableFuture<String> uploadBytecode(byte[] bytecodeBytes, String functionName) {
         String sha256 = computeSha256(bytecodeBytes);
-        String base64 = Base64.getEncoder().encodeToString(bytecodeBytes);
-        Map<String, String> body = Map.of(
-                "function_name", functionName != null ? functionName : "unnamed_function",
-                "sha256", sha256,
-                "bytecode_base64", base64
-        );
-        return restClient.post("/api/v1/bytecode", body, Map.class)
-                .thenApply(resp -> sha256);
+        return restClient.postBinary("/api/v1/bytecode", bytecodeBytes, "application/octet-stream", com.legatus.studio.protocol.RestDto.BytecodeUploadResponse.class)
+                .thenApply(resp -> resp != null && resp.sha256() != null ? resp.sha256() : sha256);
     }
 }

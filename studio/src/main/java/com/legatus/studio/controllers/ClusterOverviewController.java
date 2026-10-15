@@ -31,5 +31,13 @@ public class ClusterOverviewController {
         onlineWorkersCountLabel.textProperty().bind(metrics.onlineWorkersCountProperty().asString());
         cpuLoadLabel.textProperty().bind(metrics.clusterCpuPercentProperty().asString("%.1f%%"));
         activeTasksLabel.textProperty().bind(metrics.executingTasksCountProperty().asString());
+        if (memoryUsedLabel != null) {
+            var memBinding = javafx.beans.binding.Bindings.createStringBinding(() -> {
+                double usedGb = metrics.getClusterUsedMemoryBytes() / (1024.0 * 1024.0 * 1024.0);
+                double totalGb = metrics.getClusterTotalMemoryBytes() / (1024.0 * 1024.0 * 1024.0);
+                return String.format("%.1f / %.1f GB", usedGb, totalGb);
+            }, metrics.clusterUsedMemoryBytesProperty(), metrics.clusterTotalMemoryBytesProperty());
+            memoryUsedLabel.textProperty().bind(memBinding);
+        }
     }
 }

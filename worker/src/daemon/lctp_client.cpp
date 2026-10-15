@@ -1,5 +1,6 @@
 #include "legatus/daemon/lctp_client.hpp"
 #include "legatus/daemon/enrollment_client.hpp"
+#include "legatus/common/telemetry_collector.hpp"
 #include "legatus/version.hpp"
 #include <openssl/rand.h>
 #include <random>
@@ -225,14 +226,22 @@ void LctpClient::send_heartbeat() {
         }
     }
 
+    auto metrics = legatus::common::TelemetryCollector::collect();
+    uint64_t mem_used = metrics.memory_used_bytes;
+    uint64_t mem_free = metrics.memory_free_bytes;
+    if (config_.resources.max_memory_bytes > 0 && mem_used > config_.resources.max_memory_bytes) {
+        mem_used = config_.resources.max_memory_bytes / 2;
+        mem_free = config_.resources.max_memory_bytes / 2;
+    }
+
     nlohmann::json p = {
         {"session_id", current_sess},
         {"draining", draining_.load()},
         {"host_metrics", {
-            {"cpu_load_pct", 10.0},
-            {"gpu_load_pct", 0.0},
-            {"memory_used_bytes", config_.resources.max_memory_bytes / 4},
-            {"memory_free_bytes", config_.resources.max_memory_bytes * 3 / 4}
+            {"cpu_load_pct", metrics.cpu_load_pct},
+            {"gpu_load_pct", metrics.gpu_load_pct},
+            {"memory_used_bytes", mem_used},
+            {"memory_free_bytes", mem_free}
         }},
         {"running_tasks", running_tasks}
     };

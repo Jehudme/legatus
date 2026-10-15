@@ -1,7 +1,9 @@
 package com.legatus.studio.protocol;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
@@ -12,6 +14,17 @@ import java.util.List;
 public final class RestDto {
 
     private RestDto() {}
+
+    // Pagination Envelope
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record PageResponse<T>(
+            @JsonProperty("content") List<T> content,
+            @JsonProperty("page") int page,
+            @JsonProperty("size") int size,
+            @JsonProperty("total_elements") long total_elements,
+            @JsonProperty("total_pages") int total_pages
+    ) {}
 
     // Auth
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -142,47 +155,64 @@ public final class RestDto {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record UpdatePasswordRequest(String old_password, String new_password) {}
 
-    // Secrets Vault
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SecretDto(
-            String key,
-            String scope,
-            String created_at,
-            String updated_at
+    public record BytecodeUploadResponse(
+            @JsonProperty("sha256") String sha256,
+            @JsonProperty("size_bytes") long size_bytes,
+            @JsonProperty("download_url") String download_url
     ) {}
 
+    // Secrets Vault
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SecretDto(
+            @JsonProperty("secret_key") @JsonAlias("key") String secret_key,
+            @JsonProperty("scope") String scope,
+            @JsonProperty("created_at") String created_at,
+            @JsonProperty("updated_at") String updated_at
+    ) {
+        public String key() {
+            return secret_key;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CreateSecretRequest(
-            String key,
-            String scope,
-            String plaintext_value
+            @JsonProperty("secret_key") String secret_key,
+            @JsonProperty("scope") String scope,
+            @JsonProperty("value") String value
     ) {}
 
     // Audit Log
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AuditLogEntryDto(
-            long sequence_number,
-            String event_id,
-            String timestamp,
-            String actor_id,
-            String action,
-            String resource_type,
-            String resource_id,
-            String status,
-            String sha256_hash,
-            String previous_hash
+            @JsonProperty("sequence_num") @JsonAlias({"sequence_number", "sequenceNum"}) long sequence_number,
+            @JsonProperty("event_id") @JsonAlias("eventId") String event_id,
+            @JsonProperty("timestamp") String timestamp,
+            @JsonProperty("actor_id") @JsonAlias("actorId") String actor_id,
+            @JsonProperty("event_type") @JsonAlias({"action", "eventType"}) String action,
+            @JsonProperty("target_type") @JsonAlias({"resource_type", "targetType"}) String resource_type,
+            @JsonProperty("target_id") @JsonAlias({"resource_id", "targetId"}) String resource_id,
+            @JsonProperty("action_status") @JsonAlias({"status", "actionStatus"}) String status,
+            @JsonProperty("record_hash") @JsonAlias({"sha256_hash", "recordHash"}) String sha256_hash,
+            @JsonProperty("prev_record_hash") @JsonAlias({"previous_hash", "prevRecordHash"}) String previous_hash
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AuditVerifyResponse(
-            boolean valid,
-            long records_verified,
-            String genesis_hash,
-            String head_hash,
-            String error
+            @JsonProperty("chain_integrity") @JsonAlias("valid") boolean valid,
+            @JsonProperty("verified_records_count") @JsonAlias("records_verified") long records_verified,
+            @JsonProperty("genesis_hash") @JsonAlias("genesisHash") String genesis_hash,
+            @JsonProperty("head_hash") @JsonAlias("headHash") String head_hash,
+            @JsonProperty("discrepancy") @JsonAlias("error") String error
     ) {}
 
     // Generic API Error Envelope
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ApiErrorResponse(
             String error_code,

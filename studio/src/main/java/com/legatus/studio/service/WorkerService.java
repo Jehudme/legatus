@@ -48,4 +48,9 @@ public class WorkerService {
         String encoded = java.net.URLEncoder.encode(workerId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
         return restClient.post("/api/v1/admin/workers/" + encoded + "/revoke", null, Void.class);
     }
+
+    public CompletableFuture<Void> deleteWorker(String workerId) {
+        String encoded = java.net.URLEncoder.encode(workerId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+        return restClient.delete("/api/v1/admin/workers/" + encoded, Void.class);
+    }
 }

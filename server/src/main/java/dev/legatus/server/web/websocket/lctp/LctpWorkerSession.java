@@ -21,6 +21,7 @@ public class LctpWorkerSession {
     private volatile Instant lastHeartbeatAt;
     private volatile boolean draining;
     private volatile String state;
+    private volatile dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics lastHostMetrics;
 
     public LctpWorkerSession(String sessionId, String workerId, WebSocketSession webSocketSession, WorkerTicket ticket) {
         this.sessionId = sessionId;
@@ -80,5 +81,13 @@ public class LctpWorkerSession {
 
     public void setState(String state) {
         this.state = state;
+    }
+
+    public dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics getLastHostMetrics() {
+        return lastHostMetrics;
+    }
+
+    public void setLastHostMetrics(dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics lastHostMetrics) {
+        this.lastHostMetrics = lastHostMetrics;
     }
 }

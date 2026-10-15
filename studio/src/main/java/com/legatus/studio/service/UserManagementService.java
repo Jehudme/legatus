@@ -1,6 +1,7 @@
 package com.legatus.studio.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.legatus.studio.protocol.RestDto;
 import com.legatus.studio.transport.RestClient;
 
@@ -20,7 +21,18 @@ public class UserManagementService {
     }
 
     public CompletableFuture<List<RestDto.AccountDto>> getAccounts() {
-        return restClient.get("/api/v1/admin/accounts", new TypeReference<List<RestDto.AccountDto>>() {});
+        return restClient.get("/api/v1/admin/accounts", JsonNode.class)
+                .thenApply(node -> {
+                    if (node == null || node.isNull()) return List.<RestDto.AccountDto>of();
+                    if (node.isArray()) {
+                        return RestClient.MAPPER.convertValue(node, new TypeReference<List<RestDto.AccountDto>>() {});
+                    }
+                    JsonNode content = node.path("content");
+                    if (content.isArray()) {
+                        return RestClient.MAPPER.convertValue(content, new TypeReference<List<RestDto.AccountDto>>() {});
+                    }
+                    return List.<RestDto.AccountDto>of();
+                });
     }
 
     public CompletableFuture<Void> createAccount(String username, String email, String password, String role) {

@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
  */
 public class RestClient {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
+    public static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
@@ -99,6 +99,29 @@ public class RestClient {
 
     public <T> CompletableFuture<T> delete(String path, Class<T> responseClass) {
         HttpRequest request = buildRequest(path, "DELETE", null);
+        return sendAsync(request, responseClass);
+    }
+
+    public <T> CompletableFuture<T> postBinary(String path, byte[] binaryData, String contentType, Class<T> responseClass) {
+        String fullPath = path.startsWith("/") ? path : "/" + path;
+        String encodedPath = fullPath.replace(" ", "%20");
+        String fullUri = baseUrl + encodedPath;
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(fullUri))
+                .timeout(DEFAULT_TIMEOUT)
+                .header("Accept", "application/json")
+                .header("Content-Type", contentType != null ? contentType : "application/octet-stream");
+
+        String token = OperatorSession.getInstance().getAccessToken();
+        if (token != null && !token.isBlank()) {
+            builder.header("Authorization", "Bearer " + token);
+        }
+
+        HttpRequest.BodyPublisher publisher = binaryData != null
+                ? HttpRequest.BodyPublishers.ofByteArray(binaryData)
+                : HttpRequest.BodyPublishers.noBody();
+
+        HttpRequest request = builder.POST(publisher).build();
         return sendAsync(request, responseClass);
     }
 

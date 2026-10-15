@@ -47,6 +47,7 @@ public class LstcpClient implements WebSocket.Listener {
     private volatile WebSocket webSocket;
     private volatile String currentTicket;
     private volatile long lastReceivedTimestamp = System.currentTimeMillis();
+    private volatile long lastHeartbeatSentTimestamp = 0L;
     private volatile boolean shouldReconnect = true;
     private volatile int reconnectAttempts = 0;
 
@@ -61,6 +62,7 @@ public class LstcpClient implements WebSocket.Listener {
     // Event handlers
     private Consumer<State> stateListener;
     private Consumer<SessionAckPayload> sessionAckListener;
+    private Consumer<Double> rttListener;
     private Consumer<ClusterMetricTickPayload> metricTickListener;
     private Consumer<WorkerStateChangedPayload> workerStateListener;
     private Consumer<EnrollmentRequestedPayload> enrollmentListener;
@@ -170,6 +172,14 @@ public class LstcpClient implements WebSocket.Listener {
         sendFrame(frame);
     }
 
+    public synchronized void sendHeartbeatNow() {
+        if (state == State.STREAMING || state == State.NEGOTIATING) {
+            lastHeartbeatSentTimestamp = System.currentTimeMillis();
+            Frame<HeartbeatPayload.Request> hb = Frame.create("STUDIO_HEARTBEAT", new HeartbeatPayload.Request(lastHeartbeatSentTimestamp));
+            sendFrame(hb);
+        }
+    }
+
     private void scheduleHeartbeat() {
         if (state != State.STREAMING && state != State.NEGOTIATING) {
             return;
@@ -180,8 +190,7 @@ public class LstcpClient implements WebSocket.Listener {
 
         backgroundExecutor.schedule(() -> {
             if (state == State.STREAMING || state == State.NEGOTIATING) {
-                Frame<HeartbeatPayload.Request> hb = Frame.create("STUDIO_HEARTBEAT", new HeartbeatPayload.Request(System.currentTimeMillis()));
-                sendFrame(hb);
+                sendHeartbeatNow();
                 scheduleHeartbeat();
             }
         }, delay, TimeUnit.MILLISECONDS);
@@ -247,9 +256,13 @@ public class LstcpClient implements WebSocket.Listener {
                     transitionState(State.STREAMING);
                     SessionAckPayload ack = MAPPER.treeToValue(payload, SessionAckPayload.class);
                     if (sessionAckListener != null) sessionAckListener.accept(ack);
+                    sendHeartbeatNow();
                 }
                 case "STUDIO_HEARTBEAT_ACK" -> {
-                    // Heartbeat acknowledged, lastReceivedTimestamp updated
+                    if (lastHeartbeatSentTimestamp > 0 && rttListener != null) {
+                        double rtt = (double) (System.currentTimeMillis() - lastHeartbeatSentTimestamp);
+                        rttListener.accept(Math.max(0.1, rtt));
+                    }
                 }
                 case "EVENT_CLUSTER_METRIC_TICK" -> {
                     ClusterMetricTickPayload tick = MAPPER.treeToValue(payload, ClusterMetricTickPayload.class);
@@ -311,6 +324,7 @@ public class LstcpClient implements WebSocket.Listener {
 
     public void setStateListener(Consumer<State> listener) { this.stateListener = listener; }
     public void setSessionAckListener(Consumer<SessionAckPayload> listener) { this.sessionAckListener = listener; }
+    public void setRttListener(Consumer<Double> listener) { this.rttListener = listener; }
     public void setMetricTickListener(Consumer<ClusterMetricTickPayload> listener) { this.metricTickListener = listener; }
     public void setWorkerStateListener(Consumer<WorkerStateChangedPayload> listener) { this.workerStateListener = listener; }
     public void setEnrollmentListener(Consumer<EnrollmentRequestedPayload> listener) { this.enrollmentListener = listener; }

@@ -517,6 +517,48 @@ public class WorkerEnrollmentService {
     }
 
     /**
+     * Deletes a dead, offline, or revoked worker from the fleet registry.
+     */
+    @Transactional
+    public void deleteWorker(String workerId, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        if (worker.getState() == WorkerState.ONLINE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete active ONLINE worker. Drain or revoke worker first.");
+        }
+
+        workerNodeRepository.delete(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "WORKER_DELETED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            "{\"action\":\"DELETE\"}",
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                    workerId,
+                    worker.getState() != null ? worker.getState().name() : "OFFLINE",
+                    "DELETED",
+                    0.0,
+                    0L,
+                    0
+                ));
+            });
+        }
+
+        LOG.info("Worker {} deleted from registry by operator {}", workerId, operatorUsername);
+    }
+
+    /**
      * Authenticates worker and issues 30-second single-use ticket (POST /api/v1/auth/worker).
      */
     @Transactional

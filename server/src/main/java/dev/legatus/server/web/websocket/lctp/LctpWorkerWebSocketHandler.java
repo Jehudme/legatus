@@ -221,6 +221,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
     private void handleHeartbeat(LctpWorkerSession session, HeartbeatFrame frame) throws IOException {
         session.setLastHeartbeatAt(Instant.now());
         session.setDraining(frame.payload().draining());
+        if (frame.payload().hostMetrics() != null) {
+            session.setLastHostMetrics(frame.payload().hostMetrics());
+        }
 
         if (frame.payload().draining()) {
             workerNodeRepository.findById(session.getWorkerId()).ifPresent(w -> {

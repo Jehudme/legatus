@@ -16,6 +16,7 @@ public class FleetViewModel {
 
     private final ObservableList<WorkerNode> allWorkers;
     private final FilteredList<WorkerNode> filteredWorkers;
+    private final javafx.collections.transformation.SortedList<WorkerNode> sortedWorkers;
     private final ObjectProperty<WorkerNode> selectedWorker = new SimpleObjectProperty<>();
 
     private final StringProperty filterQuery = new SimpleStringProperty("");
@@ -25,14 +26,37 @@ public class FleetViewModel {
 
     private final WorkerService workerService;
 
+    private static final java.util.Map<String, Integer> STATE_PRIORITY = java.util.Map.of(
+            "ONLINE", 1,
+            "DRAINING", 2,
+            "PENDING_APPROVAL", 3,
+            "QUARANTINED", 4,
+            "OFFLINE", 5,
+            "REVOKED", 6
+    );
+
     public FleetViewModel(ObservableList<WorkerNode> allWorkers, WorkerService workerService) {
         this.allWorkers = Objects.requireNonNull(allWorkers, "allWorkers must not be null");
         this.workerService = Objects.requireNonNull(workerService, "workerService must not be null");
 
         this.filteredWorkers = new FilteredList<>(allWorkers, this::matchesFilter);
+        this.sortedWorkers = new javafx.collections.transformation.SortedList<>(filteredWorkers, this::compareWorkers);
 
         this.filterQuery.addListener((obs, oldV, newV) -> filteredWorkers.setPredicate(this::matchesFilter));
         this.stateFilter.addListener((obs, oldV, newV) -> filteredWorkers.setPredicate(this::matchesFilter));
+    }
+
+    private int compareWorkers(WorkerNode w1, WorkerNode w2) {
+        if (w1 == null && w2 == null) return 0;
+        if (w1 == null) return 1;
+        if (w2 == null) return -1;
+
+        int p1 = STATE_PRIORITY.getOrDefault(w1.getState() != null ? w1.getState().toUpperCase() : "", 99);
+        int p2 = STATE_PRIORITY.getOrDefault(w2.getState() != null ? w2.getState().toUpperCase() : "", 99);
+        if (p1 != p2) {
+            return Integer.compare(p1, p2);
+        }
+        return w1.getWorkerId().compareToIgnoreCase(w2.getWorkerId());
     }
 
     private boolean matchesFilter(WorkerNode worker) {
@@ -100,7 +124,31 @@ public class FleetViewModel {
                 });
     }
 
-    public FilteredList<WorkerNode> getFilteredWorkers() { return filteredWorkers; }
+    public CompletableFuture<Void> deleteSelectedWorker() {
+        WorkerNode worker = selectedWorker.get();
+        if (worker == null) return CompletableFuture.completedFuture(null);
+
+        isLoading.set(true);
+        return workerService.deleteWorker(worker.getWorkerId())
+                .thenAccept(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        allWorkers.remove(worker);
+                        selectedWorker.set(null);
+                        isLoading.set(false);
+                        statusMessage.set("Worker " + worker.getWorkerId() + " deleted from fleet.");
+                    });
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to delete worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return null;
+                });
+    }
+
+    public ObservableList<WorkerNode> getFilteredWorkers() { return sortedWorkers; }
+    public FilteredList<WorkerNode> getUnderlyingFilteredList() { return filteredWorkers; }
     public ObjectProperty<WorkerNode> selectedWorkerProperty() { return selectedWorker; }
     public WorkerNode getSelectedWorker() { return selectedWorker.get(); }
     public void setSelectedWorker(WorkerNode worker) { this.selectedWorker.set(worker); }

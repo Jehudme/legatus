@@ -21,6 +21,7 @@ public class FleetTopologyController {
     @FXML private Label selectedCpuLabel;
     @FXML private Button drainButton;
     @FXML private Button revokeButton;
+    @FXML private Button deleteButton;
 
     private FleetViewModel viewModel;
 
@@ -66,5 +67,10 @@ public class FleetTopologyController {
     @FXML
     private void onRevokeClicked() {
         if (viewModel != null) viewModel.revokeSelectedWorker();
+    }
+
+    @FXML
+    private void onDeleteClicked() {
+        if (viewModel != null) viewModel.deleteSelectedWorker();
     }
 }

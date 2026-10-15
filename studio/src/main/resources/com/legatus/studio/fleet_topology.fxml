@@ -52,9 +52,10 @@
             <Label fx:id="selectedCpuLabel" text="--" styleClass="gauge-value" />
         </VBox>
 
-        <HBox spacing="12.0">
+        <HBox spacing="10.0">
             <Button fx:id="drainButton" text="Drain Worker" onAction="#onDrainClicked" style="-fx-background-color: #d97706; -fx-text-fill: white; -fx-font-weight: bold;" />
             <Button fx:id="revokeButton" text="Revoke Lease" onAction="#onRevokeClicked" style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold;" />
+            <Button fx:id="deleteButton" text="Delete Worker" onAction="#onDeleteClicked" style="-fx-background-color: #7f1d1d; -fx-text-fill: white; -fx-font-weight: bold;" />
         </HBox>
     </VBox>
 </SplitPane>

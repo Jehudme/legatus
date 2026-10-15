@@ -43,6 +43,7 @@ public class TelemetryService implements AutoCloseable {
         this.lstcpClient.setWorkerStateListener(this.coalescer::pushWorkerStateChanged);
         this.lstcpClient.setTaskLifecycleListener(this.coalescer::pushTaskLifecycle);
         this.lstcpClient.setEnrollmentListener(this.coalescer::pushEnrollmentRequested);
+        this.lstcpClient.setRttListener(rtt -> FxAsync.runOnFxThread(() -> clusterMetrics.setRttLatencyMs(rtt)));
     }
 
     private void applyBatch(TelemetryCoalescer.TelemetryBatch batch) {

@@ -25,6 +25,11 @@
         </VBox>
 
         <VBox spacing="6.0" styleClass="gauge-card" prefWidth="220.0">
+            <Label text="MEMORY USAGE" styleClass="gauge-title" />
+            <Label fx:id="memoryUsedLabel" text="0.0 / 0.0 GB" styleClass="gauge-value" />
+        </VBox>
+
+        <VBox spacing="6.0" styleClass="gauge-card" prefWidth="220.0">
             <Label text="ACTIVE TASKS" styleClass="gauge-title" />
             <Label fx:id="activeTasksLabel" text="0" styleClass="gauge-value" />
         </VBox>

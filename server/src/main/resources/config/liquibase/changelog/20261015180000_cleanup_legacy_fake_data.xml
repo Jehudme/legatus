@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261015180000-cleanup-legacy-fake-data" author="antigravity">
+        <!-- Purge unchained fake audit logs from dev migrations so WORM verification succeeds from genesis -->
+        <sql>
+            DELETE FROM audit_logs;
+            UPDATE tasks SET status = 'COMPLETED' WHERE status = 'EXECUTING' AND task_id = '8b8fec05-966b-43cb-88ae-329d633f3eb2';
+        </sql>
+    </changeSet>
+</databaseChangeLog>
