@@ -22,12 +22,17 @@ import tech.jhipster.config.JHipsterProperties;
 public class SecurityConfiguration {
 
     private final Environment env;
-
     private final JHipsterProperties jHipsterProperties;
+    private final org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter jwtAuthenticationConverter;
 
-    public SecurityConfiguration(Environment env, JHipsterProperties jHipsterProperties) {
+    public SecurityConfiguration(
+        Environment env,
+        JHipsterProperties jHipsterProperties,
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter jwtAuthenticationConverter
+    ) {
         this.env = env;
         this.jHipsterProperties = jHipsterProperties;
+        this.jwtAuthenticationConverter = jwtAuthenticationConverter;
     }
 
     @Bean
@@ -44,6 +49,8 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/worker").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/operator/login").permitAll()
                     .requestMatchers("/ws/**").permitAll()
+                    .requestMatchers("/api/v1/admin/accounts/**").hasAnyAuthority(AuthoritiesConstants.CLUSTER_ADMIN, AuthoritiesConstants.ADMIN)
+                    .requestMatchers("/api/v1/admin/audit-logs/**").hasAnyAuthority(AuthoritiesConstants.CLUSTER_ADMIN, AuthoritiesConstants.AUDITOR, AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/**").authenticated()
                     .requestMatchers("/websocket/**").authenticated()
@@ -60,7 +67,7 @@ public class SecurityConfiguration {
                     .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                     .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()));
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
         if (env.acceptsProfiles(Profiles.of(JHipsterConstants.SPRING_PROFILE_DEVELOPMENT))) {
             http.authorizeHttpRequests(authz -> authz.requestMatchers("/h2-console/**").permitAll());
         }

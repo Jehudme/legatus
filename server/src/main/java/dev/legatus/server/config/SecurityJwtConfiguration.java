@@ -1,5 +1,6 @@
 package dev.legatus.server.config;
 
+import static dev.legatus.server.security.SecurityUtils.AUTHORITIES_CLAIM;
 import static dev.legatus.server.security.SecurityUtils.JWT_ALGORITHM;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
@@ -62,6 +63,17 @@ public class SecurityJwtConfiguration {
         var bearerTokenResolver = new DefaultBearerTokenResolver();
         bearerTokenResolver.setAllowUriQueryParameter(true);
         return bearerTokenResolver;
+    }
+
+    @Bean
+    public org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter jwtAuthenticationConverter() {
+        var grantedAuthoritiesConverter = new org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter();
+        grantedAuthoritiesConverter.setAuthorityPrefix("");
+        grantedAuthoritiesConverter.setAuthoritiesClaimName(AUTHORITIES_CLAIM);
+
+        var jwtAuthenticationConverter = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter();
+        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+        return jwtAuthenticationConverter;
     }
 
     private SecretKey getSecretKey() {
