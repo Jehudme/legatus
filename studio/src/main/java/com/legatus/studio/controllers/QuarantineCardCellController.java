@@ -16,4 +16,8 @@ public class QuarantineCardCellController {
         hostnameLabel.textProperty().bind(enrollment.hostnameProperty());
         visualCodeLabel.textProperty().bind(enrollment.visualCodeProperty());
     }
+
+    public Label getWorkerIdLabel() { return workerIdLabel; }
+    public Label getHostnameLabel() { return hostnameLabel; }
+    public Label getVisualCodeLabel() { return visualCodeLabel; }
 }

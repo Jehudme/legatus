@@ -51,4 +51,8 @@ public class MainCockpitController {
             // Fallback
         }
     }
+
+    public StackPane getContentContainer() {
+        return contentContainer;
+    }
 }

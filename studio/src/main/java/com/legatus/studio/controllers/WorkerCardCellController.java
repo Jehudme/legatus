@@ -48,4 +48,11 @@ public class WorkerCardCellController {
             sparklinePolyline.getPoints().addAll(x, y);
         }
     }
+
+    public Label getWorkerIdLabel() { return workerIdLabel; }
+    public Label getHostnameLabel() { return hostnameLabel; }
+    public Label getStateBadge() { return stateBadge; }
+    public Label getCpuLabel() { return cpuLabel; }
+    public Label getMemoryLabel() { return memoryLabel; }
+    public Polyline getSparklinePolyline() { return sparklinePolyline; }
 }

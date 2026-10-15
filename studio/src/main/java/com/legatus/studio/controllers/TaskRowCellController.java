@@ -23,4 +23,10 @@ public class TaskRowCellController {
         progressBar.setProgress(Math.min(1.0, pct));
         progressLabel.setText(String.format("%.1f%%", pct * 100));
     }
+
+    public Label getTaskIdLabel() { return taskIdLabel; }
+    public Label getNameLabel() { return nameLabel; }
+    public Label getStatusBadge() { return statusBadge; }
+    public ProgressBar getProgressBar() { return progressBar; }
+    public Label getProgressLabel() { return progressLabel; }
 }
