@@ -104,6 +104,14 @@ public class OperatorSession {
         return role;
     }
 
+    public synchronized String getStudioWsTicket() {
+        return studioWsTicket;
+    }
+
+    public synchronized String getStudioWsUrl() {
+        return studioWsUrl;
+    }
+
     public synchronized boolean hasRole(String targetRole) {
         if (this.role == null || targetRole == null) {
             return false;

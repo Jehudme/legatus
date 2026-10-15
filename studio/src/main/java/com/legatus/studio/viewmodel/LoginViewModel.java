@@ -72,25 +72,42 @@ public class LoginViewModel {
 
         return authService.login(u, p)
                 .thenApply(response -> {
-                    isLoading.set(false);
-                    // Persist or update profile if rememberPassword is checked
-                    if (rememberPassword.get()) {
-                        try {
-                            ConnectionProfile prof = selectedProfile.get();
-                            if (prof == null) {
-                                prof = ConnectionProfile.createDefault(u + "@" + serverUrl.get(), serverUrl.get(), u);
-                            }
-                            profileService.saveProfile(prof, response.refresh_token());
-                            loadProfiles();
-                        } catch (Exception ignored) {}
-                    }
+                    runOnFxThread(() -> {
+                        isLoading.set(false);
+                        // Persist or update profile if rememberPassword is checked
+                        if (rememberPassword.get()) {
+                            try {
+                                ConnectionProfile prof = selectedProfile.get();
+                                if (prof == null) {
+                                    prof = ConnectionProfile.createDefault(u + "@" + serverUrl.get(), serverUrl.get(), u);
+                                }
+                                profileService.saveProfile(prof, response.refresh_token());
+                                loadProfiles();
+                            } catch (Exception ignored) {}
+                        }
+                    });
                     return true;
                 })
                 .exceptionally(ex -> {
-                    isLoading.set(false);
-                    errorMessage.set("Authentication failed: " + ex.getCause().getMessage());
+                    runOnFxThread(() -> {
+                        isLoading.set(false);
+                        errorMessage.set("Authentication failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
                     return false;
                 });
+    }
+
+    private void runOnFxThread(Runnable action) {
+        try {
+            if (javafx.application.Platform.isFxApplicationThread()) {
+                action.run();
+            } else {
+                javafx.application.Platform.runLater(action);
+            }
+        } catch (IllegalStateException e) {
+            // Toolkit not initialized in headless unit tests
+            action.run();
+        }
     }
 
     public StringProperty serverUrlProperty() { return serverUrl; }

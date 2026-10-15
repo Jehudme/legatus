@@ -67,6 +67,10 @@ public class LoginController {
         if (viewModel == null) return;
         viewModel.executeLogin().thenAccept(success -> {
             if (success) {
+                // Initialize StudioContext with active credentials and connection parameters
+                com.legatus.studio.service.StudioContext.getInstance()
+                        .initSession(viewModel.getServerUrl(), viewModel.isTrustAllCerts());
+
                 Platform.runLater(() -> {
                     try {
                         Application.setRoot("shell");

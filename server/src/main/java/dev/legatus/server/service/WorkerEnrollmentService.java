@@ -65,6 +65,27 @@ public class WorkerEnrollmentService {
         .maximumSize(10_000)
         .build();
 
+    private final org.springframework.beans.factory.ObjectProvider<dev.legatus.server.service.studio.StudioEventPublisher> studioEventPublisherProvider;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public WorkerEnrollmentService(
+        WorkerNodeRepository workerNodeRepository,
+        Ed25519FingerprintService fingerprintService,
+        Argon2idService argon2idService,
+        TicketBrokerService ticketBrokerService,
+        RateLimiterService rateLimiterService,
+        WormAuditService wormAuditService,
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.service.studio.StudioEventPublisher> studioEventPublisherProvider
+    ) {
+        this.workerNodeRepository = workerNodeRepository;
+        this.fingerprintService = fingerprintService;
+        this.argon2idService = argon2idService;
+        this.ticketBrokerService = ticketBrokerService;
+        this.rateLimiterService = rateLimiterService;
+        this.wormAuditService = wormAuditService;
+        this.studioEventPublisherProvider = studioEventPublisherProvider;
+    }
+
     public WorkerEnrollmentService(
         WorkerNodeRepository workerNodeRepository,
         Ed25519FingerprintService fingerprintService,
@@ -73,12 +94,7 @@ public class WorkerEnrollmentService {
         RateLimiterService rateLimiterService,
         WormAuditService wormAuditService
     ) {
-        this.workerNodeRepository = workerNodeRepository;
-        this.fingerprintService = fingerprintService;
-        this.argon2idService = argon2idService;
-        this.ticketBrokerService = ticketBrokerService;
-        this.rateLimiterService = rateLimiterService;
-        this.wormAuditService = wormAuditService;
+        this(workerNodeRepository, fingerprintService, argon2idService, ticketBrokerService, rateLimiterService, wormAuditService, null);
     }
 
     /**
@@ -257,6 +273,24 @@ public class WorkerEnrollmentService {
         LOG.info("Quarantined worker enrolled: id={}, fp={}, visual_code={}",
             request.workerId(), fpResult.fingerprintHex(), fpResult.visualCode());
 
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishEnrollmentRequested(new dev.legatus.server.service.dto.lstcp.EventEnrollmentRequestedFrame.Payload(
+                    enrollmentId,
+                    request.workerId(),
+                    request.hostname(),
+                    clientIp,
+                    worker.getOs().name().toLowerCase(),
+                    worker.getArch().name().toLowerCase(),
+                    fpResult.fingerprintHex(),
+                    fpResult.visualCode(),
+                    worker.getAllocatableCores(),
+                    worker.getMaxMemoryBytes(),
+                    expiresAt.toEpochMilli()
+                ));
+            });
+        }
+
         return new RegisterResponse(
             enrollmentId,
             WorkerState.PENDING_APPROVAL.name(),
@@ -305,9 +339,10 @@ public class WorkerEnrollmentService {
      * Approves quarantined worker, generating 256-bit token and Argon2id hash.
      */
     @Transactional
-    public String approveWorker(String workerId, String operatorUsername, String assignedCluster) {
-        WorkerNode worker = workerNodeRepository.findById(workerId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+    public String approveWorker(String idOrEnrollmentId, String operatorUsername, String assignedCluster) {
+        WorkerNode worker = workerNodeRepository.findById(idOrEnrollmentId)
+            .or(() -> workerNodeRepository.findByEnrollmentId(idOrEnrollmentId))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + idOrEnrollmentId));
 
         // Generate 256-bit secret token (64 hex characters)
         byte[] tokenBytes = new byte[32];
@@ -316,6 +351,7 @@ public class WorkerEnrollmentService {
 
         // Hash token via Argon2id
         String secretHash = argon2idService.hash(secretToken);
+        String previousState = worker.getState() != null ? worker.getState().name() : "PENDING_APPROVAL";
         worker.setSecretHash(secretHash);
         worker.setState(WorkerState.APPROVED);
         worker.setAssignedCluster(assignedCluster != null ? assignedCluster : DEFAULT_CLUSTER_NAME);
@@ -332,15 +368,152 @@ public class WorkerEnrollmentService {
             "OPERATOR",
             "WORKER_APPROVED",
             "WORKER",
-            workerId,
+            worker.getWorkerId(),
             AuditActionStatus.SUCCESS,
             String.format("{\"assigned_cluster\":\"%s\"}", worker.getAssignedCluster()),
             "127.0.0.1",
             "SOC2_CC6.8"
         );
 
-        LOG.info("Worker {} approved by operator {}", workerId, operatorUsername);
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                    worker.getWorkerId(),
+                    previousState,
+                    worker.getState().name(),
+                    0.0,
+                    0L,
+                    0
+                ));
+            });
+        }
+
+        LOG.info("Worker {} approved by operator {}", worker.getWorkerId(), operatorUsername);
         return secretToken;
+    }
+
+    /**
+     * Rejects quarantined worker and marks state REVOKED.
+     */
+    @Transactional
+    public void rejectWorker(String idOrEnrollmentId, String operatorUsername, String reason, Boolean blacklistIp) {
+        WorkerNode worker = workerNodeRepository.findById(idOrEnrollmentId)
+            .or(() -> workerNodeRepository.findByEnrollmentId(idOrEnrollmentId))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + idOrEnrollmentId));
+
+        String previousState = worker.getState() != null ? worker.getState().name() : "PENDING_APPROVAL";
+        worker.setState(WorkerState.REVOKED);
+        workerNodeRepository.save(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "WORKER_REJECTED",
+            "WORKER",
+            worker.getWorkerId(),
+            AuditActionStatus.SUCCESS,
+            String.format("{\"reason\":\"%s\",\"blacklist_ip\":%b}", reason != null ? reason : "Operator rejected", Boolean.TRUE.equals(blacklistIp)),
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                    worker.getWorkerId(),
+                    previousState,
+                    worker.getState().name(),
+                    0.0,
+                    0L,
+                    0
+                ));
+            });
+        }
+
+        LOG.info("Worker {} rejected by operator {}: reason={}", worker.getWorkerId(), operatorUsername, reason);
+    }
+
+    /**
+     * Toggles drain mode on an active worker.
+     */
+    @Transactional
+    public boolean drainWorker(String workerId, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        String previousState = worker.getState() != null ? worker.getState().name() : "ONLINE";
+        boolean newDraining = !Boolean.TRUE.equals(worker.getDraining());
+        worker.setDraining(newDraining);
+        worker.setState(newDraining ? WorkerState.DRAINING : WorkerState.ONLINE);
+        workerNodeRepository.save(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            newDraining ? "WORKER_DRAINED" : "WORKER_UNDRAINED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            String.format("{\"draining\":%b}", newDraining),
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                    worker.getWorkerId(),
+                    previousState,
+                    worker.getState().name(),
+                    0.0,
+                    0L,
+                    0
+                ));
+            });
+        }
+
+        LOG.info("Worker {} draining toggled to {} by {}", workerId, newDraining, operatorUsername);
+        return newDraining;
+    }
+
+    /**
+     * Revokes a worker's credentials and marks state REVOKED.
+     */
+    @Transactional
+    public void revokeWorker(String workerId, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        String previousState = worker.getState() != null ? worker.getState().name() : "ONLINE";
+        worker.setState(WorkerState.REVOKED);
+        workerNodeRepository.save(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "WORKER_REVOKED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            "{\"action\":\"REVOKE\"}",
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                    worker.getWorkerId(),
+                    previousState,
+                    worker.getState().name(),
+                    0.0,
+                    0L,
+                    0
+                ));
+            });
+        }
+
+        LOG.info("Worker {} revoked by operator {}", workerId, operatorUsername);
     }
 
     /**

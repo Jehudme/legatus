@@ -121,6 +121,7 @@ public class TelemetryService implements AutoCloseable {
 
     public ClusterMetrics getClusterMetrics() { return clusterMetrics; }
     public ObservableList<WorkerNode> getWorkersList() { return workersList; }
+    public ObservableMap<String, WorkerNode> getWorkersMap() { return workersMap; }
     public ObservableList<QuarantineEnrollment> getEnrollmentsList() { return enrollmentsList; }
     public ObservableList<TaskRecord> getTasksList() { return tasksList; }
     public TelemetryCoalescer getCoalescer() { return coalescer; }
