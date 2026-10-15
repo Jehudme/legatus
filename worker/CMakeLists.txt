@@ -252,3 +252,48 @@ target_include_directories(legatus_tests PRIVATE
 
 include(Catch)
 catch_discover_tests(legatus_tests)
+
+# -----------------------------------------------------------------------------
+# Precompiled Headers (PCH)
+# -----------------------------------------------------------------------------
+target_precompile_headers(legatus_common PUBLIC
+    "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/include/legatus/pch.hpp>"
+)
+
+# -----------------------------------------------------------------------------
+# Installation & CPack Packaging
+# -----------------------------------------------------------------------------
+include(GNUInstallDirs)
+
+install(TARGETS legatus legatusd legatus-runner
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY include/legatus/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legatus
+    FILES_MATCHING PATTERN "*.hpp"
+)
+
+set(CPACK_PACKAGE_NAME "legatus-worker")
+set(CPACK_PACKAGE_VENDOR "Legatus Project")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Legatus Worker Subsystem (legatusd, legatus, legatus-runner)")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_PACKAGE_CONTACT "maintainers@legatus.dev")
+
+if(UNIX AND NOT APPLE)
+    set(CPACK_GENERATOR "TGZ;DEB;RPM")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "maintainers@legatus.dev")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.34), libssl3 (>= 3.0.0)")
+    set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
+    set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
+elseif(APPLE)
+    set(CPACK_GENERATOR "TGZ;productbuild")
+elseif(WIN32)
+    set(CPACK_GENERATOR "ZIP;WIX")
+endif()
+
+include(CPack)
