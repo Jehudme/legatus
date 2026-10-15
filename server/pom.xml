@@ -35,6 +35,7 @@
         <run.addResources>false</run.addResources>
         <spring-boot.version>${project.parent.version}</spring-boot.version>
         <archunit-junit5.version>1.5.0</archunit-junit5.version>
+        <bouncycastle.version>1.80</bouncycastle.version>
         <checkstyle.version>14.1.0</checkstyle.version>
         <config.version>1.4.9</config.version>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
@@ -271,6 +272,11 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>tools.jackson.datatype</groupId>

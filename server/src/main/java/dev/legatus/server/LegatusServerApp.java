@@ -2,6 +2,7 @@ package dev.legatus.server;
 
 import dev.legatus.server.config.ApplicationProperties;
 import dev.legatus.server.config.CRLFLogConverter;
+import dev.legatus.server.config.LegatusProperties;
 import jakarta.annotation.PostConstruct;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -21,7 +22,7 @@ import tech.jhipster.config.DefaultProfileUtil;
 import tech.jhipster.config.JHipsterConstants;
 
 @SpringBootApplication(exclude = { H2ConsoleAutoConfiguration.class })
-@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class })
+@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class, LegatusProperties.class })
 public class LegatusServerApp {
 
     private static final Logger LOG = LoggerFactory.getLogger(LegatusServerApp.class);
