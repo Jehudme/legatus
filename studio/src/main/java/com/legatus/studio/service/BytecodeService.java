@@ -1,0 +1,65 @@
+package com.legatus.studio.service;
+
+import com.legatus.studio.transport.RestClient;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * Service managing bytecode inspection, SHA-256 calculation, and upload.
+ */
+public class BytecodeService {
+
+    private final RestClient restClient;
+
+    public BytecodeService(RestClient restClient) {
+        this.restClient = Objects.requireNonNull(restClient, "restClient must not be null");
+    }
+
+    public static String computeSha256(byte[] data) {
+        Objects.requireNonNull(data, "data must not be null");
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(data);
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
+
+    public static String computeFileSha256(Path path) throws IOException {
+        Objects.requireNonNull(path, "path must not be null");
+        try (InputStream is = Files.newInputStream(path)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
+
+    public CompletableFuture<String> uploadBytecode(byte[] bytecodeBytes, String functionName) {
+        String sha256 = computeSha256(bytecodeBytes);
+        String base64 = Base64.getEncoder().encodeToString(bytecodeBytes);
+        Map<String, String> body = Map.of(
+                "function_name", functionName != null ? functionName : "unnamed_function",
+                "sha256", sha256,
+                "bytecode_base64", base64
+        );
+        return restClient.post("/api/v1/bytecode", body, Map.class)
+                .thenApply(resp -> sha256);
+    }
+}
