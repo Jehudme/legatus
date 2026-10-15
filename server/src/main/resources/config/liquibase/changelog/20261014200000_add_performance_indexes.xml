@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261014200000-1" author="legatus-server">
+        <comment>Add composite performance indexes on tasks(status, priority, priority_weight, created_at) and workers(state, draining)</comment>
+        <createIndex indexName="idx_tasks_status_priority" tableName="tasks">
+            <column name="status"/>
+            <column name="priority"/>
+            <column name="priority_weight"/>
+            <column name="created_at"/>
+        </createIndex>
+        <createIndex indexName="idx_tasks_assigned_worker_status" tableName="tasks">
+            <column name="assigned_worker_worker_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex indexName="idx_workers_state_draining" tableName="workers">
+            <column name="state"/>
+            <column name="draining"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
