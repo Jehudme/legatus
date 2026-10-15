@@ -1,0 +1,9 @@
+public class Main {
+    public static int32 main(char[][] args) {
+        int32 acc = 0;
+        for (int32 i = 0; i < 5; i++) {
+            acc += i;
+        }
+        return acc == 10 ? 0 : 1;
+    }
+}
