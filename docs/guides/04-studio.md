@@ -101,12 +101,18 @@ When a new worker daemon launches, it enters quarantine. Operators visually atte
 
 ## 4. Function Deployment & Task Management
 
-### 4.1 Deploying Solix Bytecode
+### 4.1 Functions & Bytecode Workbench
 1. Navigate to **Functions & Bytecode** in the left rail.
-2. Drag and drop a compiled `.solix` bytecode file onto the upload dropzone, or click **[Upload Bytecode]**.
-3. Specify the entry point function name (e.g., `execute_workload`).
-4. Set default execution constraints (Instruction Budget, Memory Limit, Timeout).
-5. Click **[Publish Function]**. Studio verifies the SHA-256 digest with the server and catalogs the binary.
+2. **Catalog Persistence:** Registered bytecode functions are fetched directly from `/api/solix-functions` upon session initialization and cached in `StudioContext`. Functions remain persistent across window navigation. Operators can click **[Refresh Catalog]** at any time to re-sync with the cluster.
+3. **Uploading Bytecode (.slxb):**
+   * Click **[Choose File...]** to inspect any local compiled `.slxb` binary. Studio computes the SHA-256 digest in real time.
+   * Provide a Function Name and Entry Point (defaults to `main`).
+   * Click **[Register Bytecode]** (`POST /api/v1/bytecode`). The function is immediately cataloged and selected for execution.
+4. **Parameter Configuration & Workload Execution:**
+   * Select any function from the table (or use the newly registered one). The selected function name, entry point, and truncated SHA-256 digest are displayed in the **Execute Workload & Parameters** card.
+   * **Arguments (JSON):** Provide runtime arguments in standard JSON format (e.g. `{"matrix_size": 1024, "alpha": 0.5}`).
+   * **Constraints:** Configure Instruction Budget (e.g. `10000000`), Memory Limit in Megabytes (e.g. `64`), and Task Priority (`NORMAL`, `HIGH`, `LOW`, `CRITICAL`, `BATCH`).
+   * Click **[Execute Function]** (`POST /api/v1/tasks`). Studio submits the workload specification, and on acceptance displays the cluster-assigned Task ID (e.g. `task-20261015-77121e97 [Status: EXECUTING]`).
 
 ### 4.2 Inspecting Active Tasks & Two-Stage Abort
 1. Navigate to **Task Explorer**.
@@ -119,15 +125,26 @@ When a new worker daemon launches, it enters quarantine. Operators visually atte
    * If the child process shuts down cooperatively, the terminal status shows `ABORTED` (Exit Code 130).
    * If the process hangs, the worker executes Stage 2 unconditional termination after 10 seconds, showing `KILLED_FORCIBLY` (Exit Code 137).
 
+### 4.3 Cryptographic WORM Audit Trail & Verification
+1. Navigate to **Audit Trail** in the left navigation rail.
+2. The audit ledger automatically loads the complete cryptographically linked sequence of cluster events (`GET /api/v1/admin/audit-logs`) upon display.
+3. Operators can filter ledger entries by **Actor** or **Action** via real-time search inputs, or click **[Refresh Ledger]** to fetch new entries.
+4. Clicking **[Verify Hash Chain]** triggers an end-to-end cryptographic integrity verification (`POST /api/v1/admin/audit-logs/verify`). The server walks the SHA-256 chain from the genesis record to the current head record, updating the status badge to `VALID_CHAIN` (or `CORRUPTED_CHAIN` if tampering occurred) and reloading verified records.
+
 ---
 
-## 5. Console Drawer & Ring Buffer Bounds
+## 5. Console Drawer, Event Streaming & Ring Buffer Bounds
 
 To maintain client responsiveness during high-throughput execution:
-* The live task console tab stores incoming `stdout`/`stderr` chunks in an in-memory circular ring buffer.
-* The buffer enforces a strict ceiling of **10,000 lines** (or **8 Megabytes** of UTF-8 text).
-* When the limit is reached, older lines are automatically discarded in FIFO order.
-* Operators can click **[Export Logs]** to dump the complete task transcript to a local file.
+* The live bottom console drawer displays real-time cluster events and task stdout/stderr logs.
+* **Telemetry Event Streaming:** Cluster state transitions are automatically streamed to the console:
+  * Connection and session acknowledgment (`[SYSTEM] Connected to Legatus cluster (session=..., heartbeat=...ms)`).
+  * Worker state transitions (`[WORKER] Node <id> -> ONLINE (CPU: ...%, Memory: ...MB, Tasks: ...)`).
+  * Task lifecycle events (`[TASK] Task <id> status: EXECUTING (Worker: <id>)`).
+  * Worker quarantine enrollment alerts (`[QUARANTINE] Worker enrollment requested: <id> (<visual_code>, IP: ...)`).
+  * Real-time task output chunks delivered via LSTCP (`EVENT_TASK_LOG_CHUNK`).
+* **Live Filtering & Auto-Scroll:** Operators can type into the filter field to perform instantaneous case-insensitive substring search across all console lines. When **Auto-Scroll** is checked, the view automatically pins to the latest output.
+* **Ring Buffer Bounds:** The console buffer enforces a strict ceiling of **10,000 lines** (or **8 Megabytes** of UTF-8 text). When exceeded, older lines are evicted in FIFO order. Operators can clear the buffer at any time using **[Clear]**.
 
 ---
 
