@@ -79,6 +79,20 @@ public class ServicesIntegrationTest {
 
         server.createContext("/api/v1/tasks/task-99/abort", exchange -> sendJson(exchange, 200, null));
 
+        // Solix Functions Catalog
+        server.createContext("/api/solix-functions", exchange -> {
+            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                RestDto.SolixFunctionDto fn = new RestDto.SolixFunctionDto(
+                        java.util.UUID.randomUUID(), "matrix-mult", "1.0.0", "main", "RAW",
+                        "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                        10000000L, 67108864L, 60000, "2026-10-15T15:00:00Z"
+                );
+                sendJson(exchange, 200, List.of(fn));
+            } else {
+                exchange.sendResponseHeaders(405, -1);
+            }
+        });
+
         // Secrets
         server.createContext("/api/v1/admin/secrets", exchange -> {
             if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -181,6 +195,23 @@ public class ServicesIntegrationTest {
         assertEquals("COMPLETED", task.status());
 
         assertDoesNotThrow(() -> taskService.abortTask("task-99", "Operator cancelled").get());
+
+        // Test structured arguments & constraints
+        var parameterizedResp = taskService.createTask(
+                "parameterized-task", "sha256...", "main",
+                5000000L, 33554432L, 30000, "HIGH",
+                java.util.Map.of("matrix_size", 1024)
+        ).get();
+        assertEquals("task-99", parameterizedResp.task_id());
+    }
+
+    @Test
+    void testBytecodeCatalogService() throws Exception {
+        BytecodeService bytecodeService = new BytecodeService(restClient);
+        var catalog = bytecodeService.getCatalogedFunctions().get();
+        assertEquals(1, catalog.size());
+        assertEquals("matrix-mult", catalog.get(0).name());
+        assertEquals("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", catalog.get(0).effectiveSha256());
     }
 
     @Test
