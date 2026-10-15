@@ -15,10 +15,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public class LoginViewModel {
 
-    private final StringProperty serverUrl = new SimpleStringProperty("https://127.0.0.1:8443");
-    private final StringProperty username = new SimpleStringProperty("");
-    private final StringProperty password = new SimpleStringProperty("");
-    private final BooleanProperty trustAllCerts = new SimpleBooleanProperty(false);
+    private final StringProperty serverUrl = new SimpleStringProperty("http://127.0.0.1:8443");
+    private final StringProperty username = new SimpleStringProperty("admin");
+    private final StringProperty password = new SimpleStringProperty("admin");
+    private final BooleanProperty trustAllCerts = new SimpleBooleanProperty(true);
     private final BooleanProperty rememberPassword = new SimpleBooleanProperty(true);
     private final BooleanProperty isLoading = new SimpleBooleanProperty(false);
     private final StringProperty errorMessage = new SimpleStringProperty("");
@@ -58,6 +58,14 @@ public class LoginViewModel {
 
         if (u.isBlank() || p.isBlank()) {
             errorMessage.set("Username and password are required.");
+            isLoading.set(false);
+            return CompletableFuture.completedFuture(false);
+        }
+
+        try {
+            authService.setRestClient(new com.legatus.studio.transport.RestClient(serverUrl.get(), trustAllCerts.get()));
+        } catch (Exception e) {
+            errorMessage.set("Invalid server URL: " + e.getMessage());
             isLoading.set(false);
             return CompletableFuture.completedFuture(false);
         }

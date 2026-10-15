@@ -15,6 +15,10 @@ public class NavigationViewModel {
     private final MainViewModel mainViewModel;
     private final IntegerBinding quarantineBadgeCount;
 
+    public NavigationViewModel(MainViewModel mainViewModel) {
+        this(mainViewModel, javafx.collections.FXCollections.observableArrayList());
+    }
+
     public NavigationViewModel(MainViewModel mainViewModel, ObservableList<QuarantineEnrollment> enrollments) {
         this.mainViewModel = Objects.requireNonNull(mainViewModel, "mainViewModel must not be null");
         Objects.requireNonNull(enrollments, "enrollments must not be null");

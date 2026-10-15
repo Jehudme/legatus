@@ -25,12 +25,13 @@ public class MainCockpitController {
 
     @FXML
     public void initialize() {
-        if (viewModel != null) {
-            bindViewModel();
-        } else {
-            // Load default overview
-            loadModuleView(MainViewModel.NavigationModule.OVERVIEW);
+        if (viewModel == null) {
+            this.viewModel = new MainViewModel();
         }
+        if (navigationRailController != null) {
+            navigationRailController.setViewModel(new com.legatus.studio.viewmodel.NavigationViewModel(viewModel));
+        }
+        bindViewModel();
     }
 
     private void bindViewModel() {

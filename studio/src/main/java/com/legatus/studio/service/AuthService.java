@@ -14,10 +14,18 @@ import java.util.concurrent.CompletableFuture;
  */
 public class AuthService {
 
-    private final RestClient restClient;
+    private volatile RestClient restClient;
 
     public AuthService(RestClient restClient) {
         this.restClient = Objects.requireNonNull(restClient, "restClient must not be null");
+    }
+
+    public void setRestClient(RestClient restClient) {
+        this.restClient = Objects.requireNonNull(restClient, "restClient must not be null");
+    }
+
+    public RestClient getRestClient() {
+        return restClient;
     }
 
     public CompletableFuture<RestDto.LoginResponse> login(String username, String password) {

@@ -32,7 +32,7 @@ public class LoginController {
     @FXML
     public void initialize() {
         if (viewModel == null) {
-            RestClient restClient = new RestClient("https://127.0.0.1:8443", true);
+            RestClient restClient = new RestClient("http://127.0.0.1:8443", true);
             AuthService authService = new AuthService(restClient);
             ProfileService profileService = new ProfileService();
             this.viewModel = new LoginViewModel(authService, profileService);
