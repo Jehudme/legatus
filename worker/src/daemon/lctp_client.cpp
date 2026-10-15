@@ -126,8 +126,11 @@ void LctpClient::stop() {
 
     update_state(LctpState::TERMINATING);
 
-    if (ws_) {
-        ws_->stop(1000, "Normal Closure");
+    {
+        std::lock_guard<std::mutex> lock(ws_mutex_);
+        if (ws_) {
+            ws_->close(1000, "Normal Closure");
+        }
     }
 
     cv_.notify_all();
@@ -180,6 +183,7 @@ void LctpClient::update_state(LctpState new_state) {
 }
 
 bool LctpClient::send_frame(const LctpFrame& frame) {
+    std::lock_guard<std::mutex> lock(ws_mutex_);
     if (!ws_) return false;
     std::string text = frame.serialize();
     auto info = ws_->sendText(text);
@@ -438,27 +442,30 @@ void LctpClient::connection_loop() {
             ws_url = endpoint + ticket_res.websocket_url + "?ticket=" + ticket_res.ticket;
         }
 
-        ws_ = std::make_unique<ix::WebSocket>();
-        ws_->setUrl(ws_url);
+        {
+            std::lock_guard<std::mutex> lock(ws_mutex_);
+            ws_ = std::make_unique<ix::WebSocket>();
+            ws_->setUrl(ws_url);
 
-        ix::SocketTLSOptions tlsOptions;
-        if (ws_url.rfind("wss://", 0) == 0) {
-            tlsOptions.tls = true;
-            if (!config_.server.tls_verify_peer) {
-                tlsOptions.caFile = "NONE";
-                tlsOptions.disable_hostname_validation = true;
-            } else if (!config_.server.ca_cert_path.empty()) {
-                tlsOptions.caFile = config_.server.ca_cert_path;
+            ix::SocketTLSOptions tlsOptions;
+            if (ws_url.rfind("wss://", 0) == 0) {
+                tlsOptions.tls = true;
+                if (!config_.server.tls_verify_peer) {
+                    tlsOptions.caFile = "NONE";
+                    tlsOptions.disable_hostname_validation = true;
+                } else if (!config_.server.ca_cert_path.empty()) {
+                    tlsOptions.caFile = config_.server.ca_cert_path;
+                }
             }
+            ws_->setTLSOptions(tlsOptions);
+
+            ws_->setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
+                handle_socket_message(msg);
+            });
+
+            update_state(LctpState::CONNECTING);
+            ws_->start();
         }
-        ws_->setTLSOptions(tlsOptions);
-
-        ws_->setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
-            handle_socket_message(msg);
-        });
-
-        update_state(LctpState::CONNECTING);
-        ws_->start();
 
         // Inner operational / dead-man's switch loop
         while (running_.load() && state_.load() != LctpState::DISCONNECTED) {
@@ -479,7 +486,10 @@ void LctpClient::connection_loop() {
                     now - last_heartbeat_ack_).count();
                 if (elapsed_since_ack > timeout_ms) {
                     // Timeout tripped! Sever socket to trigger reconnect
-                    ws_->stop();
+                    {
+                        std::lock_guard<std::mutex> lock(ws_mutex_);
+                        if (ws_) ws_->close(1008, "Dead-man switch timeout");
+                    }
                     update_state(LctpState::DISCONNECTED);
                     break;
                 }
@@ -498,8 +508,15 @@ void LctpClient::connection_loop() {
             });
         }
 
-        if (ws_) {
-            ws_->stop();
+        {
+            std::unique_ptr<ix::WebSocket> old_ws;
+            {
+                std::lock_guard<std::mutex> lock(ws_mutex_);
+                old_ws = std::move(ws_);
+            }
+            if (old_ws) {
+                old_ws->stop();
+            }
         }
 
         if (running_.load()) {

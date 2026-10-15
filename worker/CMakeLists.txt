@@ -222,6 +222,7 @@ add_executable(legatus_tests
     tests/unit/test_process_supervisor.cpp
     tests/unit/test_crypto_enrollment.cpp
     tests/unit/test_ipc_bus.cpp
+    tests/unit/test_lctp_client.cpp
 )
 
 target_compile_definitions(legatus_tests PRIVATE

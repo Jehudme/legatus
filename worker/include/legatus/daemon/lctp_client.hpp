@@ -100,6 +100,7 @@ private:
     uint32_t heartbeat_interval_ms_{5000};
     uint32_t heartbeat_timeout_ms_{15000};
 
+    mutable std::mutex ws_mutex_;
     std::unique_ptr<ix::WebSocket> ws_;
     std::thread background_thread_;
     std::mutex cv_mutex_;
