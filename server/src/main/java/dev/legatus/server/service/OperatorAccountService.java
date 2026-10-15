@@ -83,7 +83,7 @@ public class OperatorAccountService {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void bootstrapAdminIfNeeded() {
-        if (accountRepository.count() == 0) {
+        if (!accountRepository.existsByUsernameIgnoreCase("admin")) {
             String initialPassword = System.getenv("LEGATUS_ADMIN_INITIAL_PASSWORD");
             if (initialPassword == null || initialPassword.isBlank()) {
                 initialPassword = "admin";
