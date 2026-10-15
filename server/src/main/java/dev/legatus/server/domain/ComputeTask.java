@@ -141,6 +141,10 @@ public class ComputeTask implements Serializable, Persistable<String> {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @org.springframework.data.annotation.Transient
     @Transient
     private boolean isPersisted;
@@ -525,6 +529,14 @@ public class ComputeTask implements Serializable, Persistable<String> {
     public ComputeTask assignedWorker(WorkerNode workerNode) {
         this.setAssignedWorker(workerNode);
         return this;
+    }
+
+    public Long getVersion() {
+        return this.version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

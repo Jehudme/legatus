@@ -24,4 +24,5 @@
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
     <include file="config/liquibase/changelog/20261014000000_add_worm_audit_log_trigger.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261014100000_add_version_to_tasks_and_workers.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

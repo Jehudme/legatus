@@ -12,6 +12,7 @@ public class LegatusProperties {
 
     private final Storage storage = new Storage();
     private final Security security = new Security();
+    private final Scheduler scheduler = new Scheduler();
 
     public Storage getStorage() {
         return storage;
@@ -19,6 +20,10 @@ public class LegatusProperties {
 
     public Security getSecurity() {
         return security;
+    }
+
+    public Scheduler getScheduler() {
+        return scheduler;
     }
 
     public static class Storage {
@@ -116,6 +121,46 @@ public class LegatusProperties {
             public void setRegistrationPerMinute(int registrationPerMinute) {
                 this.registrationPerMinute = registrationPerMinute;
             }
+        }
+    }
+
+    public static class Scheduler {
+
+        private String strategy = "LEAST_LOADED";
+        private int dispatchBatchSize = 64;
+        private int maxQueueDepth = 100000;
+        private int defaultMaxRetries = 2;
+
+        public String getStrategy() {
+            return strategy;
+        }
+
+        public void setStrategy(String strategy) {
+            this.strategy = strategy;
+        }
+
+        public int getDispatchBatchSize() {
+            return dispatchBatchSize;
+        }
+
+        public void setDispatchBatchSize(int dispatchBatchSize) {
+            this.dispatchBatchSize = dispatchBatchSize;
+        }
+
+        public int getMaxQueueDepth() {
+            return maxQueueDepth;
+        }
+
+        public void setMaxQueueDepth(int maxQueueDepth) {
+            this.maxQueueDepth = maxQueueDepth;
+        }
+
+        public int getDefaultMaxRetries() {
+            return defaultMaxRetries;
+        }
+
+        public void setDefaultMaxRetries(int defaultMaxRetries) {
+            this.defaultMaxRetries = defaultMaxRetries;
         }
     }
 }

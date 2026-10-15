@@ -160,6 +160,10 @@ public class WorkerNode implements Serializable, Persistable<String> {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @org.springframework.data.annotation.Transient
     @Transient
     private boolean isPersisted;
@@ -525,6 +529,14 @@ public class WorkerNode implements Serializable, Persistable<String> {
     public WorkerNode setIsPersisted() {
         this.isPersisted = true;
         return this;
+    }
+
+    public Long getVersion() {
+        return this.version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

@@ -39,4 +39,11 @@ public interface ComputeTaskRepository extends JpaRepository<ComputeTask, String
     Optional<ComputeTask> findOneWithToOneRelationships(@Param("id") String id);
 
     List<ComputeTask> findAllByAssignedWorkerWorkerIdAndStatusIn(String workerId, java.util.Collection<dev.legatus.server.domain.enumeration.TaskStatus> statuses);
+
+    List<ComputeTask> findAllByStatusOrderByPriorityWeightDescCreatedAtAsc(dev.legatus.server.domain.enumeration.TaskStatus status);
+
+    List<ComputeTask> findAllByStatusOrderByPriorityWeightDescCreatedAtAsc(
+        dev.legatus.server.domain.enumeration.TaskStatus status,
+        Pageable pageable
+    );
 }

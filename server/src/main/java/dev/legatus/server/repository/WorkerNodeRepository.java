@@ -20,4 +20,8 @@ public interface WorkerNodeRepository extends JpaRepository<WorkerNode, String>,
     long countByState(WorkerState state);
 
     List<WorkerNode> findByStateAndEnrollmentExpiresAtBefore(WorkerState state, Instant expiry);
+
+    List<WorkerNode> findAllByState(WorkerState state);
+
+    List<WorkerNode> findAllByStateAndDrainingFalse(WorkerState state);
 }
