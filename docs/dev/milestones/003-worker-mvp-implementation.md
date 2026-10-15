@@ -37,10 +37,10 @@ Deliver the production-grade C++20 worker subsystem comprising three discrete ex
 - [x] `[P1]` **Quarantine Node Enrollment & Visual Fingerprint (`OpenSSL 3.0`):** Generate Ed25519 keypairs via `EVP_PKEY_ED25519`, compute $\text{SHA256}(\text{public\_key})$ hex fingerprints and 3-word visual codes (`Tiger-Galaxy-77`), poll `/api/v1/workers/register/{id}/status` with jitter, and atomically write `worker.toml` via `toml++`. (Issue #305)
 - [x] `[P1]` **Cross-Platform Local IPC Bus (`nng` `REQ0`/`REP0`):** Implement RAII-wrapped `nng` IPC server in `legatusd` and client in `legatus` over `ipc:///tmp/legatus_worker.ipc` (POSIX) and `ipc://legatus_worker_ipc` (Windows with SDDL `D:(A;;GRGW;;;AU)`), supporting all 6 IPC actions (`DAEMON_STATUS`, `DAEMON_DOWN`, `DAEMON_DRAIN`, `SET_LOG_LEVEL`, `GET_LOG_CONFIG`, `ABORT_TASK`). (Issue #306)
 - [ ] `[P1]` **Complete Operator CLI (`CLI11`):** Implement `legatus up`, `down`, `drain` (emitting immediate `DRAIN_NOTICE` wire frame), `status [--json]`, `log level`, `log show`, `tasks list`, and `tasks kill <id>`. (Issue #307)
-- [ ] `[P1]` **Cross-Platform Path & Host Telemetry Collector:** Resolve config, state, and log paths dynamically across Linux, macOS, and Windows, and collect live host CPU load % and free/used RAM bytes for `HEARTBEAT` frames. (Issue #308)
+- [x] `[P1]` **Cross-Platform Path & Host Telemetry Collector:** Resolve config, state, and log paths dynamically across Linux, macOS, and Windows, and collect live host CPU load % and free/used RAM bytes for `HEARTBEAT` frames. (Issue #308)
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
-- [ ] `[P2]` **Local Bytecode Deduplication Cache:** Cache downloaded Solix bytecode binaries by `<sha256>.slxb` in the worker state directory and fetch missing binaries via `GET /api/v1/bytecode/{sha256}`. (Issue #309)
+- [x] `[P2]` **Local Bytecode Deduplication Cache:** Cache downloaded Solix bytecode binaries by `<sha256>.slxb` in the worker state directory and fetch missing binaries via `GET /api/v1/bytecode/{sha256}`. (Issue #309)
 - [ ] `[P2]` **Rotating Log Sinks & ANSI CLI Tables:** Configure `spdlog` rotating file sinks (`50 MB` max size, `5` backup files) and format `legatus status` / `legatus tasks list` with clean terminal tables. (Issue #310)
 
 ### 3.4 P3: Low Priority (Opportunistic Cleanups)
