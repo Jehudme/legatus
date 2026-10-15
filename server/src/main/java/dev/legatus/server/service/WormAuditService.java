@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -78,7 +79,7 @@ public class WormAuditService {
         Objects.requireNonNull(sourceIp, "sourceIp cannot be null");
 
         String effectiveComplianceFlag = complianceFlag != null ? complianceFlag : DEFAULT_COMPLIANCE_FLAG;
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
         Optional<AuditLog> latestOpt = auditLogRepository.findTopByOrderBySequenceNumDesc();
         long sequenceNum;
@@ -234,7 +235,7 @@ public class WormAuditService {
             "%d|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
             sequenceNum,
             prevRecordHash,
-            timestamp.toString(),
+            timestamp.truncatedTo(ChronoUnit.MILLIS).toString(),
             actorId,
             actorRole,
             eventType,
