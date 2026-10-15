@@ -123,6 +123,8 @@ FetchContent_MakeAvailable(fmt spdlog nlohmann_json cli11 tomlplusplus nng repro
 add_library(legatus_common
     src/common/crypto_utils.cpp
     src/common/base64.cpp
+    src/common/paths.cpp
+    src/common/telemetry_collector.cpp
 )
 
 target_include_directories(legatus_common PUBLIC
@@ -166,6 +168,7 @@ add_library(legatus_daemon_core
     src/daemon/enrollment_client.cpp
     src/daemon/ipc_bus.cpp
     src/daemon/lctp_client.cpp
+    src/daemon/bytecode_cache.cpp
 )
 
 target_include_directories(legatus_daemon_core PUBLIC
