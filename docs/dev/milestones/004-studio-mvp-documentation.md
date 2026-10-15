@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-004
 * **Target Version:** `v1.0.0-studio-mvp`
-* **Status:** DRAFT
+* **Status:** ACTIVE
 * **Lead Architect:** @studio-lead
 * **Target Delivery Date:** 2026-12-01
 * **Related ADRs:** ADR-0002, ADR-0003, ADR-0005
