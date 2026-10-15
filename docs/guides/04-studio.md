@@ -140,3 +140,13 @@ To maintain client responsiveness during high-throughput execution:
 | `Ctrl + T` | `Cmd + T` | Toggle Theme (`PrimerDark` $\leftrightarrow$ `NordDark`) |
 | `Ctrl + Shift + A` | `Cmd + Shift + A` | Open Quarantine Attestation Queue |
 | `Escape` | `Escape` | Close active modal dialog |
+
+---
+
+## 7. UI Thread Safety & Transport Invariants
+
+To guarantee glitch-free desktop performance under high-frequency cluster telemetry:
+* **JavaFX Application Thread Isolation:** All asynchronous background completions (HTTP Virtual Thread REST calls, LSTCP WebSocket event streams, and countdown timers) dispatch property and collection mutations through `FxAsync.runOnFxThread`.
+* **Synchronous Latch Coordination:** When asynchronous tasks complete on background threads, `FxAsync` coordinates with the JavaFX event loop using counting latches, guaranteeing consistent model state prior to subsequent operations.
+* **WebSocket Path Normalization:** Studio automatically normalizes server connection URLs, preventing path segment duplication (`/ws/studio`) across direct and reverse-proxied endpoints.
+* **URI Path Character Escaping:** REST requests escape space-containing identifiers in path segments (e.g., test fixtures or custom node tags) to ensure strict RFC 3986 compliance.
