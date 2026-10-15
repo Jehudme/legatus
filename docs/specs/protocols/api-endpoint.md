@@ -435,7 +435,28 @@ Triggers the two-stage termination escalation (`ABORT_TASK` frame) on the assign
 }
 ```
 
-### 4.4 Download Binary Bytecode (`GET /api/v1/bytecode/{sha256}`)
+### 4.4 List Tasks (`GET /api/v1/tasks`)
+Retrieves all recorded cluster tasks with execution status, assigned worker ID, instruction counts, peak memory consumption, and timing metadata.
+
+#### Response (`200 OK`):
+```json
+[
+  {
+    "task_id": "task-20261013-0091",
+    "name": "matrix-factorization-batch",
+    "status": "COMPLETED",
+    "exit_code": 0,
+    "assigned_worker_id": "compute-linux-east-042",
+    "instructions_consumed": 1284500,
+    "peak_memory_bytes": 14680064,
+    "execution_wall_time_ms": 2341,
+    "created_at": 1728907210000,
+    "completed_at": 1728907212350
+  }
+]
+```
+
+### 4.5 Download Binary Bytecode (`GET /api/v1/bytecode/{sha256}`)
 Streams raw compiled Solix bytecode binary directly as an `application/octet-stream`. Used by worker nodes to download binaries that are not present in local cache, eliminating the 33% Base64 encoding overhead in WebSocket `DISPATCH_TASK` frames.
 
 #### Headers:

@@ -115,10 +115,14 @@ When a new worker daemon launches, it enters quarantine. Operators visually atte
    * Click **[Execute Function]** (`POST /api/v1/tasks`). Studio submits the workload specification, and on acceptance displays the cluster-assigned Task ID (e.g. `task-20261015-77121e97 [Status: EXECUTING]`).
 
 ### 4.2 Inspecting Active Tasks & Two-Stage Abort
-1. Navigate to **Task Explorer**.
-2. Select any running task to open the live inspector.
-3. Observe real-time Solix instruction cycle consumption against the allocated instruction budget.
-4. **Triggering Two-Stage Abort:**
+1. Navigate to **Task Explorer** in the left rail.
+2. **Task Ledger Sync & Refresh:**
+   * The Task Ledger automatically synchronizes all historical and active cluster tasks from `GET /api/v1/tasks` upon entering the view and initial session startup.
+   * Operators can click **[Refresh]** in the Task Ledger header at any time to re-query the cluster task state.
+   * Filter tasks by state (`ALL`, `QUEUED`, `EXECUTING`, `COMPLETED`, `FAILED`, `ABORTED`) via the status filter dropdown.
+3. Select any running task from the table to open the live inspector.
+4. Observe real-time Solix instruction cycle consumption against the allocated instruction budget, peak memory usage, and execution duration.
+5. **Triggering Two-Stage Abort:**
    * Click **[Abort Task]**.
    * Studio issues `POST /api/v1/tasks/{id}/abort` to `legatus-server`, which transmits an `ABORT_TASK` frame to `legatusd`.
    * The status badge transitions to `ABORTING (Stage 1 Grace Period - 10s Countdown)`.
