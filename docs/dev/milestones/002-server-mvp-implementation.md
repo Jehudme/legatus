@@ -56,7 +56,7 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 - [x] `[P1]` **REST Task & Bytecode Gateway (`/api/v1/tasks`, `/api/v1/bytecode/{sha256}`):** Implement task submission (`202 Accepted`), status/metrics querying, two-stage task abort forwarding (`POST /tasks/{id}/abort`), and raw `application/octet-stream` bytecode downloading with `ETag` / `304 Not Modified` support. (Issue #207)
   - [x] Pluggable Bytecode Storage SPI (`BytecodeStorageService`, `LocalFilesystemBytecodeStorage`) with SHA-256 validation, path traversal defense, and 100% test coverage.
   - [x] REST Controller for Bytecode ingestion & download with ETag caching.
-- [ ] `[P1]` **LSTCP Studio Stream Engine (`/ws/studio`):** Implement `STUDIO_SESSION_INIT` (with `viewport_filter` scoping), `STUDIO_SESSION_ACK`, 1000ms `EVENT_CLUSTER_METRIC_TICK` broadcasts, `EVENT_ENROLLMENT_REQUESTED` quarantine push alerts, and scoped `SUBSCRIBE_TASK_LOGS` / `EVENT_TASK_LOG_CHUNK` multiplexing. (Issue #208)
+- [x] `[P1]` **LSTCP Studio Stream Engine (`/ws/studio`):** Implement `STUDIO_SESSION_INIT` (with `viewport_filter` scoping), `STUDIO_SESSION_ACK`, 1000ms `EVENT_CLUSTER_METRIC_TICK` broadcasts, `EVENT_ENROLLMENT_REQUESTED` quarantine push alerts, and scoped `SUBSCRIBE_TASK_LOGS` / `EVENT_TASK_LOG_CHUNK` multiplexing. (Issue #208)
 - [ ] `[P1]` **Liquibase Schema & Optimistic Locking Migrations:** Author deterministic Liquibase changelogs for all 6 core tables (`accounts`, `workers`, `functions`, `tasks`, `secrets_vault`, `audit_logs`) with WORM triggers and indexes on `tasks(status, priority)` and `workers(state)`. (Issue #209)
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
