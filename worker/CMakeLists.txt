@@ -125,6 +125,7 @@ add_library(legatus_common
     src/common/base64.cpp
     src/common/paths.cpp
     src/common/telemetry_collector.cpp
+    src/common/logging.cpp
 )
 
 target_include_directories(legatus_common PUBLIC
@@ -202,6 +203,7 @@ add_executable(legatusd
 )
 target_link_libraries(legatusd PRIVATE
     legatus_daemon_core
+    CLI11::CLI11
 )
 
 # 3. legatus (CLI)
@@ -209,9 +211,8 @@ add_executable(legatus
     src/cli/main.cpp
 )
 target_link_libraries(legatus PRIVATE
-    legatus_common
+    legatus_daemon_core
     CLI11::CLI11
-    nng
 )
 
 # -----------------------------------------------------------------------------
