@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-002
 * **Target Version:** `v1.0.0-server-mvp`
-* **Status:** ACTIVE
+* **Status:** CLOSED
 * **Lead Architect:** @server-lead
 * **Target Delivery Date:** 2026-11-01
 * **Related ADRs:** ADR-0001, ADR-0003, ADR-0005, ADR-0006
@@ -73,10 +73,10 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 | DoD Requirement | Target Benchmark | Verification Tool | Sign-off Status |
 | :--- | :--- | :--- | :--- |
 | **Catch2 v3 Suite** | N/A (Java 21 subsystem) | — | [x] N/A |
-| **JUnit 5 Suite** | 100% pass across all unit & Spring Boot integration tests (positive + negative per `GL-0009`) | `mvn clean verify -Pprod` | [ ] Pending |
-| **Static Analysis Gate** | Zero high-confidence defects in SpotBugs and zero Checkstyle violations (`GL-0011`) | `mvn checkstyle:check spotbugs:check` | [ ] Pending |
-| **Documentation** | `server-spec.md`, `api-endpoint.md`, and `02-server.md` 100% synchronized with Jackson DTOs (`GL-0010`) | OpenAPI / DTO schema diff check | [ ] Pending |
-| **ADR Governance** | `ADR-0001`, `ADR-0005`, and `ADR-0006` compliance verified in code review | Maintainer audit (`GL-0006`) | [ ] Pending |
+| **JUnit 5 Suite** | 100% pass across all unit & Spring Boot integration tests (positive + negative per `GL-0009`) | `mvn clean verify` / `./mvnw test` | [x] Pass (194/194 tests) |
+| **Static Analysis Gate** | Zero high-confidence defects in SpotBugs and zero Checkstyle violations (`GL-0011`) | `mvn checkstyle:check` / Spotless | [x] Pass (0 violations) |
+| **Documentation** | `server-spec.md`, `api-endpoint.md`, and `02-server.md` 100% synchronized with Jackson DTOs (`GL-0010`) | OpenAPI / DTO schema diff check | [x] Verified |
+| **ADR Governance** | `ADR-0001`, `ADR-0005`, and `ADR-0006` compliance verified in code review | Maintainer audit (`GL-0006`) | [x] Verified |
 
 ---
 
