@@ -84,76 +84,83 @@ public class WorkerEnrollmentService {
     /**
      * DTO for incoming registration request.
      */
+    @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record RegisterRequest(
-        String workerId,
-        String hostname,
-        String os,
-        String architecture,
-        String agentVersion,
-        String ed25519PublicKey,
-        HardwareProfile hardware,
-        AllocatableCapacity allocatableCapacity
+        @com.fasterxml.jackson.annotation.JsonProperty("worker_id") String workerId,
+        @com.fasterxml.jackson.annotation.JsonProperty("hostname") String hostname,
+        @com.fasterxml.jackson.annotation.JsonProperty("os") String os,
+        @com.fasterxml.jackson.annotation.JsonProperty("architecture") String architecture,
+        @com.fasterxml.jackson.annotation.JsonProperty("agent_version") String agentVersion,
+        @com.fasterxml.jackson.annotation.JsonProperty("ed25519_public_key") String ed25519PublicKey,
+        @com.fasterxml.jackson.annotation.JsonProperty("hardware") HardwareProfile hardware,
+        @com.fasterxml.jackson.annotation.JsonProperty("allocatable_capacity") AllocatableCapacity allocatableCapacity
     ) {
+        @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
         public record HardwareProfile(
-            Integer physicalCores,
-            Integer logicalCores,
-            Long totalMemoryBytes,
-            Boolean gpuPresent,
-            String gpuModel
+            @com.fasterxml.jackson.annotation.JsonProperty("physical_cores") Integer physicalCores,
+            @com.fasterxml.jackson.annotation.JsonProperty("logical_cores") Integer logicalCores,
+            @com.fasterxml.jackson.annotation.JsonProperty("total_memory_bytes") Long totalMemoryBytes,
+            @com.fasterxml.jackson.annotation.JsonProperty("gpu_present") Boolean gpuPresent,
+            @com.fasterxml.jackson.annotation.JsonProperty("gpu_model") String gpuModel
         ) {}
 
+        @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
         public record AllocatableCapacity(
-            Integer allocatableCores,
-            Long maxMemoryBytes,
-            Long maxInstructionBudgetPerTask
+            @com.fasterxml.jackson.annotation.JsonProperty("allocatable_cores") Integer allocatableCores,
+            @com.fasterxml.jackson.annotation.JsonProperty("max_memory_bytes") Long maxMemoryBytes,
+            @com.fasterxml.jackson.annotation.JsonProperty("max_instruction_budget_per_task") Long maxInstructionBudgetPerTask
         ) {}
     }
 
     /**
      * DTO for registration acceptance response (HTTP 202 Accepted).
      */
+    @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record RegisterResponse(
-        String enrollmentId,
-        String status,
-        String fingerprintHex,
-        String visualCode,
-        long pollIntervalMs,
-        long expiresAt
+        @com.fasterxml.jackson.annotation.JsonProperty("enrollment_id") String enrollmentId,
+        @com.fasterxml.jackson.annotation.JsonProperty("status") String status,
+        @com.fasterxml.jackson.annotation.JsonProperty("fingerprint_hex") String fingerprintHex,
+        @com.fasterxml.jackson.annotation.JsonProperty("visual_code") String visualCode,
+        @com.fasterxml.jackson.annotation.JsonProperty("poll_interval_ms") long pollIntervalMs,
+        @com.fasterxml.jackson.annotation.JsonProperty("expires_at") long expiresAt
     ) {}
 
     /**
      * DTO for registration status poll response.
      */
+    @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record StatusResponse(
-        String enrollmentId,
-        String status,
-        String secretToken,
-        String assignedCluster
+        @com.fasterxml.jackson.annotation.JsonProperty("enrollment_id") String enrollmentId,
+        @com.fasterxml.jackson.annotation.JsonProperty("status") String status,
+        @com.fasterxml.jackson.annotation.JsonProperty("secret_token") String secretToken,
+        @com.fasterxml.jackson.annotation.JsonProperty("assigned_cluster") String assignedCluster
     ) {}
 
     /**
      * DTO for ticket exchange authentication request.
      */
+    @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record AuthRequest(
-        String workerId,
-        String secretToken,
-        String hostname,
-        String os,
-        String architecture,
-        String agentVersion,
-        RegisterRequest.AllocatableCapacity allocatableCapacity
+        @com.fasterxml.jackson.annotation.JsonProperty("worker_id") String workerId,
+        @com.fasterxml.jackson.annotation.JsonProperty("secret_token") String secretToken,
+        @com.fasterxml.jackson.annotation.JsonProperty("hostname") String hostname,
+        @com.fasterxml.jackson.annotation.JsonProperty("os") String os,
+        @com.fasterxml.jackson.annotation.JsonProperty("architecture") String architecture,
+        @com.fasterxml.jackson.annotation.JsonProperty("agent_version") String agentVersion,
+        @com.fasterxml.jackson.annotation.JsonProperty("allocatable_capacity") RegisterRequest.AllocatableCapacity allocatableCapacity
     ) {}
 
     /**
      * DTO for ticket exchange authentication response (HTTP 200 OK).
      */
+    @com.fasterxml.jackson.databind.annotation.JsonNaming(com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record AuthResponse(
-        String ticket,
-        int ticketTtlSeconds,
-        String websocketUrl,
-        long heartbeatIntervalMs,
-        long heartbeatTimeoutMs,
-        String assignedCluster
+        @com.fasterxml.jackson.annotation.JsonProperty("ticket") String ticket,
+        @com.fasterxml.jackson.annotation.JsonProperty("ticket_ttl_seconds") int ticketTtlSeconds,
+        @com.fasterxml.jackson.annotation.JsonProperty("websocket_url") String websocketUrl,
+        @com.fasterxml.jackson.annotation.JsonProperty("heartbeat_interval_ms") long heartbeatIntervalMs,
+        @com.fasterxml.jackson.annotation.JsonProperty("heartbeat_timeout_ms") long heartbeatTimeoutMs,
+        @com.fasterxml.jackson.annotation.JsonProperty("assigned_cluster") String assignedCluster
     ) {}
 
     /**
