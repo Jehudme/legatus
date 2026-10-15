@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.legatus.server.config.LegatusProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -138,5 +139,159 @@ class SecretVaultServiceTest {
         char[] chars = new char[] { 'p', 'a', 's', 's' };
         SecretVaultService.zeroize(chars);
         assertThat(chars).containsOnly('\0');
+    }
+
+    @Test
+    @DisplayName("Should store secret, encrypt via AES-256-GCM, and immediately zeroize input plaintext buffer")
+    void testStoreSecretAndZeroization() {
+        LegatusProperties props = new LegatusProperties();
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("dev");
+
+        dev.legatus.server.repository.SecretEntryRepository repo = org.mockito.Mockito.mock(dev.legatus.server.repository.SecretEntryRepository.class);
+        org.mockito.Mockito.when(repo.save(org.mockito.ArgumentMatchers.any(dev.legatus.server.domain.SecretEntry.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        SecretVaultService service = new SecretVaultService(props, env, repo);
+        service.init();
+
+        byte[] plaintext = "super_confidential_db_secret_key".getBytes(StandardCharsets.UTF_8);
+        byte[] copyBeforeWipe = plaintext.clone();
+
+        dev.legatus.server.domain.SecretEntry saved = service.storeSecret("DB_CREDENTIALS", dev.legatus.server.domain.enumeration.SecretScope.GLOBAL, plaintext);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getSecretKey()).isEqualTo("DB_CREDENTIALS");
+        assertThat(saved.getScope()).isEqualTo(dev.legatus.server.domain.enumeration.SecretScope.GLOBAL);
+        assertThat(saved.getCipherText()).isNotEqualTo(copyBeforeWipe);
+        assertThat(saved.getGcmIv()).hasSize(12);
+        assertThat(saved.getAuthTag()).hasSize(16);
+        assertThat(saved.getUpdatedAt()).isNotNull();
+
+        // Plaintext input buffer MUST be zeroized
+        assertThat(plaintext).containsOnly((byte) 0);
+    }
+
+    @Test
+    @DisplayName("Should decrypt stored secret from repository and zeroize string conversion buffer")
+    void testGetDecryptedSecret() throws GeneralSecurityException {
+        LegatusProperties props = new LegatusProperties();
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("dev");
+
+        dev.legatus.server.repository.SecretEntryRepository repo = org.mockito.Mockito.mock(dev.legatus.server.repository.SecretEntryRepository.class);
+        SecretVaultService service = new SecretVaultService(props, env, repo);
+        service.init();
+
+        SecretVaultService.EncryptedSecret enc = service.encrypt("api_token_abc_123".getBytes(StandardCharsets.UTF_8));
+        dev.legatus.server.domain.SecretEntry entry = new dev.legatus.server.domain.SecretEntry()
+            .secretKey("API_TOKEN")
+            .scope(dev.legatus.server.domain.enumeration.SecretScope.CLUSTER)
+            .cipherText(enc.cipherText())
+            .cipherTextContentType("application/octet-stream")
+            .gcmIv(enc.iv())
+            .gcmIvContentType("application/octet-stream")
+            .authTag(enc.authTag())
+            .authTagContentType("application/octet-stream")
+            .updatedAt(java.time.Instant.now());
+
+        org.mockito.Mockito.when(repo.findById("API_TOKEN")).thenReturn(Optional.of(entry));
+
+        Optional<byte[]> decryptedOpt = service.getDecryptedSecret("API_TOKEN");
+        assertThat(decryptedOpt).isPresent();
+        assertThat(new String(decryptedOpt.get(), StandardCharsets.UTF_8)).isEqualTo("api_token_abc_123");
+        SecretVaultService.zeroize(decryptedOpt.get());
+
+        Optional<String> strOpt = service.getDecryptedSecretAsString("API_TOKEN");
+        assertThat(strOpt).contains("api_token_abc_123");
+    }
+
+    @Test
+    @DisplayName("Should resolve multiple task secrets and guarantee zeroization in dispatch callback")
+    void testWithDecryptedSecretsAndZeroization() throws Exception {
+        LegatusProperties props = new LegatusProperties();
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("dev");
+
+        dev.legatus.server.repository.SecretEntryRepository repo = org.mockito.Mockito.mock(dev.legatus.server.repository.SecretEntryRepository.class);
+        SecretVaultService service = new SecretVaultService(props, env, repo);
+        service.init();
+
+        SecretVaultService.EncryptedSecret enc1 = service.encrypt("secret_value_one".getBytes(StandardCharsets.UTF_8));
+        SecretVaultService.EncryptedSecret enc2 = service.encrypt("secret_value_two".getBytes(StandardCharsets.UTF_8));
+
+        dev.legatus.server.domain.SecretEntry entry1 = new dev.legatus.server.domain.SecretEntry()
+            .secretKey("SEC_ONE")
+            .scope(dev.legatus.server.domain.enumeration.SecretScope.FUNCTION)
+            .cipherText(enc1.cipherText())
+            .cipherTextContentType("application/octet-stream")
+            .gcmIv(enc1.iv())
+            .gcmIvContentType("application/octet-stream")
+            .authTag(enc1.authTag())
+            .authTagContentType("application/octet-stream")
+            .updatedAt(java.time.Instant.now());
+
+        dev.legatus.server.domain.SecretEntry entry2 = new dev.legatus.server.domain.SecretEntry()
+            .secretKey("SEC_TWO")
+            .scope(dev.legatus.server.domain.enumeration.SecretScope.FUNCTION)
+            .cipherText(enc2.cipherText())
+            .cipherTextContentType("application/octet-stream")
+            .gcmIv(enc2.iv())
+            .gcmIvContentType("application/octet-stream")
+            .authTag(enc2.authTag())
+            .authTagContentType("application/octet-stream")
+            .updatedAt(java.time.Instant.now());
+
+        org.mockito.Mockito.when(repo.findById("SEC_ONE")).thenReturn(Optional.of(entry1));
+        org.mockito.Mockito.when(repo.findById("SEC_TWO")).thenReturn(Optional.of(entry2));
+
+        java.util.concurrent.atomic.AtomicBoolean callbackExecuted = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+        service.withDecryptedSecrets(java.util.List.of("SEC_ONE", "SEC_TWO"), resolved -> {
+            callbackExecuted.set(true);
+            assertThat(resolved).containsEntry("SEC_ONE", "secret_value_one");
+            assertThat(resolved).containsEntry("SEC_TWO", "secret_value_two");
+            return null;
+        });
+
+        assertThat(callbackExecuted).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when secret requested for task dispatch is missing")
+    void testWithDecryptedSecretsMissingSecret() {
+        LegatusProperties props = new LegatusProperties();
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("dev");
+
+        dev.legatus.server.repository.SecretEntryRepository repo = org.mockito.Mockito.mock(dev.legatus.server.repository.SecretEntryRepository.class);
+        SecretVaultService service = new SecretVaultService(props, env, repo);
+        service.init();
+
+        org.mockito.Mockito.when(repo.findById("UNKNOWN_KEY")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.withDecryptedSecrets(java.util.List.of("UNKNOWN_KEY"), resolved -> null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Secret not found in vault: UNKNOWN_KEY");
+    }
+
+    @Test
+    @DisplayName("Should delete secret from repository")
+    void testDeleteSecret() {
+        LegatusProperties props = new LegatusProperties();
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("dev");
+
+        dev.legatus.server.repository.SecretEntryRepository repo = org.mockito.Mockito.mock(dev.legatus.server.repository.SecretEntryRepository.class);
+        SecretVaultService service = new SecretVaultService(props, env, repo);
+        service.init();
+
+        org.mockito.Mockito.when(repo.existsById("EXISTING_KEY")).thenReturn(true);
+        org.mockito.Mockito.when(repo.existsById("MISSING_KEY")).thenReturn(false);
+
+        assertThat(service.deleteSecret("EXISTING_KEY")).isTrue();
+        org.mockito.Mockito.verify(repo).deleteById("EXISTING_KEY");
+
+        assertThat(service.deleteSecret("MISSING_KEY")).isFalse();
     }
 }
