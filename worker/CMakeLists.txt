@@ -197,6 +197,7 @@ enable_testing()
 
 add_executable(legatus_tests
     tests/unit/test_common_scaffold.cpp
+    tests/unit/test_runner_engine.cpp
 )
 
 target_link_libraries(legatus_tests PRIVATE
