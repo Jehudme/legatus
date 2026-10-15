@@ -48,6 +48,7 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.GET, "/api/v1/workers/register/**").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/worker").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/operator/login").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/**").permitAll()
                     .requestMatchers("/ws/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/bytecode/**").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/bytecode/**").hasAnyAuthority(AuthoritiesConstants.CLUSTER_ADMIN, AuthoritiesConstants.OPERATOR, AuthoritiesConstants.ADMIN)

@@ -13,6 +13,10 @@ public class LegatusProperties {
     private final Storage storage = new Storage();
     private final Security security = new Security();
     private final Scheduler scheduler = new Scheduler();
+    private final Features features = new Features();
+    private final Cron cron = new Cron();
+    private final Webhooks webhooks = new Webhooks();
+    private final Retention retention = new Retention();
 
     public Storage getStorage() {
         return storage;
@@ -24,6 +28,22 @@ public class LegatusProperties {
 
     public Scheduler getScheduler() {
         return scheduler;
+    }
+
+    public Features getFeatures() {
+        return features;
+    }
+
+    public Cron getCron() {
+        return cron;
+    }
+
+    public Webhooks getWebhooks() {
+        return webhooks;
+    }
+
+    public Retention getRetention() {
+        return retention;
     }
 
     public static class Storage {
@@ -161,6 +181,170 @@ public class LegatusProperties {
 
         public void setDefaultMaxRetries(int defaultMaxRetries) {
             this.defaultMaxRetries = defaultMaxRetries;
+        }
+    }
+
+    public static class Features {
+
+        private boolean cronScheduler = true;
+        private boolean webhooks = true;
+        private boolean bytecodeCache = true;
+        private boolean workflows = false;
+
+        public boolean isCronScheduler() {
+            return cronScheduler;
+        }
+
+        public void setCronScheduler(boolean cronScheduler) {
+            this.cronScheduler = cronScheduler;
+        }
+
+        public boolean isWebhooks() {
+            return webhooks;
+        }
+
+        public void setWebhooks(boolean webhooks) {
+            this.webhooks = webhooks;
+        }
+
+        public boolean isBytecodeCache() {
+            return bytecodeCache;
+        }
+
+        public void setBytecodeCache(boolean bytecodeCache) {
+            this.bytecodeCache = bytecodeCache;
+        }
+
+        public boolean isWorkflows() {
+            return workflows;
+        }
+
+        public void setWorkflows(boolean workflows) {
+            this.workflows = workflows;
+        }
+    }
+
+    public static class Cron {
+
+        private boolean enabled = true;
+        private java.util.List<CronJobConfig> jobs = new java.util.ArrayList<>();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public java.util.List<CronJobConfig> getJobs() {
+            return jobs;
+        }
+
+        public void setJobs(java.util.List<CronJobConfig> jobs) {
+            this.jobs = jobs;
+        }
+    }
+
+    public static class CronJobConfig {
+
+        private String name;
+        private String functionName;
+        private String cronExpression;
+        private dev.legatus.server.domain.enumeration.TaskPriority priority = dev.legatus.server.domain.enumeration.TaskPriority.NORMAL;
+        private java.util.Map<String, Object> arguments = new java.util.HashMap<>();
+        private java.util.Map<String, String> env = new java.util.HashMap<>();
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getFunctionName() {
+            return functionName;
+        }
+
+        public void setFunctionName(String functionName) {
+            this.functionName = functionName;
+        }
+
+        public String getCronExpression() {
+            return cronExpression;
+        }
+
+        public void setCronExpression(String cronExpression) {
+            this.cronExpression = cronExpression;
+        }
+
+        public dev.legatus.server.domain.enumeration.TaskPriority getPriority() {
+            return priority;
+        }
+
+        public void setPriority(dev.legatus.server.domain.enumeration.TaskPriority priority) {
+            this.priority = priority;
+        }
+
+        public java.util.Map<String, Object> getArguments() {
+            return arguments;
+        }
+
+        public void setArguments(java.util.Map<String, Object> arguments) {
+            this.arguments = arguments;
+        }
+
+        public java.util.Map<String, String> getEnv() {
+            return env;
+        }
+
+        public void setEnv(java.util.Map<String, String> env) {
+            this.env = env;
+        }
+    }
+
+    public static class Webhooks {
+
+        private boolean enabled = true;
+        private String secret;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+    }
+
+    public static class Retention {
+
+        private boolean autoPurge = true;
+        private int completedTaskTtlHours = 168;
+
+        public boolean isAutoPurge() {
+            return autoPurge;
+        }
+
+        public void setAutoPurge(boolean autoPurge) {
+            this.autoPurge = autoPurge;
+        }
+
+        public int getCompletedTaskTtlHours() {
+            return completedTaskTtlHours;
+        }
+
+        public void setCompletedTaskTtlHours(int completedTaskTtlHours) {
+            this.completedTaskTtlHours = completedTaskTtlHours;
         }
     }
 }
