@@ -60,7 +60,7 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 - [x] `[P1]` **Liquibase Schema & Optimistic Locking Migrations:** Author deterministic Liquibase changelogs for all 6 core tables (`accounts`, `workers`, `functions`, `tasks`, `secrets_vault`, `audit_logs`) with WORM triggers and indexes on `tasks(status, priority)` and `workers(state)`. (Issue #209)
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
-- [ ] `[P2]` **Built-In Cron & Webhook Ingestion Gateways:** Implement configurable cron trigger scheduling (`legatus.features.cron-scheduler`) and third-party webhook ingestion (`/api/v1/webhooks/{function_name}`). (Issue #210)
+- [x] `[P2]` **Built-In Cron & Webhook Ingestion Gateways:** Implement configurable cron trigger scheduling (`legatus.features.cron-scheduler`) and third-party webhook ingestion (`/api/v1/webhooks/{function_name}`). (Issue #210)
 - [ ] `[P2]` **Task History Retention Sweeper:** Implement background auto-purge job (`legatus.retention.auto-purge`) deleting completed task records older than 168 hours (7 days). (Issue #211)
 
 ### 3.4 P3: Low Priority (Opportunistic Cleanups)

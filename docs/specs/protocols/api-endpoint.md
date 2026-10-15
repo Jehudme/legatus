@@ -305,6 +305,32 @@ Streams raw compiled Solix bytecode binary directly as an `application/octet-str
 * `Content-Length: <bytes>`
 * Body: Raw binary Solix bytecode stream.
 
+### 4.5 Third-Party Webhook Ingestion Gateway (`POST /api/v1/webhooks/{function_name}`)
+Ingests arbitrary incoming JSON payloads from third-party services (e.g., GitHub webhooks, payment providers, alerting systems) and enqueues them directly as Solix compute tasks without requiring a cluster operator JWT.
+
+#### Query Parameters & Headers:
+* `priority` (Optional query param): `CRITICAL`, `HIGH`, `NORMAL`, `LOW` (Defaults to `NORMAL`).
+* `X-Idempotency-Key` (Optional header): Enforces deduplication tracking.
+* `X-Legatus-Webhook-Secret` (Optional header / query param `secret`): Verified against `legatus.webhooks.secret` when secret authentication is enabled.
+
+#### Request Payload:
+```json
+{
+  "ref": "refs/heads/main",
+  "action": "push",
+  "commit": "a1b2c3d4"
+}
+```
+
+#### Response (`202 Accepted`):
+```json
+{
+  "task_id": "task-20261014-a9f812bc",
+  "status": "QUEUED",
+  "submitted_at": 1728950400000
+}
+```
+
 ---
 
 ## 5. Fleet Administration & Quarantine Endpoints
