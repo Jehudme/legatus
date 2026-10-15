@@ -1,6 +1,7 @@
 package com.legatus.studio.transport;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.legatus.studio.protocol.RestDto;
@@ -29,7 +30,9 @@ import java.util.concurrent.Executors;
  */
 public class RestClient {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
 
     private final String baseUrl;

@@ -1,5 +1,6 @@
 package com.legatus.studio.protocol;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.List;
@@ -13,18 +14,26 @@ public final class RestDto {
     private RestDto() {}
 
     // Auth
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record LoginRequest(String username, String password) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record LoginResponse(
             String access_token,
             String refresh_token,
             long expires_in_seconds,
+            String studio_ws_ticket,
+            String studio_ws_url,
             String account_id,
             String username,
             String role
-    ) {}
+    ) {
+        public LoginResponse(String access_token, String refresh_token, long expires_in_seconds, String account_id, String username, String role) {
+            this(access_token, refresh_token, expires_in_seconds, null, null, account_id, username, role);
+        }
+    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record RefreshTokenRequest(String refresh_token) {}

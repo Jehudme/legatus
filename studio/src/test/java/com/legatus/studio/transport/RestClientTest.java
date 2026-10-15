@@ -122,6 +122,33 @@ public class RestClientTest {
     }
 
     @Test
+    void testDeserializeJsonWithUnknownFields() throws Exception {
+        String json = """
+        {
+          "access_token": "tok123",
+          "expires_in_seconds": 86400,
+          "studio_ws_ticket": "st_tkt_12345",
+          "studio_ws_url": "/ws/studio",
+          "account_id": "acc-uuid",
+          "username": "admin",
+          "role": "CLUSTER_ADMIN",
+          "extra_unknown_future_field": "some-value",
+          "nested_unknown_object": { "key": "value" }
+        }
+        """;
+        var parsed = new ObjectMapper()
+                .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .readValue(json, RestDto.LoginResponse.class);
+
+        assertNotNull(parsed);
+        assertEquals("tok123", parsed.access_token());
+        assertEquals("st_tkt_12345", parsed.studio_ws_ticket());
+        assertEquals("/ws/studio", parsed.studio_ws_url());
+        assertEquals("admin", parsed.username());
+    }
+
+    @Test
     void testGetWorkersWithBearerAuth() throws Exception {
         // Authenticate session
         OperatorSession.getInstance().setSession(

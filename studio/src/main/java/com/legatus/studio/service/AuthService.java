@@ -39,7 +39,9 @@ public class AuthService {
                             expiresAt,
                             response.username(),
                             response.account_id(),
-                            response.role()
+                            response.role(),
+                            response.studio_ws_ticket(),
+                            response.studio_ws_url()
                     );
                     return response;
                 });

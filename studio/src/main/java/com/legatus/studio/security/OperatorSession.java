@@ -17,6 +17,8 @@ public class OperatorSession {
     private String username;
     private String accountId;
     private String role;
+    private String studioWsTicket;
+    private String studioWsUrl;
 
     private OperatorSession() {}
 
@@ -30,12 +32,25 @@ public class OperatorSession {
                                         String username,
                                         String accountId,
                                         String role) {
+        setSession(accessToken, refreshToken, expiresAt, username, accountId, role, null, null);
+    }
+
+    public synchronized void setSession(String accessToken,
+                                        String refreshToken,
+                                        Instant expiresAt,
+                                        String username,
+                                        String accountId,
+                                        String role,
+                                        String studioWsTicket,
+                                        String studioWsUrl) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.expiresAt = expiresAt;
         this.username = username;
         this.accountId = accountId;
         this.role = role;
+        this.studioWsTicket = studioWsTicket;
+        this.studioWsUrl = studioWsUrl;
     }
 
     public synchronized void updateAccessToken(String newAccessToken, Instant newExpiresAt) {
@@ -50,6 +65,8 @@ public class OperatorSession {
         this.username = null;
         this.accountId = null;
         this.role = null;
+        this.studioWsTicket = null;
+        this.studioWsUrl = null;
     }
 
     public synchronized boolean isAuthenticated() {
