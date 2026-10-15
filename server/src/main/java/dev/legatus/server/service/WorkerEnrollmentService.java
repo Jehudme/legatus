@@ -529,6 +529,7 @@ public class WorkerEnrollmentService {
         }
 
         workerNodeRepository.delete(worker);
+        workerNodeRepository.flush();
 
         wormAuditService.recordEvent(
             operatorUsername,

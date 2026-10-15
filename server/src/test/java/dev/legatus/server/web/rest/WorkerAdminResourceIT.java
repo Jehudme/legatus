@@ -2,6 +2,7 @@ package dev.legatus.server.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -179,6 +180,22 @@ class WorkerAdminResourceIT {
 
         WorkerNode updated = workerNodeRepository.findById(onlineWorker.getWorkerId()).orElseThrow();
         assertThat(updated.getState()).isEqualTo(WorkerState.REVOKED);
+    }
+
+    @Test
+    @WithMockUser(username = "operator_user", roles = { "OPERATOR" })
+    @DisplayName("DELETE /api/v1/admin/workers/{workerId} should delete dead or offline worker")
+    void testDeleteWorker() throws Exception {
+        onlineWorker.setState(WorkerState.OFFLINE);
+        workerNodeRepository.saveAndFlush(onlineWorker);
+
+        long countBefore = workerNodeRepository.count();
+
+        mockMvc.perform(delete("/api/v1/admin/workers/{workerId}", onlineWorker.getWorkerId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("DELETED"));
+
+        assertThat(workerNodeRepository.count()).isEqualTo(countBefore - 1);
     }
 
     @Test

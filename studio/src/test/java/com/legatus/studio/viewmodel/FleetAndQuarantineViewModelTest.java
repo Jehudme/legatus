@@ -77,8 +77,27 @@ public class FleetAndQuarantineViewModelTest {
         vm.drainSelectedWorker().get();
         assertEquals("DRAINING", w1.getState());
 
+        server.createContext("/api/v1/admin/workers/w3", ex -> {
+            ex.sendResponseHeaders(200, -1);
+        });
+
         vm.revokeSelectedWorker().get();
         assertEquals("REVOKED", w1.getState());
+
+        // Test delete dead/offline worker
+        WorkerNode deadWorker = new WorkerNode("w3", "node-dead", "10.0.0.3", "linux", "x86_64", "OFFLINE", 8, 16000000000L, 0.0, 0L, 0, "");
+        allWorkers.add(deadWorker);
+        vm.setSelectedWorker(deadWorker);
+        vm.deleteSelectedWorker().get();
+        assertFalse(allWorkers.contains(deadWorker));
+
+        // Test sorting priority: ONLINE workers on top
+        WorkerNode offline = new WorkerNode("w-off", "offline-node", "10.0.0.4", "linux", "x86_64", "OFFLINE", 4, 8000000000L, 0.0, 0L, 0, "");
+        WorkerNode online = new WorkerNode("w-on", "online-node", "10.0.0.5", "linux", "x86_64", "ONLINE", 4, 8000000000L, 10.0, 2000000000L, 1, "");
+        allWorkers.clear();
+        allWorkers.addAll(offline, online);
+        assertEquals("w-on", vm.getFilteredWorkers().get(0).getWorkerId());
+        assertEquals("w-off", vm.getFilteredWorkers().get(1).getWorkerId());
     }
 
     @Test

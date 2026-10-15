@@ -66,9 +66,9 @@ class OperatorAccountServiceTest {
     }
 
     @Test
-    @DisplayName("Should bootstrap cluster admin when account table is empty")
+    @DisplayName("Should bootstrap cluster admin when admin account does not exist")
     void testBootstrapAdminWhenEmpty() {
-        when(accountRepository.count()).thenReturn(0L);
+        when(accountRepository.existsByUsernameIgnoreCase("admin")).thenReturn(false);
         when(argon2idService.hash(anyString())).thenReturn("$argon2id$v=19$m=65536,t=3,p=4$hash");
         when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
             Account a = invocation.getArgument(0);
@@ -101,9 +101,9 @@ class OperatorAccountServiceTest {
     }
 
     @Test
-    @DisplayName("Should not bootstrap cluster admin when accounts already exist")
+    @DisplayName("Should not bootstrap cluster admin when admin account already exists")
     void testBootstrapAdminWhenNotEmpty() {
-        when(accountRepository.count()).thenReturn(5L);
+        when(accountRepository.existsByUsernameIgnoreCase("admin")).thenReturn(true);
 
         operatorAccountService.bootstrapAdminIfNeeded();
 
