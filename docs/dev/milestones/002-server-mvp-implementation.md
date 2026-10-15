@@ -47,9 +47,9 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 - [x] `[P0]` **Heartbeat Dead-Man's Switch & Orphan Task Recovery:** Implement the 1000ms Virtual Thread liveness sweeper that closes silent worker sockets after 15,000ms (`Close Code 1011`), transitions nodes to `OFFLINE`, and re-queues idempotent tasks (`attempt_count < max_retries`) or marks them `FAILED` (`ERR_WORKER_LOST`). (Issue #204)
   - [x] 1000ms dead-man's switch sweeper (`WorkerDeadManSweeper`) enforcing 15,000ms heartbeat timeout and socket closure with Close Code 1011.
   - [x] Orphan task recovery engine re-queuing retry-eligible idempotent workloads and transitioning non-idempotent tasks to `ERR_WORKER_LOST`.
-- [ ] `[P0]` **AES-256-GCM Secret Vault & H2 Encryption at Rest:** Enforce `LEGATUS_MASTER_KEY` HKDF-SHA256 bootstrap (aborting with exit code `78` in `prod` if missing), per-secret AES-256-GCM encryption with 96-bit IVs, plaintext zeroing after `DISPATCH_TASK` serialization, and H2 `CIPHER=AES;FILE_LOCK=FS` persistence. (Issue #205)
+- [x] `[P0]` **AES-256-GCM Secret Vault & H2 Encryption at Rest:** Enforce `LEGATUS_MASTER_KEY` HKDF-SHA256 bootstrap (aborting with exit code `78` in `prod` if missing), per-secret AES-256-GCM encryption with 96-bit IVs, plaintext zeroing after `DISPATCH_TASK` serialization, and H2 `CIPHER=AES;FILE_LOCK=FS` persistence. (Issue #205)
   - [x] AES-256-GCM Secret Vault Service (`SecretVaultService`) with HKDF-SHA256 master key derivation, production exit code 78 abort enforcement, tamper-evident authenticated decryption, and memory zeroization.
-  - [ ] Secret repository persistence integration and DISPATCH_TASK frame zeroization.
+  - [x] Secret repository persistence integration, zeroizable task dispatch callback, and `SecretAdminResource` (`/api/v1/admin/secrets`) with RBAC enforcement and WORM audit logging.
 
 ### 3.2 P1: High Priority (Milestone Core)
 - [ ] `[P1]` **Deterministic Bin-Packing Task Scheduler:** Implement the 5-predicate worker eligibility filter and pluggable scheduling strategies (`LEAST_LOADED` default, `BIN_PACK`, `ROUND_ROBIN`, `LOCALITY_FIRST`) with JPA `@Version` optimistic locking retry logic. (Issue #206)
