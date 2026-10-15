@@ -57,7 +57,7 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
   - [x] Pluggable Bytecode Storage SPI (`BytecodeStorageService`, `LocalFilesystemBytecodeStorage`) with SHA-256 validation, path traversal defense, and 100% test coverage.
   - [x] REST Controller for Bytecode ingestion & download with ETag caching.
 - [x] `[P1]` **LSTCP Studio Stream Engine (`/ws/studio`):** Implement `STUDIO_SESSION_INIT` (with `viewport_filter` scoping), `STUDIO_SESSION_ACK`, 1000ms `EVENT_CLUSTER_METRIC_TICK` broadcasts, `EVENT_ENROLLMENT_REQUESTED` quarantine push alerts, and scoped `SUBSCRIBE_TASK_LOGS` / `EVENT_TASK_LOG_CHUNK` multiplexing. (Issue #208)
-- [ ] `[P1]` **Liquibase Schema & Optimistic Locking Migrations:** Author deterministic Liquibase changelogs for all 6 core tables (`accounts`, `workers`, `functions`, `tasks`, `secrets_vault`, `audit_logs`) with WORM triggers and indexes on `tasks(status, priority)` and `workers(state)`. (Issue #209)
+- [x] `[P1]` **Liquibase Schema & Optimistic Locking Migrations:** Author deterministic Liquibase changelogs for all 6 core tables (`accounts`, `workers`, `functions`, `tasks`, `secrets_vault`, `audit_logs`) with WORM triggers and indexes on `tasks(status, priority)` and `workers(state)`. (Issue #209)
 
 ### 3.3 P2: Medium Priority (Ergonomics & Polish)
 - [ ] `[P2]` **Built-In Cron & Webhook Ingestion Gateways:** Implement configurable cron trigger scheduling (`legatus.features.cron-scheduler`) and third-party webhook ingestion (`/api/v1/webhooks/{function_name}`). (Issue #210)
