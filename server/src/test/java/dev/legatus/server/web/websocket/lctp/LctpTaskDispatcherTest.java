@@ -111,4 +111,36 @@ class LctpTaskDispatcherTest {
 
         assertThat(result).isFalse();
     }
+
+    @Test
+    @DisplayName("Should build ABORT_TASK frame and transmit over WebSocket")
+    void testSuccessfulAbort() throws Exception {
+        String workerId = "wk-abort-test";
+        WebSocketSession wsSession = mock(WebSocketSession.class);
+        when(wsSession.isOpen()).thenReturn(true);
+
+        TicketBrokerService.WorkerTicket ticket = new TicketBrokerService.WorkerTicket(
+            "ws_tkt_abort",
+            workerId,
+            4,
+            4L * 1024 * 1024 * 1024,
+            100_000_000L,
+            java.time.Instant.now()
+        );
+
+        LctpWorkerSession session = new LctpWorkerSession("sess-abort", workerId, wsSession, ticket);
+        sessionRegistry.register(session);
+
+        boolean result = dispatcher.abortTask(workerId, "task-to-abort", "OPERATOR_CANCELLED", 5000);
+
+        assertThat(result).isTrue();
+        verify(wsSession).sendMessage(any(TextMessage.class));
+    }
+
+    @Test
+    @DisplayName("Should return false when attempting to abort task on non-connected worker")
+    void testAbortNoSession() {
+        boolean result = dispatcher.abortTask("wk-nonexistent", "task-to-abort", "TIMEOUT", 1000);
+        assertThat(result).isFalse();
+    }
 }
