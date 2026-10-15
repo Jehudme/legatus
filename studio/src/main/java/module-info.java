@@ -13,6 +13,7 @@ module com.legatus.studio {
 
     requires java.net.http;
     requires java.desktop;
+    requires static jdk.httpserver;
 
     opens com.legatus.studio to javafx.fxml;
     opens com.legatus.studio.controllers to javafx.fxml;
