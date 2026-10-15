@@ -95,6 +95,14 @@ jhipster:
 
 # application:
 management:
+  endpoints:
+    web:
+      base-path: /management
+      exposure:
+        include: '*'
+  endpoint:
+    prometheus:
+      access: unrestricted
   health:
     mail:
       enabled: false
