@@ -51,6 +51,7 @@ public class SecurityConfiguration {
                     .requestMatchers("/ws/**").permitAll()
                     .requestMatchers("/api/v1/admin/accounts/**").hasAnyAuthority(AuthoritiesConstants.CLUSTER_ADMIN, AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/v1/admin/audit-logs/**").hasAnyAuthority(AuthoritiesConstants.CLUSTER_ADMIN, AuthoritiesConstants.AUDITOR, AuthoritiesConstants.ADMIN)
+                    .requestMatchers("/api/v1/admin/secrets/**").hasAnyAuthority(AuthoritiesConstants.CLUSTER_ADMIN, AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/**").authenticated()
                     .requestMatchers("/websocket/**").authenticated()

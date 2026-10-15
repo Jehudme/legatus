@@ -33,7 +33,7 @@ spring:
       enabled: false
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:${LEGATUS_DB_PATH:/var/lib/legatus/db/legatus};AUTO_SERVER=TRUE;FILE_LOCK=FS;LOCK_TIMEOUT=10000}
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:${LEGATUS_DB_PATH:/var/lib/legatus/db/legatus};CIPHER=AES;AUTO_SERVER=TRUE;FILE_LOCK=FS;LOCK_TIMEOUT=10000}
     driver-class-name: org.h2.Driver
     username: legatus
     password: ${H2_DATABASE_PASSPHRASE:}

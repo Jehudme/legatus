@@ -1,12 +1,15 @@
 package dev.legatus.server.security;
 
 import dev.legatus.server.config.LegatusProperties;
+import dev.legatus.server.domain.SecretEntry;
+import dev.legatus.server.domain.enumeration.SecretScope;
+import dev.legatus.server.repository.SecretEntryRepository;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
-import java.util.Arrays;
-import java.util.Objects;
+import java.time.Instant;
+import java.util.*;
 import java.util.function.Consumer;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -20,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service managing AES-256-GCM envelope encryption for guest secrets in {@code secrets_vault}.
@@ -48,14 +52,24 @@ public class SecretVaultService {
 
     private final LegatusProperties legatusProperties;
     private final Environment environment;
+    private final SecretEntryRepository secretEntryRepository;
     private final SecureRandom secureRandom;
     private Consumer<Integer> exitHandler = System::exit;
 
     private SecretKey derivedMasterKey;
 
     public SecretVaultService(LegatusProperties legatusProperties, Environment environment) {
+        this(legatusProperties, environment, null);
+    }
+
+    public SecretVaultService(
+        LegatusProperties legatusProperties,
+        Environment environment,
+        SecretEntryRepository secretEntryRepository
+    ) {
         this.legatusProperties = legatusProperties;
         this.environment = environment;
+        this.secretEntryRepository = secretEntryRepository;
         this.secureRandom = new SecureRandom();
     }
 
@@ -234,6 +248,146 @@ public class SecretVaultService {
     public static void zeroize(char[] data) {
         if (data != null) {
             Arrays.fill(data, '\0');
+        }
+    }
+
+    /**
+     * Functional callback interface for consuming decrypted secrets with automatic zeroization.
+     */
+    @FunctionalInterface
+    public interface SecretDispatchCallback<T> {
+        T dispatch(Map<String, String> resolvedSecrets) throws Exception;
+    }
+
+    /**
+     * Encrypts and persists a secret in the {@code secrets_vault} table.
+     * The input plaintext byte array is zeroed immediately after encryption.
+     *
+     * @param secretKey unique identifier of the secret
+     * @param scope secret scope tier (GLOBAL, CLUSTER, FUNCTION)
+     * @param plaintext raw plaintext bytes (will be zeroed)
+     * @return persisted {@link SecretEntry} entity
+     */
+    @Transactional
+    public SecretEntry storeSecret(String secretKey, SecretScope scope, byte[] plaintext) {
+        Objects.requireNonNull(secretKey, "secretKey cannot be null");
+        Objects.requireNonNull(scope, "scope cannot be null");
+        Objects.requireNonNull(plaintext, "plaintext cannot be null");
+
+        if (secretEntryRepository == null) {
+            throw new IllegalStateException("SecretEntryRepository is not configured in SecretVaultService");
+        }
+
+        EncryptedSecret encrypted = encrypt(plaintext);
+        try {
+            SecretEntry entry = secretEntryRepository.findById(secretKey).orElseGet(SecretEntry::new);
+            entry.setSecretKey(secretKey);
+            entry.setScope(scope);
+            entry.setCipherText(encrypted.cipherText());
+            entry.setCipherTextContentType("application/octet-stream");
+            entry.setGcmIv(encrypted.iv());
+            entry.setGcmIvContentType("application/octet-stream");
+            entry.setAuthTag(encrypted.authTag());
+            entry.setAuthTagContentType("application/octet-stream");
+            entry.setUpdatedAt(Instant.now());
+            entry.setIsPersisted();
+            return secretEntryRepository.save(entry);
+        } finally {
+            zeroize(plaintext);
+        }
+    }
+
+    /**
+     * Encrypts and persists a string secret.
+     */
+    @Transactional
+    public SecretEntry storeSecret(String secretKey, SecretScope scope, String plaintextContent) {
+        Objects.requireNonNull(plaintextContent, "plaintextContent cannot be null");
+        byte[] bytes = plaintextContent.getBytes(StandardCharsets.UTF_8);
+        return storeSecret(secretKey, scope, bytes);
+    }
+
+    /**
+     * Decrypts a secret from the vault and returns its raw bytes.
+     * Callers MUST call {@link #zeroize(byte[])} on the returned buffer when finished.
+     */
+    @Transactional(readOnly = true)
+    public Optional<byte[]> getDecryptedSecret(String secretKey) throws GeneralSecurityException {
+        Objects.requireNonNull(secretKey, "secretKey cannot be null");
+        if (secretEntryRepository == null) {
+            throw new IllegalStateException("SecretEntryRepository is not configured in SecretVaultService");
+        }
+        Optional<SecretEntry> entryOpt = secretEntryRepository.findById(secretKey);
+        if (entryOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        SecretEntry entry = entryOpt.get();
+        return Optional.of(decrypt(entry.getCipherText(), entry.getGcmIv(), entry.getAuthTag()));
+    }
+
+    /**
+     * Decrypts a secret from the vault and returns its string representation.
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> getDecryptedSecretAsString(String secretKey) throws GeneralSecurityException {
+        Optional<byte[]> bytesOpt = getDecryptedSecret(secretKey);
+        if (bytesOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        byte[] bytes = bytesOpt.get();
+        try {
+            return Optional.of(new String(bytes, StandardCharsets.UTF_8));
+        } finally {
+            zeroize(bytes);
+        }
+    }
+
+    /**
+     * Deletes a secret from the vault by its key.
+     */
+    @Transactional
+    public boolean deleteSecret(String secretKey) {
+        Objects.requireNonNull(secretKey, "secretKey cannot be null");
+        if (secretEntryRepository == null) {
+            throw new IllegalStateException("SecretEntryRepository is not configured in SecretVaultService");
+        }
+        if (secretEntryRepository.existsById(secretKey)) {
+            secretEntryRepository.deleteById(secretKey);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Resolves task secrets by keys, constructs the secrets map, executes the dispatch action,
+     * and strictly guarantees in a finally-block that all decrypted plaintext byte buffers are zeroized.
+     */
+    @Transactional(readOnly = true)
+    public <T> T withDecryptedSecrets(Collection<String> secretKeys, SecretDispatchCallback<T> callback) throws Exception {
+        Objects.requireNonNull(callback, "callback cannot be null");
+        if (secretKeys == null || secretKeys.isEmpty()) {
+            return callback.dispatch(Map.of());
+        }
+        if (secretEntryRepository == null) {
+            throw new IllegalStateException("SecretEntryRepository is not configured in SecretVaultService");
+        }
+
+        List<byte[]> plaintextBuffers = new ArrayList<>();
+        Map<String, String> resolvedSecrets = new HashMap<>();
+        try {
+            for (String key : secretKeys) {
+                SecretEntry entry = secretEntryRepository.findById(key)
+                    .orElseThrow(() -> new IllegalArgumentException("Secret not found in vault: " + key));
+                byte[] plaintext = decrypt(entry.getCipherText(), entry.getGcmIv(), entry.getAuthTag());
+                plaintextBuffers.add(plaintext);
+                resolvedSecrets.put(key, new String(plaintext, StandardCharsets.UTF_8));
+            }
+            return callback.dispatch(resolvedSecrets);
+        } finally {
+            for (byte[] buf : plaintextBuffers) {
+                zeroize(buf);
+            }
+            resolvedSecrets.clear();
         }
     }
 }
