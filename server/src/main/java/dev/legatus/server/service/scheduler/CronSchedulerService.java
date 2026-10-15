@@ -131,7 +131,9 @@ public class CronSchedulerService {
             new CronTrigger(job.getCronExpression())
         );
 
-        scheduledTasks.put(job.getName(), future);
+        if (future != null) {
+            scheduledTasks.put(job.getName(), future);
+        }
         configuredJobs.put(job.getName(), job);
         LOG.info("Successfully scheduled cron job '{}' [function: '{}', cron: '{}']", job.getName(), job.getFunctionName(), job.getCronExpression());
         return true;
