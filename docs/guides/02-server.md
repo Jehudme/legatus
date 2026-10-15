@@ -71,6 +71,10 @@ legatus:
     completed-task-ttl-hours: 168
 ```
 
+### Database Migration & Clean State Management
+* **Liquibase Contexts (`spring.liquibase.contexts`):** Set to `dev` in development and `prod` in production. The `faker` sample data generation context is disabled by default, ensuring no synthetic or random workers, tasks, functions, secrets, or audit logs are populated into the database.
+* **Database Reset Procedure:** To reset development storage to a completely clean genesis state, stop the server and delete `server/target/h2db/`. On initial launch, the server runs schema migrations, bootstraps the initial `admin` operator account via `OperatorAccountService`, and records the initial `INITIAL_ADMIN_BOOTSTRAPPED` genesis WORM audit entry.
+
 ---
 
 ## 3. Production Environment Variables
