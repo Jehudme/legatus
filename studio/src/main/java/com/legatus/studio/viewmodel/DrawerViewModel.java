@@ -22,14 +22,8 @@ public class DrawerViewModel {
     public DrawerViewModel(LogStreamBuffer logStreamBuffer) {
         this.logStreamBuffer = Objects.requireNonNull(logStreamBuffer, "logStreamBuffer must not be null");
 
-        // Forward stream lines into observable consoleLines list
-        this.logStreamBuffer.addLineListener(line -> {
-            try {
-                javafx.application.Platform.runLater(() -> consoleLines.add(line));
-            } catch (IllegalStateException ignored) {
-                consoleLines.add(line);
-            }
-        });
+        // Forward stream lines immediately into observable consoleLines list
+        this.logStreamBuffer.addLineListener(consoleLines::add);
     }
 
     public void clearConsole() {

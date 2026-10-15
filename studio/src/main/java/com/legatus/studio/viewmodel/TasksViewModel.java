@@ -137,7 +137,13 @@ public class TasksViewModel implements AutoCloseable {
     public void setSelectedTask(TaskRecord task) { this.selectedTask.set(task); }
 
     public StringProperty filterStatusProperty() { return filterStatus; }
+    public String getFilterStatus() { return filterStatus.get(); }
+    public void setFilterStatus(String value) { this.filterStatus.set(value); }
+
     public StringProperty searchQueryProperty() { return searchQuery; }
+    public String getSearchQuery() { return searchQuery.get(); }
+    public void setSearchQuery(String value) { this.searchQuery.set(value); }
+
     public BooleanProperty isBusyProperty() { return isBusy; }
     public StringProperty statusMessageProperty() { return statusMessage; }
 
