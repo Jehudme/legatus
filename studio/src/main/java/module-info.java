@@ -18,6 +18,7 @@ module com.legatus.studio {
     opens com.legatus.studio.controllers to javafx.fxml;
     opens com.legatus.studio.config to com.fasterxml.jackson.databind;
     opens com.legatus.studio.model to com.fasterxml.jackson.databind, javafx.base;
+    opens com.legatus.studio.protocol to com.fasterxml.jackson.databind;
 
     exports com.legatus.studio;
     exports com.legatus.studio.controllers;
@@ -25,4 +26,6 @@ module com.legatus.studio {
     exports com.legatus.studio.config;
     exports com.legatus.studio.security;
     exports com.legatus.studio.model;
+    exports com.legatus.studio.protocol;
+    exports com.legatus.studio.transport;
 }
