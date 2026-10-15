@@ -29,4 +29,5 @@ module com.legatus.studio {
     exports com.legatus.studio.model;
     exports com.legatus.studio.protocol;
     exports com.legatus.studio.transport;
+    exports com.legatus.studio.viewmodel;
 }
