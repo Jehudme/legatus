@@ -64,7 +64,7 @@ Deliver the production-ready **Legatus Server** (`legatus-server`) orchestration
 - [x] `[P2]` **Task History Retention Sweeper:** Implement background auto-purge job (`legatus.retention.auto-purge`) deleting completed task records older than 168 hours (7 days). (Issue #211)
 
 ### 3.4 P3: Low Priority (Opportunistic Cleanups)
-- [ ] `[P3]` **Optional Prometheus Actuator Exporter:** Configure optional Micrometer `/actuator/prometheus` endpoint (`management.endpoints.prometheus=false` by default) for external scraping. (Issue #212)
+- [x] `[P3]` **Optional Prometheus Actuator Exporter:** Configure optional Micrometer `/actuator/prometheus` endpoint (`management.endpoints.prometheus=false` by default) for external scraping. (Issue #212)
 
 ---
 
