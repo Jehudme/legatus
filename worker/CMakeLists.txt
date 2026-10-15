@@ -158,6 +158,26 @@ target_link_libraries(legatus_runner_core PUBLIC
 )
 
 # -----------------------------------------------------------------------------
+# Daemon Library: legatus_daemon_core
+# -----------------------------------------------------------------------------
+add_library(legatus_daemon_core
+    src/daemon/process_supervisor.cpp
+)
+
+target_include_directories(legatus_daemon_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(legatus_daemon_core PUBLIC
+    legatus_common
+    legatus_runner_core
+    reproc++
+    nng
+    ixwebsocket
+)
+
+# -----------------------------------------------------------------------------
 # Executables
 # -----------------------------------------------------------------------------
 
@@ -174,10 +194,7 @@ add_executable(legatusd
     src/daemon/main.cpp
 )
 target_link_libraries(legatusd PRIVATE
-    legatus_common
-    nng
-    reproc++
-    ixwebsocket
+    legatus_daemon_core
 )
 
 # 3. legatus (CLI)
@@ -203,6 +220,7 @@ add_executable(legatus_tests
 target_link_libraries(legatus_tests PRIVATE
     legatus_common
     legatus_runner_core
+    legatus_daemon_core
     Catch2::Catch2WithMain
     solix_core
     nng
