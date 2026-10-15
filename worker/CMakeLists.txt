@@ -162,6 +162,8 @@ target_link_libraries(legatus_runner_core PUBLIC
 # -----------------------------------------------------------------------------
 add_library(legatus_daemon_core
     src/daemon/process_supervisor.cpp
+    src/daemon/worker_config.cpp
+    src/daemon/enrollment_client.cpp
 )
 
 target_include_directories(legatus_daemon_core PUBLIC

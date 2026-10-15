@@ -1,9 +1,11 @@
 #include "legatus/common/crypto_utils.hpp"
+#include "legatus/common/base64.hpp"
 #include <openssl/evp.h>
 #include <iomanip>
 #include <sstream>
 #include <cstring>
 #include <array>
+#include <stdexcept>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -46,14 +48,17 @@ std::string sha256_hex(const std::uint8_t* data, std::size_t len) {
     return oss.str();
 }
 
-std::string format_fingerprint(const std::string& sha256_hex_str) {
+std::string format_fingerprint(const std::string& sha256_hex_str, std::size_t num_bytes) {
     std::string result;
-    for (std::size_t i = 0; i < sha256_hex_str.length(); i += 2) {
+    std::size_t max_chars = (num_bytes > 0 && num_bytes * 2 <= sha256_hex_str.length())
+                            ? num_bytes * 2
+                            : sha256_hex_str.length();
+    for (std::size_t i = 0; i < max_chars; i += 2) {
         if (!result.empty()) {
             result += ':';
         }
         result += static_cast<char>(std::toupper(sha256_hex_str[i]));
-        if (i + 1 < sha256_hex_str.length()) {
+        if (i + 1 < max_chars) {
             result += static_cast<char>(std::toupper(sha256_hex_str[i + 1]));
         }
     }
@@ -84,6 +89,51 @@ std::string derive_visual_code(const std::string& sha256_hex_str) {
     std::ostringstream oss;
     oss << word1 << "-" << word2 << "-" << std::setw(2) << std::setfill('0') << num;
     return oss.str();
+}
+
+Ed25519KeyPair generate_ed25519_keypair() {
+    Ed25519KeyPair keypair;
+    EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+    if (!pctx) {
+        throw std::runtime_error("Failed to allocate EVP_PKEY_CTX for ED25519");
+    }
+
+    EVP_PKEY* pkey = nullptr;
+    if (EVP_PKEY_keygen_init(pctx) <= 0 || EVP_PKEY_keygen(pctx, &pkey) <= 0 || !pkey) {
+        EVP_PKEY_CTX_free(pctx);
+        throw std::runtime_error("Failed to generate OpenSSL ED25519 keypair");
+    }
+    EVP_PKEY_CTX_free(pctx);
+
+    std::vector<std::uint8_t> pub_bytes(32);
+    size_t pub_len = pub_bytes.size();
+    if (EVP_PKEY_get_raw_public_key(pkey, pub_bytes.data(), &pub_len) <= 0) {
+        EVP_PKEY_free(pkey);
+        throw std::runtime_error("Failed to extract raw ED25519 public key");
+    }
+    pub_bytes.resize(pub_len);
+
+    std::vector<std::uint8_t> priv_bytes(32);
+    size_t priv_len = priv_bytes.size();
+    if (EVP_PKEY_get_raw_private_key(pkey, priv_bytes.data(), &priv_len) <= 0) {
+        EVP_PKEY_free(pkey);
+        throw std::runtime_error("Failed to extract raw ED25519 private key");
+    }
+    priv_bytes.resize(priv_len);
+
+    EVP_PKEY_free(pkey);
+
+    keypair.public_key_base64 = base64_encode(pub_bytes);
+    keypair.private_key_base64 = base64_encode(priv_bytes);
+
+    std::string hash = sha256_hex(pub_bytes.data(), pub_bytes.size());
+    keypair.fingerprint = format_fingerprint(hash, 8);
+    keypair.visual_code = derive_visual_code(hash);
+
+    // Explicitly scrub raw private key buffer from memory
+    secure_zero(priv_bytes.data(), priv_bytes.size());
+
+    return keypair;
 }
 
 } // namespace legatus::common
