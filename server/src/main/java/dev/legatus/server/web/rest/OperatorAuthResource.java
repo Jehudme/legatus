@@ -1,10 +1,10 @@
 package dev.legatus.server.web.rest;
 
 import dev.legatus.server.service.OperatorAccountService;
-import dev.legatus.server.web.rest.dto.OperatorLoginRequest;
-import dev.legatus.server.web.rest.dto.OperatorLoginResponse;
-import dev.legatus.server.web.rest.dto.OperatorPasswordChangeRequest;
-import dev.legatus.server.web.rest.dto.OperatorPasswordChangeResponse;
+import dev.legatus.server.service.dto.OperatorLoginRequest;
+import dev.legatus.server.service.dto.OperatorLoginResponse;
+import dev.legatus.server.service.dto.OperatorPasswordChangeRequest;
+import dev.legatus.server.service.dto.OperatorPasswordChangeResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;

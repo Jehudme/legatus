@@ -3,7 +3,7 @@ package dev.legatus.server.web.rest;
 import dev.legatus.server.domain.enumeration.AccountStatus;
 import dev.legatus.server.domain.enumeration.OperatorRole;
 import dev.legatus.server.service.OperatorAccountService;
-import dev.legatus.server.web.rest.dto.*;
+import dev.legatus.server.service.dto.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;

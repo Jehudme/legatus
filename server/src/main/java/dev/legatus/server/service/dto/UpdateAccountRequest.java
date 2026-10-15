@@ -1,4 +1,4 @@
-package dev.legatus.server.web.rest.dto;
+package dev.legatus.server.service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
