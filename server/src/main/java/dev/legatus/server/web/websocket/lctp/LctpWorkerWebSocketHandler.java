@@ -50,6 +50,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
     private final ComputeTaskRepository computeTaskRepository;
     private final WormAuditService wormAuditService;
     private final ObjectMapper objectMapper;
+    private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
 
     public LctpWorkerWebSocketHandler(
         WorkerSessionRegistry sessionRegistry,
@@ -58,11 +59,24 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         WormAuditService wormAuditService,
         ObjectMapper objectMapper
     ) {
+        this(sessionRegistry, workerNodeRepository, computeTaskRepository, wormAuditService, objectMapper, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public LctpWorkerWebSocketHandler(
+        WorkerSessionRegistry sessionRegistry,
+        WorkerNodeRepository workerNodeRepository,
+        ComputeTaskRepository computeTaskRepository,
+        WormAuditService wormAuditService,
+        ObjectMapper objectMapper,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher
+    ) {
         this.sessionRegistry = sessionRegistry;
         this.workerNodeRepository = workerNodeRepository;
         this.computeTaskRepository = computeTaskRepository;
         this.wormAuditService = wormAuditService;
         this.objectMapper = objectMapper;
+        this.studioEventPublisher = studioEventPublisher;
     }
 
     @Override
@@ -267,6 +281,19 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             task.setInstructionsConsumed(frame.payload().instructionsConsumed());
             task.setPeakMemoryBytes(Math.max(task.getPeakMemoryBytes() != null ? task.getPeakMemoryBytes() : 0L, frame.payload().memoryUsedBytes()));
             computeTaskRepository.save(task);
+
+            if (studioEventPublisher != null) {
+                studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                    task.getTaskId(),
+                    task.getName(),
+                    task.getStatus() != null ? task.getStatus().name() : "EXECUTING",
+                    task.getExitCode(),
+                    session.getWorkerId(),
+                    task.getInstructionsConsumed(),
+                    task.getPeakMemoryBytes(),
+                    task.getWallTimeMs()
+                ));
+            }
         });
     }
 
@@ -312,6 +339,34 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                 "127.0.0.1",
                 "SOC2_CC6.8"
             );
+
+            if (studioEventPublisher != null) {
+                studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                    task.getTaskId(),
+                    task.getName(),
+                    terminalStatus.name(),
+                    task.getExitCode(),
+                    session.getWorkerId(),
+                    task.getInstructionsConsumed(),
+                    task.getPeakMemoryBytes(),
+                    task.getWallTimeMs()
+                ));
+
+                String logLine = null;
+                if (frame.payload().output() != null) {
+                    logLine = "[STDOUT] " + frame.payload().output().toString();
+                } else if (frame.payload().error() != null) {
+                    logLine = "[STDERR] " + frame.payload().error().code() + ": " + frame.payload().error().message();
+                }
+                if (logLine != null) {
+                    studioEventPublisher.publishTaskLogChunk(new dev.legatus.server.service.dto.lstcp.EventTaskLogChunkFrame.Payload(
+                        taskId,
+                        100.0,
+                        task.getInstructionsConsumed(),
+                        logLine
+                    ));
+                }
+            }
         }
 
         TaskResultAckFrame ack = new TaskResultAckFrame(

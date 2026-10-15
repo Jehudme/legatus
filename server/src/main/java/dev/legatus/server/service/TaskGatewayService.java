@@ -57,6 +57,7 @@ public class TaskGatewayService {
     private final WormAuditService wormAuditService;
     private final LegatusProperties legatusProperties;
     private final ObjectMapper objectMapper;
+    private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
 
     public TaskGatewayService(
         ComputeTaskRepository computeTaskRepository,
@@ -67,6 +68,20 @@ public class TaskGatewayService {
         LegatusProperties legatusProperties,
         ObjectMapper objectMapper
     ) {
+        this(computeTaskRepository, bytecodeStorageService, taskSchedulerService, taskDispatcher, wormAuditService, legatusProperties, objectMapper, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public TaskGatewayService(
+        ComputeTaskRepository computeTaskRepository,
+        BytecodeStorageService bytecodeStorageService,
+        TaskSchedulerService taskSchedulerService,
+        TaskDispatcher taskDispatcher,
+        WormAuditService wormAuditService,
+        LegatusProperties legatusProperties,
+        ObjectMapper objectMapper,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher
+    ) {
         this.computeTaskRepository = computeTaskRepository;
         this.bytecodeStorageService = bytecodeStorageService;
         this.taskSchedulerService = taskSchedulerService;
@@ -74,6 +89,7 @@ public class TaskGatewayService {
         this.wormAuditService = wormAuditService;
         this.legatusProperties = legatusProperties;
         this.objectMapper = objectMapper;
+        this.studioEventPublisher = studioEventPublisher;
     }
 
     /**
@@ -190,7 +206,34 @@ public class TaskGatewayService {
         TaskStatus currentStatus = scheduledWorker.isPresent() ? TaskStatus.EXECUTING : TaskStatus.QUEUED;
 
         LOG.info("Submitted task {} (priority={}, status={})", taskId, priority, currentStatus);
+
+        if (studioEventPublisher != null) {
+            studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                task.getTaskId(),
+                task.getName(),
+                currentStatus.name(),
+                task.getExitCode(),
+                scheduledWorker.map(WorkerNode::getWorkerId).orElse(null),
+                task.getInstructionsConsumed(),
+                task.getPeakMemoryBytes(),
+                task.getWallTimeMs()
+            ));
+        }
+
         return new SubmitTaskResponse(taskId, currentStatus, task.getCreatedAt().toEpochMilli());
+    }
+
+    /**
+     * Lists all compute tasks sorted newest first.
+     *
+     * @return list of detailed task status responses
+     */
+    @Transactional(readOnly = true)
+    public List<TaskStatusResponse> listTasks() {
+        return computeTaskRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+            .stream()
+            .map(this::toTaskStatusResponse)
+            .toList();
     }
 
     /**
@@ -203,7 +246,10 @@ public class TaskGatewayService {
     public TaskStatusResponse getTaskStatus(String taskId) {
         ComputeTask task = computeTaskRepository.findById(taskId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found: " + taskId));
+        return toTaskStatusResponse(task);
+    }
 
+    public TaskStatusResponse toTaskStatusResponse(ComputeTask task) {
         TaskStatusResponse.TaskMetrics metrics = null;
         if (task.getInstructionsConsumed() != null || task.getPeakMemoryBytes() != null || task.getWallTimeMs() != null) {
             metrics = new TaskStatusResponse.TaskMetrics(
@@ -219,6 +265,7 @@ public class TaskGatewayService {
         String workerId = task.getAssignedWorker() != null ? task.getAssignedWorker().getWorkerId() : null;
         Long startedAt = task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null;
         Long completedAt = task.getCompletedAt() != null ? task.getCompletedAt().toEpochMilli() : null;
+        long submittedAt = task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : System.currentTimeMillis();
 
         return new TaskStatusResponse(
             task.getTaskId(),
@@ -228,7 +275,7 @@ public class TaskGatewayService {
             task.getPriority(),
             workerId,
             task.getAttemptCount() != null ? task.getAttemptCount() : 0,
-            task.getCreatedAt().toEpochMilli(),
+            submittedAt,
             startedAt,
             completedAt,
             metrics,
@@ -271,6 +318,20 @@ public class TaskGatewayService {
 
             recordAudit("TASK_ABORTED", taskId, sourceIp, reason);
             LOG.info("Aborted queued task {}", taskId);
+
+            if (studioEventPublisher != null) {
+                studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                    task.getTaskId(),
+                    task.getName(),
+                    TaskStatus.ABORTED.name(),
+                    task.getExitCode(),
+                    null,
+                    task.getInstructionsConsumed(),
+                    task.getPeakMemoryBytes(),
+                    task.getWallTimeMs()
+                ));
+            }
+
             return new AbortTaskResponse(taskId, "ABORTED", null, null);
         }
 
@@ -289,6 +350,19 @@ public class TaskGatewayService {
 
         recordAudit("TASK_ABORTED", taskId, sourceIp, reason);
         long deadline = System.currentTimeMillis() + gracePeriod;
+
+        if (studioEventPublisher != null) {
+            studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                task.getTaskId(),
+                task.getName(),
+                TaskStatus.ABORTED.name(),
+                task.getExitCode(),
+                workerId,
+                task.getInstructionsConsumed(),
+                task.getPeakMemoryBytes(),
+                task.getWallTimeMs()
+            ));
+        }
 
         LOG.info("Aborted executing task {} on worker {} (deadline: {})", taskId, workerId, deadline);
         return new AbortTaskResponse(taskId, "ABORTING", workerId, deadline);

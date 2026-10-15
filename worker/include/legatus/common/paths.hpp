@@ -12,6 +12,7 @@ public:
     static std::filesystem::path get_log_dir();
     static std::filesystem::path get_bytecode_cache_dir();
     static std::filesystem::path get_default_ipc_path();
+    static std::filesystem::path get_runner_path();
 };
 
 } // namespace legatus::common

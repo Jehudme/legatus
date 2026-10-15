@@ -8,6 +8,7 @@ import dev.legatus.server.security.SecretVaultService;
 import dev.legatus.server.service.dto.lctp.AbortTaskFrame;
 import dev.legatus.server.service.dto.lctp.DispatchTaskFrame;
 import dev.legatus.server.service.scheduler.TaskDispatcher;
+import dev.legatus.server.storage.BytecodeStorageService;
 import java.io.IOException;
 import java.util.*;
 import org.slf4j.Logger;
@@ -34,6 +35,8 @@ public class LctpTaskDispatcher implements TaskDispatcher {
     private final WorkerSessionRegistry sessionRegistry;
     private final SecretVaultService secretVaultService;
     private final ComputeTaskRepository computeTaskRepository;
+    private final BytecodeStorageService bytecodeStorageService;
+    private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
     private final ObjectMapper objectMapper;
 
     public LctpTaskDispatcher(
@@ -42,9 +45,23 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         ComputeTaskRepository computeTaskRepository,
         ObjectMapper objectMapper
     ) {
+        this(sessionRegistry, secretVaultService, computeTaskRepository, null, null, objectMapper);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public LctpTaskDispatcher(
+        WorkerSessionRegistry sessionRegistry,
+        SecretVaultService secretVaultService,
+        ComputeTaskRepository computeTaskRepository,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) BytecodeStorageService bytecodeStorageService,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
+        ObjectMapper objectMapper
+    ) {
         this.sessionRegistry = sessionRegistry;
         this.secretVaultService = secretVaultService;
         this.computeTaskRepository = computeTaskRepository;
+        this.bytecodeStorageService = bytecodeStorageService;
+        this.studioEventPublisher = studioEventPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -72,6 +89,21 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         Map<String, Object> arguments = parseJsonMap(task.getInputJson());
         Map<String, String> env = parseStringMap(task.getEnvJson());
 
+        String bytecodeBase64 = null;
+        if (bytecodeStorageService != null && task.getBytecodeSha256() != null) {
+            try {
+                Optional<byte[]> bytesOpt = bytecodeStorageService.load(task.getBytecodeSha256());
+                if (bytesOpt.isPresent()) {
+                    bytecodeBase64 = Base64.getEncoder().encodeToString(bytesOpt.get());
+                } else {
+                    LOG.warn("Bytecode with SHA-256 {} not found in storage", task.getBytecodeSha256());
+                }
+            } catch (IOException e) {
+                LOG.warn("Failed to read bytecode for SHA-256 {}: {}", task.getBytecodeSha256(), e.getMessage());
+            }
+        }
+        final String finalBytecodePayload = bytecodeBase64;
+
         try {
             secretVaultService.withDecryptedSecrets(secretRefs, resolvedSecrets -> {
                 DispatchTaskFrame frame = new DispatchTaskFrame(
@@ -84,7 +116,7 @@ public class LctpTaskDispatcher implements TaskDispatcher {
                             "solix_bc_v1",
                             "base64",
                             task.getBytecodeSha256(),
-                            null,
+                            finalBytecodePayload,
                             "/api/v1/bytecode/" + task.getBytecodeSha256()
                         ),
                         new DispatchTaskFrame.Constraints(
@@ -110,6 +142,20 @@ public class LctpTaskDispatcher implements TaskDispatcher {
             session.getActiveTaskIds().add(task.getTaskId());
             LOG.info("Dispatched task {} over LCTP session {} to worker {}",
                 task.getTaskId(), session.getSessionId(), worker.getWorkerId());
+
+            if (studioEventPublisher != null) {
+                studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                    task.getTaskId(),
+                    task.getName(),
+                    TaskStatus.EXECUTING.name(),
+                    task.getExitCode(),
+                    worker.getWorkerId(),
+                    task.getInstructionsConsumed(),
+                    task.getPeakMemoryBytes(),
+                    task.getWallTimeMs()
+                ));
+            }
+
             return true;
         } catch (Exception e) {
             LOG.error("Failed to transmit DISPATCH_TASK frame for task {} to worker {}",

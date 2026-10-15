@@ -48,6 +48,13 @@ public class TelemetryService implements AutoCloseable {
         this.lstcpClient.setMetricTickListener(this.coalescer::pushClusterMetricTick);
         this.lstcpClient.setWorkerStateListener(this.coalescer::pushWorkerStateChanged);
         this.lstcpClient.setTaskLifecycleListener(this.coalescer::pushTaskLifecycle);
+        this.lstcpClient.setTaskLogChunkListener(chunk -> {
+            if (logStreamBuffer != null && chunk != null && chunk.log_chunk() != null) {
+                logStreamBuffer.appendLine(String.format("[%s] [TASK %s] %s",
+                        java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
+                        chunk.task_id(), chunk.log_chunk()));
+            }
+        });
         this.lstcpClient.setEnrollmentListener(this.coalescer::pushEnrollmentRequested);
         this.lstcpClient.setRttListener(rtt -> FxAsync.runOnFxThread(() -> clusterMetrics.setRttLatencyMs(rtt)));
     }

@@ -3,6 +3,7 @@
 #include "legatus/common/telemetry_collector.hpp"
 #include "legatus/version.hpp"
 #include <openssl/rand.h>
+#include <spdlog/spdlog.h>
 #include <random>
 #include <cmath>
 
@@ -319,12 +320,24 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
     envelope.function_name = frame.payload.value("entry_point", "main");
 
     if (frame.payload.contains("bytecode") && frame.payload["bytecode"].is_object()) {
-        envelope.bytecode_base64 = frame.payload["bytecode"].value("payload", "");
+        const auto& bc = frame.payload["bytecode"];
+        if (bc.contains("payload") && bc["payload"].is_string()) {
+            envelope.bytecode_base64 = bc["payload"].get<std::string>();
+        }
     }
 
     if (frame.payload.contains("constraints") && frame.payload["constraints"].is_object()) {
-        envelope.instruction_budget = frame.payload["constraints"].value("instruction_budget", 50000000ULL);
-        envelope.memory_limit_bytes = frame.payload["constraints"].value("max_memory_bytes", 67108864ULL);
+        const auto& c = frame.payload["constraints"];
+        if (c.contains("instruction_budget") && c["instruction_budget"].is_number()) {
+            envelope.instruction_budget = c["instruction_budget"].get<uint64_t>();
+        } else {
+            envelope.instruction_budget = 50000000ULL;
+        }
+        if (c.contains("max_memory_bytes") && c["max_memory_bytes"].is_number()) {
+            envelope.memory_limit_bytes = c["max_memory_bytes"].get<uint64_t>();
+        } else {
+            envelope.memory_limit_bytes = 67108864ULL;
+        }
     }
 
     if (frame.payload.contains("arguments")) {
@@ -337,8 +350,12 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
         }
     }
 
+    spdlog::info("Received DISPATCH_TASK frame for task_id: {}, entry_point: {}, bytecode payload size: {} b64 chars",
+                 envelope.task_id, envelope.function_name, envelope.bytecode_base64.size());
+
     // Launch asynchronously so message handling loop remains unblocked
     std::thread([this, envelope]() {
+        spdlog::info("Spawning task runner for task {}", envelope.task_id);
         auto result = supervisor_->launch_task(envelope);
 
         std::string terminal_status = "COMPLETED";
@@ -358,6 +375,9 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             terminal_status = "FAILED";
         }
 
+        spdlog::info("Task {} finished with status={}, exit_code={}, instructions={}",
+                     result.task_id, terminal_status, result.exit_code, result.instructions_executed);
+
         nlohmann::json p = {
             {"task_id", result.task_id},
             {"status", terminal_status},
@@ -374,13 +394,15 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             })}
         };
 
-        send_frame(LctpFrame::create("TASK_RESULT", p));
+        bool sent = send_frame(LctpFrame::create("TASK_RESULT", p));
+        spdlog::info("Dispatched TASK_RESULT frame for task {}: success={}", result.task_id, sent);
     }).detach();
 }
 
 void LctpClient::handle_abort_task(const LctpFrame& frame) {
     std::string task_id = frame.payload.value("task_id", "");
     if (!task_id.empty() && supervisor_) {
+        spdlog::warn("Received ABORT_TASK frame for task_id: {}", task_id);
         supervisor_->abort_task(task_id);
     }
 }
@@ -414,8 +436,10 @@ void LctpClient::handle_socket_message(const ix::WebSocketMessagePtr& msg) {
         try {
             auto frame = LctpFrame::deserialize(msg->str);
             handle_inbound_frame(frame);
+        } catch (const std::exception& e) {
+            spdlog::error("Error deserializing/handling LCTP frame: {}", e.what());
         } catch (...) {
-            // Malformed frame ignored
+            spdlog::error("Unknown error handling inbound LCTP message");
         }
     }
 }

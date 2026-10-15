@@ -18,6 +18,7 @@
             <Label text="Task Ledger" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
             <Region HBox.hgrow="ALWAYS" />
             <TextField fx:id="searchField" promptText="Search tasks..." prefWidth="200.0" />
+            <Button text="Refresh" onAction="#onRefreshClicked" style="-fx-background-color: #334155; -fx-text-fill: #f8fafc; -fx-font-weight: bold;" />
         </HBox>
 
         <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">

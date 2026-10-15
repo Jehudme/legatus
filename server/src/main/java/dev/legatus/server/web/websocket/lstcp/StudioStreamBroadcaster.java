@@ -224,7 +224,9 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
             String json = objectMapper.writeValueAsString(frame);
             int recipients = 0;
             for (LstcpStudioSession session : sessionRegistry.getAllSessions()) {
-                if (session.getSubscribedTaskIds().contains(payload.taskId())) {
+                if (session.getSubscribedTaskIds().isEmpty() ||
+                    session.getSubscribedTaskIds().contains(payload.taskId()) ||
+                    session.getSubscribedTaskIds().contains("*")) {
                     session.sendText(json);
                     recipients++;
                 }

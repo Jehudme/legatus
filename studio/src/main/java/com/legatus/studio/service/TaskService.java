@@ -57,6 +57,10 @@ public class TaskService {
         return createTask(name, bytecodeSha256, entrypoint, instructionBudget, maxMemoryBytes, 60_000, "NORMAL", args);
     }
 
+    public CompletableFuture<java.util.List<RestDto.TaskStatusResponse>> getTasks() {
+        return restClient.get("/api/v1/tasks", new com.fasterxml.jackson.core.type.TypeReference<java.util.List<RestDto.TaskStatusResponse>>() {});
+    }
+
     public CompletableFuture<RestDto.TaskStatusResponse> getTask(String taskId) {
         return restClient.get("/api/v1/tasks/" + taskId, RestDto.TaskStatusResponse.class);
     }

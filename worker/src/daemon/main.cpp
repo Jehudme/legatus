@@ -194,7 +194,9 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, signal_handler);
 
     // 5. Initialize Subsystems
-    auto supervisor = std::make_shared<legatus::daemon::ProcessSupervisor>(LEGATUS_RUNNER_PATH);
+    std::string runner_path = legatus::common::PathResolver::get_runner_path().string();
+    spdlog::info("Resolved runner binary path: {}", runner_path);
+    auto supervisor = std::make_shared<legatus::daemon::ProcessSupervisor>(runner_path);
     auto lctp_client = std::make_shared<legatus::daemon::LctpClient>(config, supervisor);
 
     std::string ipc_endpoint = legatus::common::PathResolver::get_default_ipc_path().string();

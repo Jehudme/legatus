@@ -8,6 +8,7 @@ import dev.legatus.server.service.dto.task.SubmitTaskResponse;
 import dev.legatus.server.service.dto.task.TaskStatusResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,18 @@ public class TaskResource {
 
     public TaskResource(TaskGatewayService taskGatewayService) {
         this.taskGatewayService = taskGatewayService;
+    }
+
+    /**
+     * {@code GET /api/v1/tasks} : Lists all compute tasks.
+     *
+     * @return 200 OK with list of all tasks
+     */
+    @GetMapping
+    public ResponseEntity<List<TaskStatusResponse>> listTasks() {
+        LOG.debug("REST request to list all compute tasks");
+        List<TaskStatusResponse> tasks = taskGatewayService.listTasks();
+        return ResponseEntity.ok(tasks);
     }
 
     /**

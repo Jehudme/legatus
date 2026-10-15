@@ -205,6 +205,9 @@ target_link_libraries(legatusd PRIVATE
     legatus_daemon_core
     CLI11::CLI11
 )
+target_compile_definitions(legatusd PRIVATE
+    LEGATUS_RUNNER_PATH="$<TARGET_FILE:legatus-runner>"
+)
 
 # 3. legatus (CLI)
 add_executable(legatus

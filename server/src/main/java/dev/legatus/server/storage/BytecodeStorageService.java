@@ -46,6 +46,23 @@ public interface BytecodeStorageService {
     Optional<InputStream> openStream(String sha256) throws IOException;
 
     /**
+     * Reads the entire bytecode binary byte array for the specified SHA-256 digest.
+     *
+     * @param sha256 Hexadecimal SHA-256 digest
+     * @return Optional containing raw bytecode bytes if present, empty otherwise
+     * @throws IOException If I/O error occurs reading bytes
+     */
+    default Optional<byte[]> load(String sha256) throws IOException {
+        Optional<InputStream> streamOpt = openStream(sha256);
+        if (streamOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        try (InputStream in = streamOpt.get()) {
+            return Optional.of(in.readAllBytes());
+        }
+    }
+
+    /**
      * Checks whether bytecode with the specified SHA-256 digest is present in storage.
      *
      * @param sha256 Hexadecimal SHA-256 digest

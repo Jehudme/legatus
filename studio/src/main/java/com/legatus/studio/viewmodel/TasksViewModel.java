@@ -141,6 +141,56 @@ public class TasksViewModel implements AutoCloseable {
         });
     }
 
+    public CompletableFuture<Void> refreshTasks() {
+        isBusy.set(true);
+        return taskService.getTasks()
+                .thenAccept(tasks -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        for (var t : tasks) {
+                            boolean found = false;
+                            for (var existing : allTasks) {
+                                if (existing.getTaskId().equals(t.task_id())) {
+                                    existing.setName(t.name() != null ? t.name() : "");
+                                    existing.setStatus(t.status());
+                                    if (t.exit_code() != null) existing.setExitCode(t.exit_code());
+                                    if (t.assigned_worker_id() != null) existing.setAssignedWorkerId(t.assigned_worker_id());
+                                    existing.setInstructionsConsumed(t.effectiveInstructions());
+                                    existing.setPeakMemoryBytes(t.effectiveMemory());
+                                    existing.setExecutionWallTimeMs(t.effectiveWallTime());
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                allTasks.add(new TaskRecord(
+                                        t.task_id(),
+                                        t.name() != null ? t.name() : "",
+                                        t.status(),
+                                        t.exit_code(),
+                                        t.assigned_worker_id(),
+                                        t.effectiveInstructions(),
+                                        t.effectiveMemory(),
+                                        t.effectiveWallTime(),
+                                        t.created_at() != null ? t.created_at().toString() : "",
+                                        t.finished_at() != null ? t.finished_at().toString() : ""
+                                ));
+                            }
+                        }
+                        if (selectedTask.get() == null && !allTasks.isEmpty()) {
+                            selectedTask.set(allTasks.get(0));
+                        }
+                    });
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to refresh tasks: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return null;
+                });
+    }
+
     public FilteredList<TaskRecord> getFilteredTasks() { return filteredTasks; }
     public ObjectProperty<TaskRecord> selectedTaskProperty() { return selectedTask; }
     public TaskRecord getSelectedTask() { return selectedTask.get(); }

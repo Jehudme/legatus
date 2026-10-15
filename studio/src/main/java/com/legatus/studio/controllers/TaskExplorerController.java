@@ -65,6 +65,15 @@ public class TaskExplorerController {
                 abortButton.setDisable("COMPLETED".equalsIgnoreCase(newV.getStatus()) || "FAILED".equalsIgnoreCase(newV.getStatus()) || "ABORTED".equalsIgnoreCase(newV.getStatus()));
             }
         });
+
+        viewModel.refreshTasks();
+    }
+
+    @FXML
+    private void onRefreshClicked() {
+        if (viewModel != null) {
+            viewModel.refreshTasks();
+        }
     }
 
     @FXML

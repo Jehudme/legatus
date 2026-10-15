@@ -149,19 +149,54 @@ public final class RestDto {
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record TaskMetricsDto(
+            @JsonProperty("instructions_consumed") Long instructions_consumed,
+            @JsonProperty("peak_memory_bytes") Long peak_memory_bytes,
+            @JsonProperty("execution_wall_time_ms") Long execution_wall_time_ms
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TaskStatusResponse(
-            String task_id,
-            String name,
-            String status,
-            Integer exit_code,
-            String assigned_worker_id,
-            Long instructions_consumed,
-            Long peak_memory_bytes,
-            Long execution_wall_time_ms,
-            String created_at,
-            String finished_at
-    ) {}
+            @JsonProperty("task_id") String task_id,
+            @JsonProperty("name") String name,
+            @JsonProperty("status") String status,
+            @JsonProperty("exit_code") Integer exit_code,
+            @JsonProperty("assigned_worker_id") String assigned_worker_id,
+            @JsonProperty("instructions_consumed") Long instructions_consumed,
+            @JsonProperty("peak_memory_bytes") Long peak_memory_bytes,
+            @JsonProperty("execution_wall_time_ms") Long execution_wall_time_ms,
+            @JsonProperty("created_at") Object created_at,
+            @JsonProperty("completed_at") Object completed_at,
+            @JsonProperty("finished_at") Object finished_at,
+            @JsonProperty("metrics") TaskMetricsDto metrics
+    ) {
+        public TaskStatusResponse(String task_id, String name, String status, Integer exit_code, String assigned_worker_id,
+                                  Long instructions_consumed, Long peak_memory_bytes, Long execution_wall_time_ms,
+                                  String created_at, String finished_at) {
+            this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, created_at, null, finished_at, null);
+        }
+
+        public long effectiveInstructions() {
+            if (instructions_consumed != null) return instructions_consumed;
+            if (metrics != null && metrics.instructions_consumed != null) return metrics.instructions_consumed;
+            return 0L;
+        }
+
+        public long effectiveMemory() {
+            if (peak_memory_bytes != null) return peak_memory_bytes;
+            if (metrics != null && metrics.peak_memory_bytes != null) return metrics.peak_memory_bytes;
+            return 0L;
+        }
+
+        public long effectiveWallTime() {
+            if (execution_wall_time_ms != null) return execution_wall_time_ms;
+            if (metrics != null && metrics.execution_wall_time_ms != null) return metrics.execution_wall_time_ms;
+            return 0L;
+        }
+    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AbortTaskRequest(String reason) {}

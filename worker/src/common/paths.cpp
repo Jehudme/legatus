@@ -99,4 +99,54 @@ std::filesystem::path PathResolver::get_default_ipc_path() {
 #endif
 }
 
+std::filesystem::path PathResolver::get_runner_path() {
+    // 1. Environment variable override
+    const char* env_path = std::getenv("LEGATUS_RUNNER_PATH");
+    if (env_path && *env_path && std::filesystem::exists(env_path)) {
+        return std::filesystem::absolute(env_path);
+    }
+
+    // 2. Next to the running binary (e.g. /proc/self/exe on Linux)
+#if defined(__linux__)
+    char exe_buf[4096];
+    ssize_t len = ::readlink("/proc/self/exe", exe_buf, sizeof(exe_buf) - 1);
+    if (len > 0) {
+        exe_buf[len] = '\0';
+        std::filesystem::path exe_dir = std::filesystem::path(exe_buf).parent_path();
+        std::filesystem::path candidate = exe_dir / "legatus-runner";
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+#elif defined(_WIN32)
+    char exe_buf[MAX_PATH];
+    if (::GetModuleFileNameA(NULL, exe_buf, MAX_PATH) > 0) {
+        std::filesystem::path exe_dir = std::filesystem::path(exe_buf).parent_path();
+        std::filesystem::path candidate = exe_dir / "legatus-runner.exe";
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+#endif
+
+    // 3. Known relative build paths
+    if (std::filesystem::exists("worker/build/legatus-runner")) {
+        return std::filesystem::absolute("worker/build/legatus-runner");
+    }
+    if (std::filesystem::exists("build/legatus-runner")) {
+        return std::filesystem::absolute("build/legatus-runner");
+    }
+    if (std::filesystem::exists("./legatus-runner")) {
+        return std::filesystem::absolute("./legatus-runner");
+    }
+
+#ifdef LEGATUS_RUNNER_PATH
+    if (std::filesystem::exists(LEGATUS_RUNNER_PATH)) {
+        return std::filesystem::absolute(LEGATUS_RUNNER_PATH);
+    }
+#endif
+
+    return "legatus-runner";
+}
+
 } // namespace legatus::common

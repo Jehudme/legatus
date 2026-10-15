@@ -156,6 +156,43 @@ public class StudioContext {
                 }
             });
         }).exceptionally(ex -> null);
+
+        // Fetch tasks snapshot
+        if (taskService != null) {
+            taskService.getTasks().thenAccept(tasks -> {
+                FxAsync.runOnFxThread(() -> {
+                    for (var t : tasks) {
+                        boolean exists = false;
+                        for (var existing : telemetryService.getTasksList()) {
+                            if (existing.getTaskId().equals(t.task_id())) {
+                                existing.setStatus(t.status());
+                                if (t.exit_code() != null) existing.setExitCode(t.exit_code());
+                                existing.setInstructionsConsumed(t.effectiveInstructions());
+                                existing.setPeakMemoryBytes(t.effectiveMemory());
+                                existing.setExecutionWallTimeMs(t.effectiveWallTime());
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            var record = new com.legatus.studio.model.TaskRecord(
+                                t.task_id(),
+                                t.name(),
+                                t.status(),
+                                t.exit_code(),
+                                t.assigned_worker_id(),
+                                t.effectiveInstructions(),
+                                t.effectiveMemory(),
+                                t.effectiveWallTime(),
+                                t.created_at() != null ? t.created_at().toString() : "",
+                                t.finished_at() != null ? t.finished_at().toString() : ""
+                            );
+                            telemetryService.getTasksList().add(record);
+                        }
+                    }
+                });
+            }).exceptionally(ex -> null);
+        }
     }
 
     public RestClient getRestClient() { return restClient; }
