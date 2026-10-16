@@ -2,6 +2,18 @@
 
 All notable changes to the Legatus Server subsystem (`legatus-server`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.3.0](https://github.com/Jehudme/legatus/compare/server-v0.2.0...server-v0.3.0) (2026-10-16)
+
+
+### Features
+
+* **e2e:** implement Milestone 016 military-grade cluster verification suite (MS-016) ([39118aa](https://github.com/Jehudme/legatus/commit/39118aa154828bd292e26543dc823b8c57b46cb4))
+
+
+### Bug Fixes
+
+* **server:** implement Milestone 012 database integrity, control plane, and persistence hardening (MS-012) ([e73efdb](https://github.com/Jehudme/legatus/commit/e73efdb58f2c1db22348b849dd1cf67a384d6f84))
+
 ## [0.2.0](https://github.com/Jehudme/legatus/compare/server-v0.1.0...server-v0.2.0) (2026-10-16)
 
 

@@ -2,6 +2,14 @@
 
 All notable changes to the Legatus Worker subsystem (`legatusd`, `legatus`, `legatus-runner`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.2.1](https://github.com/Jehudme/legatus/compare/worker-v0.2.0...worker-v0.2.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **studio:** implement Milestone 014 reactive telemetry, multicast LSTCP, and inspector bindings (MS-014) ([8bb1efe](https://github.com/Jehudme/legatus/commit/8bb1efee9b3e3a4e9173459ebc7086e154892bac))
+* **worker:** implement Milestone 013 process isolation, signal lifecycle, and protocol pipe separation (MS-013) ([7231224](https://github.com/Jehudme/legatus/commit/7231224193f4c588b4c2f33e5ab9f8e0d6d7a387))
+
 ## [0.2.0](https://github.com/Jehudme/legatus/compare/worker-v0.1.0...worker-v0.2.0) (2026-10-16)
 
 

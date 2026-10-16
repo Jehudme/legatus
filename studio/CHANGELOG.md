@@ -2,6 +2,19 @@
 
 All notable changes to the Legatus Studio subsystem (`legatus-studio`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.3.0](https://github.com/Jehudme/legatus/compare/studio-v0.2.0...studio-v0.3.0) (2026-10-16)
+
+
+### Features
+
+* **e2e:** implement Milestone 016 military-grade cluster verification suite (MS-016) ([39118aa](https://github.com/Jehudme/legatus/commit/39118aa154828bd292e26543dc823b8c57b46cb4))
+* **studio:** implement Milestone 015 modal dialogs, function inspector, and profile cockpit (MS-015) ([12e9f0a](https://github.com/Jehudme/legatus/commit/12e9f0ab3a08a250e0122cf19fd0bceae0eabfb0))
+
+
+### Bug Fixes
+
+* **studio:** implement Milestone 014 reactive telemetry, multicast LSTCP, and inspector bindings (MS-014) ([8bb1efe](https://github.com/Jehudme/legatus/commit/8bb1efee9b3e3a4e9173459ebc7086e154892bac))
+
 ## [0.2.0](https://github.com/Jehudme/legatus/compare/studio-v0.1.0...studio-v0.2.0) (2026-10-16)
 
 
