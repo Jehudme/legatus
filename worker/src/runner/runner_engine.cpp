@@ -1,6 +1,7 @@
 #include "legatus/runner/runner_engine.hpp"
 #include "legatus/runner/legatus_runtime_context.hpp"
 #include "legatus/common/base64.hpp"
+#include "legatus/stdlib/sandbox.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -54,6 +55,15 @@ ExecutionResult execute_task(ExecutionEnvelope& envelope, SecretZeroizer& zeroiz
     opts.sandboxed = true;
 
     try {
+        stdlib::TaskSandboxContext sandbox_ctx;
+        sandbox_ctx.task_id = envelope.task_id;
+        sandbox_ctx.function_name = envelope.function_name;
+        sandbox_ctx.instruction_budget = envelope.instruction_budget;
+        sandbox_ctx.secrets.insert(envelope.secrets.begin(), envelope.secrets.end());
+        sandbox_ctx.env_vars.insert(envelope.environment_variables.begin(), envelope.environment_variables.end());
+
+        stdlib::register_sandboxed_stdlib(solix::NativeRegistry::global(), sandbox_ctx);
+
         LegatusRuntimeContext vm(opts);
         vm.execute();
 

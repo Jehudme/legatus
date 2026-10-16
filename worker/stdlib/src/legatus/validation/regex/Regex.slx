@@ -1,0 +1,29 @@
+package legatus.validation.regex;
+
+public class Regex {
+    private string pattern;
+
+    private static native int64 native_is_match(string pattern, string text);
+    private static native string native_replace(string pattern, string text, string replacement);
+    private static native string native_extract(string pattern, string text);
+
+    public Regex(string pattern) {
+        this.pattern = pattern;
+    }
+
+    public static bool isMatch(string pattern, string text) {
+        return native_is_match(pattern, text) != 0;
+    }
+
+    public static string replace(string pattern, string text, string replacement) {
+        return native_replace(pattern, text, replacement);
+    }
+
+    public static string extract(string pattern, string text) {
+        return native_extract(pattern, text);
+    }
+
+    public bool matches(string text) {
+        return native_is_match(this.pattern, text) != 0;
+    }
+}

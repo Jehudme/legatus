@@ -1,0 +1,179 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.IllegalArgumentException;
+import solix.exceptions.InvalidOperationException;
+import solix.exceptions.NoSuchElementException;
+
+public class CircularBufferIterator<T> implements IIterator<T> {
+    private T[] _data;
+    private int32 _head;
+    private int32 _capacity;
+    private int32 _size;
+    private int32 _idx;
+
+    public CircularBufferIterator(T[] buf, int32 head, int32 cap, int32 sz) {
+        this._data = buf;
+        this._head = head;
+        this._capacity = cap;
+        this._size = sz;
+        this._idx = 0;
+    }
+
+    public bool has_next() {
+        return this._idx < this._size;
+    }
+
+    public T next() {
+        if (this._idx >= this._size) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        int32 pos = (this._head + this._idx) % this._capacity;
+        this._idx = this._idx + 1;
+        return this._data[pos];
+    }
+}
+
+public class CircularBuffer<T> implements IReadOnlyCollection<T>, IIterable<T>, IStringable {
+    private T[] _buffer;
+    private int32 _capacity;
+    private int32 _head;
+    private int32 _tail;
+    private int32 _size;
+    private bool _overwrite;
+
+    public CircularBuffer(int32 capacity) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("capacity", "Capacity must be positive");
+        }
+        this._capacity = capacity;
+        this._buffer = new T[capacity];
+        this._head = 0;
+        this._tail = 0;
+        this._size = 0;
+        this._overwrite = false;
+    }
+
+    public CircularBuffer(int32 capacity, bool overwrite) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("capacity", "Capacity must be positive");
+        }
+        this._capacity = capacity;
+        this._buffer = new T[capacity];
+        this._head = 0;
+        this._tail = 0;
+        this._size = 0;
+        this._overwrite = overwrite;
+    }
+
+    public int32 capacity() {
+        return this._capacity;
+    }
+
+    public int32 size() {
+        return this._size;
+    }
+
+    public bool is_empty() {
+        return this._size == 0;
+    }
+
+    public bool is_full() {
+        return this._size == this._capacity;
+    }
+
+    public bool is_overwrite() {
+        return this._overwrite;
+    }
+
+    public bool write(T item) {
+        if (this.is_full()) {
+            if (!this._overwrite) {
+                return false;
+            }
+            this._head = (this._head + 1) % this._capacity;
+            this._buffer[this._tail] = item;
+            this._tail = (this._tail + 1) % this._capacity;
+            return true;
+        }
+        this._buffer[this._tail] = item;
+        this._tail = (this._tail + 1) % this._capacity;
+        this._size = this._size + 1;
+        return true;
+    }
+
+    public void enqueue(T item) {
+        if (!this.write(item)) {
+            throw new InvalidOperationException("CircularBuffer is full");
+        }
+    }
+
+    public T dequeue() {
+        return this.read();
+    }
+
+    public T read() {
+        if (this.is_empty()) {
+            throw new InvalidOperationException("CircularBuffer is empty");
+        }
+        T item = this._buffer[this._head];
+        this._head = (this._head + 1) % this._capacity;
+        this._size = this._size - 1;
+        return item;
+    }
+
+    public T peek() {
+        if (this.is_empty()) {
+            throw new InvalidOperationException("CircularBuffer is empty");
+        }
+        return this._buffer[this._head];
+    }
+
+    public T get(int32 index) {
+        if (index < 0 || index >= this._size) {
+            throw new InvalidOperationException("Index out of bounds");
+        }
+        int32 pos = (this._head + index) % this._capacity;
+        return this._buffer[pos];
+    }
+
+    public void clear() {
+        this._head = 0;
+        this._tail = 0;
+        this._size = 0;
+    }
+
+    public T[] to_array() {
+        T[] arr = new T[this._size];
+        for (int32 i = 0; i < this._size; i = i + 1) {
+            int32 pos = (this._head + i) % this._capacity;
+            arr[i] = this._buffer[pos];
+        }
+        return arr;
+    }
+
+    public bool contains(T item) {
+        for (int32 i = 0; i < this._size; i = i + 1) {
+            int32 pos = (this._head + i) % this._capacity;
+            if (this._buffer[pos] == item) return true;
+        }
+        return false;
+    }
+
+    public void for_each(void(*)(T) action) {
+        if (action == null) return;
+        for (int32 i = 0; i < this._size; i = i + 1) {
+            int32 pos = (this._head + i) % this._capacity;
+            action(this._buffer[pos]);
+        }
+    }
+
+    public IIterator<T> iterator() {
+        return new CircularBufferIterator<T>(this._buffer, this._head, this._capacity, this._size);
+    }
+
+    public String to_string() {
+        return new String("[CircularBuffer]");
+    }
+}

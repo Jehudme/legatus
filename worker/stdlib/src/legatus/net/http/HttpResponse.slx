@@ -1,0 +1,17 @@
+package legatus.net.http;
+
+public class HttpResponse {
+    public int32 status;
+    public string body;
+    public string error;
+
+    public HttpResponse(int32 status, string body, string error) {
+        this.status = status;
+        this.body = body;
+        this.error = error;
+    }
+
+    public bool isSuccess() {
+        return this.status >= 200 && this.status < 300;
+    }
+}

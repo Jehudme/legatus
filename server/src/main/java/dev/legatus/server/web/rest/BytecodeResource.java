@@ -32,10 +32,16 @@ public class BytecodeResource {
 
     private final BytecodeStorageService bytecodeStorageService;
     private final WormAuditService wormAuditService;
+    private final dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
 
-    public BytecodeResource(BytecodeStorageService bytecodeStorageService, WormAuditService wormAuditService) {
+    public BytecodeResource(
+        BytecodeStorageService bytecodeStorageService,
+        WormAuditService wormAuditService,
+        dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator
+    ) {
         this.bytecodeStorageService = bytecodeStorageService;
         this.wormAuditService = wormAuditService;
+        this.bytecodeSecurityValidator = bytecodeSecurityValidator;
     }
 
     /**
@@ -100,7 +106,10 @@ public class BytecodeResource {
         InputStream inputStream,
         HttpServletRequest servletRequest
     ) throws IOException {
-        String sha256 = bytecodeStorageService.store(inputStream);
+        byte[] bytes = inputStream.readAllBytes();
+        bytecodeSecurityValidator.validateBytecode(bytes);
+
+        String sha256 = bytecodeStorageService.store(bytes);
         long size = bytecodeStorageService.getSize(sha256);
 
         recordAuditBytecodeUpload(sha256, size, servletRequest.getRemoteAddr());
@@ -124,17 +133,18 @@ public class BytecodeResource {
         @RequestParam("file") MultipartFile file,
         HttpServletRequest servletRequest
     ) throws IOException {
-        try (InputStream is = file.getInputStream()) {
-            String sha256 = bytecodeStorageService.store(is);
-            long size = bytecodeStorageService.getSize(sha256);
+        byte[] bytes = file.getBytes();
+        bytecodeSecurityValidator.validateBytecode(bytes);
 
-            recordAuditBytecodeUpload(sha256, size, servletRequest.getRemoteAddr());
-            LOG.info("Uploaded bytecode binary {} ({} bytes) via multipart", sha256, size);
+        String sha256 = bytecodeStorageService.store(bytes);
+        long size = bytecodeStorageService.getSize(sha256);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(
-                new BytecodeUploadResponse(sha256, size, "/api/v1/bytecode/" + sha256)
-            );
-        }
+        recordAuditBytecodeUpload(sha256, size, servletRequest.getRemoteAddr());
+        LOG.info("Uploaded bytecode binary {} ({} bytes) via multipart", sha256, size);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            new BytecodeUploadResponse(sha256, size, "/api/v1/bytecode/" + sha256)
+        );
     }
 
     private void recordAuditBytecodeUpload(String sha256, long sizeBytes, String sourceIp) {

@@ -1,0 +1,102 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.InvalidOperationException;
+import solix.exceptions.NoSuchElementException;
+
+public class StackIterator<T> implements IIterator<T> {
+    private List<T> _items;
+    private int32 _idx;
+
+    public StackIterator(List<T> items) {
+        this._items = items;
+        this._idx = 0;
+    }
+
+    public bool has_next() {
+        return this._idx < this._items.size();
+    }
+
+    public T next() {
+        if (this._idx >= this._items.size()) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        T val = this._items.get(this._idx);
+        this._idx = this._idx + 1;
+        return val;
+    }
+}
+
+public class Stack<T> implements IReadOnlyCollection<T>, IIterable<T>, IStringable {
+    private List<T> _items;
+
+    public Stack() {
+        this._items = new List<T>();
+    }
+
+    public Stack(int32 initial_capacity) {
+        this._items = new List<T>(initial_capacity);
+    }
+
+    public Stack(T[] items) {
+        this._items = new List<T>(items);
+    }
+
+    public Stack(ICollection<T> other) {
+        this._items = new List<T>(other);
+    }
+
+    public void push(T item) {
+        this._items.add(item);
+    }
+
+    public T pop() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Stack is empty");
+        }
+        int32 last_idx = this._items.size() - 1;
+        return this._items.remove_at(last_idx);
+    }
+
+    public T peek() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Stack is empty");
+        }
+        int32 last_idx = this._items.size() - 1;
+        return this._items.get(last_idx);
+    }
+
+    public int32 size() {
+        return this._items.size();
+    }
+
+    public bool is_empty() {
+        return this._items.is_empty();
+    }
+
+    public bool contains(T item) {
+        return this._items.contains(item);
+    }
+
+    public void clear() {
+        this._items.clear();
+    }
+
+    public T[] to_array() {
+        return this._items.to_array();
+    }
+
+    public void for_each(void(*)(T) action) {
+        if (action == null) return;
+        this._items.for_each(action);
+    }
+
+    public IIterator<T> iterator() {
+        return new StackIterator<T>(this._items);
+    }
+
+    public String to_string() {
+        return new String("[Stack]");
+    }
+}

@@ -42,6 +42,73 @@ public class FunctionsViewModel {
 
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
+    public record FunctionTemplate(String name, String description, String sampleSource) {}
+
+    public static final java.util.List<FunctionTemplate> STDLIB_TEMPLATES = java.util.List.of(
+        new FunctionTemplate(
+            "HTTP Egress Webhook",
+            "SSRF-guarded outbound HTTP request using legatus.net.http",
+            """
+            package app;
+            import legatus.net.http.*;
+            import legatus.json.*;
+            import legatus.runtime.*;
+
+            public class WebhookFunction {
+                public static int main() {
+                    HttpClient client = new HttpClient();
+                    HttpResponse response = client.get("https://api.example.com/health");
+                    Console.println("Status: " + response.status_code());
+                    return 0;
+                }
+            }
+            """
+        ),
+        new FunctionTemplate(
+            "JSON DOM & Context Secrets",
+            "Task context introspection, secrets, and JSON manipulation",
+            """
+            package app;
+            import legatus.json.*;
+            import legatus.runtime.*;
+            import legatus.crypto.extended.*;
+
+            public class DataTransformer {
+                public static int main() {
+                    string taskId = TaskContext.taskId();
+                    string apiKey = TaskContext.getSecret("API_KEY");
+                    JsonDocument doc = JsonDocument.parse("{\\"status\\": \\"ok\\"}");
+                    Console.println("Executing task " + taskId);
+                    return 0;
+                }
+            }
+            """
+        ),
+        new FunctionTemplate(
+            "Re2 Regex & Ephemeral Cache",
+            "Linear-time ReDoS-immune regex matching and task-scoped KV caching",
+            """
+            package app;
+            import legatus.validation.regex.*;
+            import legatus.storage.kv.*;
+            import legatus.uuid.*;
+
+            public class ValidatorFunction {
+                public static int main() {
+                    Regex pattern = new Regex("^[a-zA-Z0-9_-]+$");
+                    bool valid = pattern.is_match("valid_input_token");
+                    EphemeralKV.set("session_key", Uuid.random(), 300);
+                    return valid ? 1 : 0;
+                }
+            }
+            """
+        )
+    );
+
+    public java.util.List<FunctionTemplate> getStandardLibraryTemplates() {
+        return STDLIB_TEMPLATES;
+    }
+
     public FunctionsViewModel(BytecodeService bytecodeService) {
         this(bytecodeService, null);
     }

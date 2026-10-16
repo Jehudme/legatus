@@ -1,0 +1,26 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+
+public class KeyValuePair<K, V> implements IStringable {
+    public K key;
+    public V value;
+
+    public KeyValuePair(K k, V v) {
+        this.key = k;
+        this.value = v;
+    }
+
+    public K get_key() {
+        return this.key;
+    }
+
+    public V get_value() {
+        return this.value;
+    }
+
+    public String to_string() {
+        return "[KeyValuePair]";
+    }
+}

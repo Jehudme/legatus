@@ -1,0 +1,76 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+
+public interface IIterator<T> {
+    bool has_next();
+    T next();
+}
+
+public interface IIterable<T> {
+    IIterator<T> iterator();
+}
+
+public interface IReadOnlyCollection<T> extends IIterable<T>, IStringable {
+    int32 size();
+    bool is_empty();
+    bool contains(T item);
+    String to_string();
+}
+
+public interface ICollection<T> extends IIterable<T>, IStringable {
+    int32 size();
+    bool is_empty();
+    bool contains(T item);
+    void add(T item);
+    bool remove(T item);
+    void clear();
+    T[] to_array();
+    String to_string();
+}
+
+public interface IList<T> extends ICollection<T> {
+    T get(int32 index);
+    void set(int32 index, T item);
+    void insert(int32 index, T item);
+    T remove_at(int32 index);
+    int32 index_of(T item);
+}
+
+public interface IDeque<T> extends ICollection<T> {
+    void add_first(T item);
+    void add_last(T item);
+    T remove_first();
+    T remove_last();
+    T peek_first();
+    T peek_last();
+}
+
+public interface ISet<T> extends IReadOnlyCollection<T> {
+    bool add(T item);
+    bool remove(T item);
+    void clear();
+    T[] to_array();
+    void union_with(ISet<T> other);
+    void intersect_with(ISet<T> other);
+    void difference_with(ISet<T> other);
+    bool is_subset_of(ISet<T> other);
+    bool is_superset_of(ISet<T> other);
+}
+
+public interface IMap<K, V> extends IStringable {
+    int32 size();
+    bool is_empty();
+    void clear();
+    bool contains_key(K key);
+    bool contains_value(V value);
+    V get(K key);
+    V get_or_default(K key, V default_val);
+    void put(K key, V value);
+    V remove(K key);
+    List<K> keys();
+    List<V> values();
+    List<KeyValuePair<K, V>> entries();
+}
+

@@ -1,0 +1,14 @@
+package legatus.uuid;
+
+public class Uuid {
+    private static native string native_random();
+    private static native int64 native_is_valid(string val);
+
+    public static string random() {
+        return native_random();
+    }
+
+    public static bool isValid(string val) {
+        return native_is_valid(val) != 0;
+    }
+}

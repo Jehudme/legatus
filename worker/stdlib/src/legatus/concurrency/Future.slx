@@ -1,0 +1,73 @@
+package legatus.concurrency;
+
+import solix.exceptions.InvalidOperationException;
+
+/**
+ * Lightweight asynchronous future handle representing a deferred task-scoped computation.
+ */
+public class Future<T> {
+    private T _value;
+    private bool _is_completed;
+    private bool _has_failed;
+    private string _error_message;
+
+    public Future() {
+        this._is_completed = false;
+        this._has_failed = false;
+        this._error_message = "";
+    }
+
+    public static <U> Future<U> completed(U value) {
+        Future<U> f = new Future<U>();
+        f._value = value;
+        f._is_completed = true;
+        return f;
+    }
+
+    public static <U> Future<U> failed(string error) {
+        Future<U> f = new Future<U>();
+        f._has_failed = true;
+        f._error_message = error;
+        f._is_completed = true;
+        return f;
+    }
+
+    public bool is_completed() {
+        return this._is_completed;
+    }
+
+    public bool has_failed() {
+        return this._has_failed;
+    }
+
+    public string error_message() {
+        return this._error_message;
+    }
+
+    public T get() {
+        if (!this._is_completed) {
+            throw new InvalidOperationException("Future has not completed yet");
+        }
+        if (this._has_failed) {
+            throw new InvalidOperationException("Future failed with error: " + this._error_message);
+        }
+        return this._value;
+    }
+
+    public void complete(T result) {
+        if (this._is_completed) {
+            throw new InvalidOperationException("Future is already completed");
+        }
+        this._value = result;
+        this._is_completed = true;
+    }
+
+    public void fail(string error) {
+        if (this._is_completed) {
+            throw new InvalidOperationException("Future is already completed");
+        }
+        this._has_failed = true;
+        this._error_message = error;
+        this._is_completed = true;
+    }
+}

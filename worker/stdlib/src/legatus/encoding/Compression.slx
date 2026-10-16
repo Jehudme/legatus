@@ -1,0 +1,14 @@
+package legatus.encoding;
+
+public class Compression {
+    private static native byte[] native_deflate(byte[] input);
+    private static native byte[] native_inflate(byte[] input);
+
+    public static byte[] deflate(byte[] input) {
+        return native_deflate(input);
+    }
+
+    public static byte[] inflate(byte[] input) {
+        return native_inflate(input);
+    }
+}

@@ -1,0 +1,34 @@
+package legatus.runtime;
+
+public class TaskContext {
+    private static native string native_task_id();
+    private static native string native_function_name();
+    private static native int64 native_instruction_budget();
+    private static native int64 native_instructions_consumed();
+    private static native string native_get_secret(string key);
+    private static native int64 native_emit_progress(string checkpoint);
+
+    public static string taskId() {
+        return native_task_id();
+    }
+
+    public static string functionName() {
+        return native_function_name();
+    }
+
+    public static int64 instructionBudget() {
+        return native_instruction_budget();
+    }
+
+    public static int64 instructionsConsumed() {
+        return native_instructions_consumed();
+    }
+
+    public static string getSecret(string key) {
+        return native_get_secret(key);
+    }
+
+    public static bool emitProgress(string checkpoint) {
+        return native_emit_progress(checkpoint) != 0;
+    }
+}

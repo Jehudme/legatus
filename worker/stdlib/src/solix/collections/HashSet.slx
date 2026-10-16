@@ -1,0 +1,224 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.NoSuchElementException;
+
+public class HashSetIterator<T> implements IIterator<T> {
+    private List<T> _keys;
+    private int32 _idx;
+
+    public HashSetIterator(List<T> keys) {
+        this._keys = keys;
+        this._idx = 0;
+    }
+
+    public bool has_next() {
+        return this._idx < this._keys.size();
+    }
+
+    public T next() {
+        if (this._idx >= this._keys.size()) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        T val = this._keys.get(this._idx);
+        this._idx = this._idx + 1;
+        return val;
+    }
+}
+
+public class HashSet<T> implements ISet<T>, IReadOnlyCollection<T>, IIterable<T>, IStringable {
+    private HashMap<T, bool> _map;
+
+    public HashSet() {
+        this._map = new HashMap<T, bool>();
+    }
+
+    public HashSet(int32 initial_capacity) {
+        this._map = new HashMap<T, bool>(initial_capacity);
+    }
+
+    public HashSet(int32(*)(T) hasher) {
+        this._map = new HashMap<T, bool>(hasher);
+    }
+
+    public HashSet(int32 initial_capacity, int32(*)(T) hasher) {
+        this._map = new HashMap<T, bool>(initial_capacity, hasher);
+    }
+
+    public HashSet(T[] items) {
+        this._map = new HashMap<T, bool>();
+        if (items != null) {
+            for (int32 i = 0; i < items.length; i = i + 1) {
+                this.add(items[i]);
+            }
+        }
+    }
+
+    public HashSet(ICollection<T> other) {
+        this._map = new HashMap<T, bool>();
+        if (other != null) {
+            IIterator<T> it = other.iterator();
+            while (it.has_next()) {
+                this.add(it.next());
+            }
+        }
+    }
+
+    public int32 size() {
+        return this._map.size();
+    }
+
+    public bool is_empty() {
+        return this._map.is_empty();
+    }
+
+    public void clear() {
+        this._map.clear();
+    }
+
+    public bool contains(T item) {
+        return this._map.contains_key(item);
+    }
+
+    public bool add(T item) {
+        if (this._map.contains_key(item)) {
+            return false;
+        }
+        this._map.put(item, true);
+        return true;
+    }
+
+    public bool remove(T item) {
+        if (!this._map.contains_key(item)) {
+            return false;
+        }
+        this._map.remove(item);
+        return true;
+    }
+
+    public T[] to_array() {
+        List<T> keys = this._map.keys();
+        return keys.to_array();
+    }
+
+    public List<T> to_list() {
+        return this._map.keys();
+    }
+
+    public IIterator<T> iterator() {
+        return new HashSetIterator<T>(this._map.keys());
+    }
+
+    public void for_each(void(*)(T) action) {
+        if (action == null) return;
+        List<T> keys = this._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            action(keys.get(i));
+        }
+    }
+
+    public void union_with(HashSet<T> other) {
+        if (other == null) return;
+        List<T> keys = other._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            this.add(keys.get(i));
+        }
+    }
+
+    public void union_with(ISet<T> other) {
+        if (other == null) return;
+        IIterator<T> it = other.iterator();
+        while (it != null && it.has_next()) {
+            this.add(it.next());
+        }
+    }
+
+    public void intersect_with(HashSet<T> other) {
+        if (other == null) {
+            this.clear();
+            return;
+        }
+        List<T> keys = this._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            T item = keys.get(i);
+            if (!other.contains(item)) {
+                this.remove(item);
+            }
+        }
+    }
+
+    public void intersect_with(ISet<T> other) {
+        if (other == null) {
+            this.clear();
+            return;
+        }
+        List<T> keys = this._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            T item = keys.get(i);
+            if (!other.contains(item)) {
+                this.remove(item);
+            }
+        }
+    }
+
+    public void difference_with(HashSet<T> other) {
+        if (other == null) return;
+        List<T> keys = other._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            this.remove(keys.get(i));
+        }
+    }
+
+    public void difference_with(ISet<T> other) {
+        if (other == null) return;
+        IIterator<T> it = other.iterator();
+        while (it != null && it.has_next()) {
+            this.remove(it.next());
+        }
+    }
+
+    public bool is_subset_of(HashSet<T> other) {
+        if (other == null) return false;
+        if (this.size() > other.size()) return false;
+        List<T> keys = this._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            if (!other.contains(keys.get(i))) return false;
+        }
+        return true;
+    }
+
+    public bool is_subset_of(ISet<T> other) {
+        if (other == null) return false;
+        if (this.size() > other.size()) return false;
+        List<T> keys = this._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            if (!other.contains(keys.get(i))) return false;
+        }
+        return true;
+    }
+
+    public bool is_superset_of(HashSet<T> other) {
+        if (other == null) return true;
+        if (other.size() > this.size()) return false;
+        List<T> keys = other._map.keys();
+        for (int32 i = 0; i < keys.size(); i = i + 1) {
+            if (!this.contains(keys.get(i))) return false;
+        }
+        return true;
+    }
+
+    public bool is_superset_of(ISet<T> other) {
+        if (other == null) return true;
+        if (other.size() > this.size()) return false;
+        IIterator<T> it = other.iterator();
+        while (it != null && it.has_next()) {
+            if (!this.contains(it.next())) return false;
+        }
+        return true;
+    }
+
+    public String to_string() {
+        return new String("[HashSet]");
+    }
+}

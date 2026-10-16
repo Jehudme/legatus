@@ -1,0 +1,282 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.KeyNotFoundException;
+
+class HashMapEntry<K, V> {
+    public K key;
+    public V value;
+    public int32 hash;
+    public HashMapEntry<K, V> next;
+
+    public HashMapEntry(K k, V v, int32 h, HashMapEntry<K, V> n) {
+        this.key = k;
+        this.value = v;
+        this.hash = h;
+        this.next = n;
+    }
+}
+
+public class HashMap<K, V> implements IMap<K, V>, IStringable {
+    private HashMapEntry<K, V>[] _table;
+    private int32 _size;
+    private int32 _threshold;
+    private int32(*)(K) _hasher;
+    private bool(*)(K, K) _key_equals;
+
+    public HashMap() {
+        this._table = new HashMapEntry<K, V>[16];
+        this._size = 0;
+        this._threshold = 12;
+        this._hasher = null;
+        this._key_equals = null;
+    }
+
+    public HashMap(int32 initial_capacity) {
+        if (initial_capacity < 4) {
+            initial_capacity = 4;
+        }
+        this._table = new HashMapEntry<K, V>[initial_capacity];
+        this._size = 0;
+        this._threshold = initial_capacity * 3 / 4;
+        this._hasher = null;
+        this._key_equals = null;
+    }
+
+    public HashMap(int32(*)(K) hasher) {
+        this._table = new HashMapEntry<K, V>[16];
+        this._size = 0;
+        this._threshold = 12;
+        this._hasher = hasher;
+        this._key_equals = null;
+    }
+
+    public HashMap(int32 initial_capacity, int32(*)(K) hasher) {
+        if (initial_capacity < 4) {
+            initial_capacity = 4;
+        }
+        this._table = new HashMapEntry<K, V>[initial_capacity];
+        this._size = 0;
+        this._threshold = initial_capacity * 3 / 4;
+        this._hasher = hasher;
+        this._key_equals = null;
+    }
+
+    public HashMap(int32(*)(K) hasher, bool(*)(K, K) key_equals) {
+        this._table = new HashMapEntry<K, V>[16];
+        this._size = 0;
+        this._threshold = 12;
+        this._hasher = hasher;
+        this._key_equals = key_equals;
+    }
+
+    public HashMap(int32 initial_capacity, int32(*)(K) hasher, bool(*)(K, K) key_equals) {
+        if (initial_capacity < 4) {
+            initial_capacity = 4;
+        }
+        this._table = new HashMapEntry<K, V>[initial_capacity];
+        this._size = 0;
+        this._threshold = initial_capacity * 3 / 4;
+        this._hasher = hasher;
+        this._key_equals = key_equals;
+    }
+
+    private bool check_equals(K a, K b) {
+        if (this._key_equals != null) {
+            return this._key_equals(a, b);
+        }
+        return a == b;
+    }
+
+    private int32 hash(K key) {
+        if (this._hasher != null) {
+            int32 h = this._hasher(key);
+            if (h < 0) h = 0 - h;
+            return h;
+        }
+        return 0;
+    }
+
+    private int32 index_for(int32 h, int32 length) {
+        int32 idx = h % length;
+        if (idx < 0) {
+            idx = idx + length;
+        }
+        return idx;
+    }
+
+    public int32 size() {
+        return this._size;
+    }
+
+    public bool is_empty() {
+        return this._size == 0;
+    }
+
+    public void clear() {
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            this._table[i] = null;
+        }
+        this._size = 0;
+    }
+
+    public bool contains_key(K key) {
+        int32 h = this.hash(key);
+        int32 idx = this.index_for(h, this._table.length);
+        HashMapEntry<K, V> e = this._table[idx];
+        while (e != null) {
+            if (e.hash == h && this.check_equals(e.key, key)) {
+                return true;
+            }
+            e = e.next;
+        }
+        return false;
+    }
+
+    public bool contains_value(V value) {
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            HashMapEntry<K, V> e = this._table[i];
+            while (e != null) {
+                if (e.value == value) {
+                    return true;
+                }
+                e = e.next;
+            }
+        }
+        return false;
+    }
+
+    public V get(K key) {
+        int32 h = this.hash(key);
+        int32 idx = this.index_for(h, this._table.length);
+        HashMapEntry<K, V> e = this._table[idx];
+        while (e != null) {
+            if (e.hash == h && this.check_equals(e.key, key)) {
+                return e.value;
+            }
+            e = e.next;
+        }
+        throw new KeyNotFoundException("Key not found in HashMap");
+    }
+
+    public V get_or_default(K key, V default_val) {
+        int32 h = this.hash(key);
+        int32 idx = this.index_for(h, this._table.length);
+        HashMapEntry<K, V> e = this._table[idx];
+        while (e != null) {
+            if (e.hash == h && this.check_equals(e.key, key)) {
+                return e.value;
+            }
+            e = e.next;
+        }
+        return default_val;
+    }
+
+    public void put(K key, V value) {
+        int32 h = this.hash(key);
+        int32 idx = this.index_for(h, this._table.length);
+        HashMapEntry<K, V> e = this._table[idx];
+        while (e != null) {
+            if (e.hash == h && this.check_equals(e.key, key)) {
+                e.value = value;
+                return;
+            }
+            e = e.next;
+        }
+        this._table[idx] = new HashMapEntry<K, V>(key, value, h, this._table[idx]);
+        this._size = this._size + 1;
+        if (this._size >= this._threshold) {
+            this.resize(this._table.length * 2);
+        }
+    }
+
+    private void resize(int32 new_cap) {
+        HashMapEntry<K, V>[] new_table = new HashMapEntry<K, V>[new_cap];
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            HashMapEntry<K, V> e = this._table[i];
+            while (e != null) {
+                HashMapEntry<K, V> nxt = e.next;
+                int32 idx = this.index_for(e.hash, new_cap);
+                e.next = new_table[idx];
+                new_table[idx] = e;
+                e = nxt;
+            }
+        }
+        this._table = new_table;
+        this._threshold = new_cap * 3 / 4;
+    }
+
+    public V remove(K key) {
+        int32 h = this.hash(key);
+        int32 idx = this.index_for(h, this._table.length);
+        HashMapEntry<K, V> prev = null;
+        HashMapEntry<K, V> e = this._table[idx];
+        while (e != null) {
+            if (e.hash == h && this.check_equals(e.key, key)) {
+                if (prev == null) {
+                    this._table[idx] = e.next;
+                } else {
+                    prev.next = e.next;
+                }
+                this._size = this._size - 1;
+                return e.value;
+            }
+            prev = e;
+            e = e.next;
+        }
+        return default(V);
+    }
+
+    public List<K> keys() {
+        List<K> list = new List<K>(this._size);
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            HashMapEntry<K, V> e = this._table[i];
+            while (e != null) {
+                list.add(e.key);
+                e = e.next;
+            }
+        }
+        return list;
+    }
+
+    public List<V> values() {
+        List<V> list = new List<V>(this._size);
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            HashMapEntry<K, V> e = this._table[i];
+            while (e != null) {
+                list.add(e.value);
+                e = e.next;
+            }
+        }
+        return list;
+    }
+
+    public List<KeyValuePair<K, V>> entries() {
+        List<KeyValuePair<K, V>> list = new List<KeyValuePair<K, V>>(this._size);
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            HashMapEntry<K, V> e = this._table[i];
+            while (e != null) {
+                KeyValuePair<K, V> kvp = new KeyValuePair<K, V>(e.key, e.value);
+                list.add(kvp);
+                e = e.next;
+            }
+        }
+        return list;
+    }
+
+    public void for_each(void(*)(K, V) action) {
+        if (action == null) return;
+        for (int32 i = 0; i < this._table.length; i = i + 1) {
+            HashMapEntry<K, V> e = this._table[i];
+            while (e != null) {
+                action(e.key, e.value);
+                e = e.next;
+            }
+        }
+    }
+
+    public String to_string() {
+        return new String("[HashMap]");
+    }
+}

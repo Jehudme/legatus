@@ -1,0 +1,357 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.IndexOutOfBoundsException;
+import solix.exceptions.NoSuchElementException;
+
+class LinkedListNode<T> {
+    public T value;
+    public LinkedListNode<T> prev;
+    public LinkedListNode<T> next;
+
+    public LinkedListNode(T val) {
+        this.value = val;
+        this.prev = null;
+        this.next = null;
+    }
+}
+
+public class LinkedListIterator<T> implements IIterator<T> {
+    private LinkedListNode<T> _current;
+
+    public LinkedListIterator(LinkedListNode<T> head) {
+        this._current = head;
+    }
+
+    public bool has_next() {
+        return this._current != null;
+    }
+
+    public T next() {
+        if (this._current == null) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        T val = this._current.value;
+        this._current = this._current.next;
+        return val;
+    }
+}
+
+public class LinkedList<T> implements IList<T>, IDeque<T>, ICollection<T>, IIterable<T>, IStringable {
+    private LinkedListNode<T> _head;
+    private LinkedListNode<T> _tail;
+    private int32 _count;
+
+    public LinkedList() {
+        this._head = null;
+        this._tail = null;
+        this._count = 0;
+    }
+
+    public LinkedList(T[] items) {
+        this._head = null;
+        this._tail = null;
+        this._count = 0;
+        if (items != null) {
+            for (int32 i = 0; i < items.length; i = i + 1) {
+                this.add_last(items[i]);
+            }
+        }
+    }
+
+    public LinkedList(ICollection<T> other) {
+        this._head = null;
+        this._tail = null;
+        this._count = 0;
+        if (other != null) {
+            IIterator<T> it = other.iterator();
+            while (it.has_next()) {
+                this.add_last(it.next());
+            }
+        }
+    }
+
+    public int32 size() {
+        return this._count;
+    }
+
+    public bool is_empty() {
+        return this._count == 0;
+    }
+
+    public void clear() {
+        LinkedListNode<T> cur = this._head;
+        while (cur != null) {
+            LinkedListNode<T> nxt = cur.next;
+            cur.prev = null;
+            cur.next = null;
+            cur = nxt;
+        }
+        this._head = null;
+        this._tail = null;
+        this._count = 0;
+    }
+
+    public void add_first(T item) {
+        LinkedListNode<T> node = new LinkedListNode<T>(item);
+        if (this._head == null) {
+            this._head = node;
+            this._tail = node;
+        } else {
+            node.next = this._head;
+            this._head.prev = node;
+            this._head = node;
+        }
+        this._count = this._count + 1;
+    }
+
+    public void push_front(T item) {
+        this.add_first(item);
+    }
+
+    public void add_last(T item) {
+        LinkedListNode<T> node = new LinkedListNode<T>(item);
+        if (this._tail == null) {
+            this._head = node;
+            this._tail = node;
+        } else {
+            this._tail.next = node;
+            node.prev = this._tail;
+            this._tail = node;
+        }
+        this._count = this._count + 1;
+    }
+
+    public void push_back(T item) {
+        this.add_last(item);
+    }
+
+    public void add(T item) {
+        this.add_last(item);
+    }
+
+    public T remove_first() {
+        if (this._head == null) {
+            throw new NoSuchElementException("LinkedList is empty");
+        }
+        T val = this._head.value;
+        this._head = this._head.next;
+        if (this._head != null) {
+            this._head.prev = null;
+        } else {
+            this._tail = null;
+        }
+        this._count = this._count - 1;
+        return val;
+    }
+
+    public T pop_front() {
+        return this.remove_first();
+    }
+
+    public T remove_last() {
+        if (this._tail == null) {
+            throw new NoSuchElementException("LinkedList is empty");
+        }
+        T val = this._tail.value;
+        this._tail = this._tail.prev;
+        if (this._tail != null) {
+            this._tail.next = null;
+        } else {
+            this._head = null;
+        }
+        this._count = this._count - 1;
+        return val;
+    }
+
+    public T pop_back() {
+        return this.remove_last();
+    }
+
+    public T peek_first() {
+        if (this._head == null) {
+            throw new NoSuchElementException("LinkedList is empty");
+        }
+        return this._head.value;
+    }
+
+    public T peek_front() {
+        return this.peek_first();
+    }
+
+    public T peek_last() {
+        if (this._tail == null) {
+            throw new NoSuchElementException("LinkedList is empty");
+        }
+        return this._tail.value;
+    }
+
+    public T peek_back() {
+        return this.peek_last();
+    }
+
+    private LinkedListNode<T> node_at(int32 index) {
+        if (index < 0 || index >= this._count) {
+            throw new IndexOutOfBoundsException("LinkedList index out of bounds", index, 0, this._count);
+        }
+        if (index < this._count / 2) {
+            LinkedListNode<T> cur = this._head;
+            for (int32 i = 0; i < index; i = i + 1) {
+                cur = cur.next;
+            }
+            return cur;
+        } else {
+            LinkedListNode<T> cur = this._tail;
+            for (int32 i = this._count - 1; i > index; i = i - 1) {
+                cur = cur.prev;
+            }
+            return cur;
+        }
+    }
+
+    public T get(int32 index) {
+        LinkedListNode<T> node = this.node_at(index);
+        return node.value;
+    }
+
+    public T set(int32 index, T item) {
+        LinkedListNode<T> node = this.node_at(index);
+        T old = node.value;
+        node.value = item;
+        return old;
+    }
+
+    public void insert(int32 index, T item) {
+        if (index < 0 || index > this._count) {
+            throw new IndexOutOfBoundsException("LinkedList insert index out of bounds", index, 0, this._count);
+        }
+        if (index == 0) {
+            this.add_first(item);
+            return;
+        }
+        if (index == this._count) {
+            this.add_last(item);
+            return;
+        }
+        LinkedListNode<T> target = this.node_at(index);
+        LinkedListNode<T> node = new LinkedListNode<T>(item);
+        node.prev = target.prev;
+        node.next = target;
+        target.prev.next = node;
+        target.prev = node;
+        this._count = this._count + 1;
+    }
+
+    public T remove_at(int32 index) {
+        if (index < 0 || index >= this._count) {
+            throw new IndexOutOfBoundsException("LinkedList remove_at index out of bounds", index, 0, this._count);
+        }
+        if (index == 0) {
+            return this.remove_first();
+        }
+        if (index == this._count - 1) {
+            return this.remove_last();
+        }
+        LinkedListNode<T> node = this.node_at(index);
+        T val = node.value;
+        node.prev.next = node.next;
+        node.next.prev = node.prev;
+        node.prev = null;
+        node.next = null;
+        this._count = this._count - 1;
+        return val;
+    }
+
+    public bool remove(T item) {
+        LinkedListNode<T> cur = this._head;
+        int32 idx = 0;
+        while (cur != null) {
+            if (cur.value == item) {
+                this.remove_at(idx);
+                return true;
+            }
+            cur = cur.next;
+            idx = idx + 1;
+        }
+        return false;
+    }
+
+    public bool contains(T item) {
+        LinkedListNode<T> cur = this._head;
+        while (cur != null) {
+            if (cur.value == item) {
+                return true;
+            }
+            cur = cur.next;
+        }
+        return false;
+    }
+
+    public int32 index_of(T item) {
+        LinkedListNode<T> cur = this._head;
+        int32 idx = 0;
+        while (cur != null) {
+            if (cur.value == item) {
+                return idx;
+            }
+            cur = cur.next;
+            idx = idx + 1;
+        }
+        return -1;
+    }
+
+    public T[] to_array() {
+        T[] arr = new T[this._count];
+        LinkedListNode<T> cur = this._head;
+        int32 idx = 0;
+        while (cur != null) {
+            arr[idx] = cur.value;
+            cur = cur.next;
+            idx = idx + 1;
+        }
+        return arr;
+    }
+
+    public void reverse() {
+        LinkedListNode<T> cur = this._head;
+        LinkedListNode<T> temp = null;
+        while (cur != null) {
+            temp = cur.prev;
+            cur.prev = cur.next;
+            cur.next = temp;
+            cur = cur.prev;
+        }
+        temp = this._head;
+        this._head = this._tail;
+        this._tail = temp;
+    }
+
+    public void for_each(void(*)(T) action) {
+        LinkedListNode<T> cur = this._head;
+        while (cur != null) {
+            action(cur.value);
+            cur = cur.next;
+        }
+    }
+
+    public LinkedList<T> filter(bool(*)(T) predicate) {
+        LinkedList<T> result = new LinkedList<T>();
+        LinkedListNode<T> cur = this._head;
+        while (cur != null) {
+            if (predicate(cur.value)) {
+                result.add_last(cur.value);
+            }
+            cur = cur.next;
+        }
+        return result;
+    }
+
+    public IIterator<T> iterator() {
+        return new LinkedListIterator<T>(this._head);
+    }
+
+    public String to_string() {
+        return new String("[LinkedList]");
+    }
+}

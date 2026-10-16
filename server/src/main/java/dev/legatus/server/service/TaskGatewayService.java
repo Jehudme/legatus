@@ -58,6 +58,7 @@ public class TaskGatewayService {
     private final LegatusProperties legatusProperties;
     private final ObjectMapper objectMapper;
     private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
+    private final dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
 
     public TaskGatewayService(
         ComputeTaskRepository computeTaskRepository,
@@ -68,7 +69,7 @@ public class TaskGatewayService {
         LegatusProperties legatusProperties,
         ObjectMapper objectMapper
     ) {
-        this(computeTaskRepository, bytecodeStorageService, taskSchedulerService, taskDispatcher, wormAuditService, legatusProperties, objectMapper, null);
+        this(computeTaskRepository, bytecodeStorageService, taskSchedulerService, taskDispatcher, wormAuditService, legatusProperties, objectMapper, null, new dev.legatus.server.security.BytecodeSecurityValidator());
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -80,7 +81,8 @@ public class TaskGatewayService {
         WormAuditService wormAuditService,
         LegatusProperties legatusProperties,
         ObjectMapper objectMapper,
-        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator
     ) {
         this.computeTaskRepository = computeTaskRepository;
         this.bytecodeStorageService = bytecodeStorageService;
@@ -90,6 +92,7 @@ public class TaskGatewayService {
         this.legatusProperties = legatusProperties;
         this.objectMapper = objectMapper;
         this.studioEventPublisher = studioEventPublisher;
+        this.bytecodeSecurityValidator = bytecodeSecurityValidator != null ? bytecodeSecurityValidator : new dev.legatus.server.security.BytecodeSecurityValidator();
     }
 
     /**
@@ -129,6 +132,7 @@ public class TaskGatewayService {
             } catch (IllegalArgumentException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Base64-encoded bytecode payload");
             }
+            bytecodeSecurityValidator.validateBytecode(bytecodeBytes);
             try {
                 bytecodeStorageService.storeWithExpectedHash(expectedSha256, new ByteArrayInputStream(bytecodeBytes));
             } catch (IOException e) {

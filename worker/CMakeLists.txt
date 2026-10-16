@@ -24,6 +24,10 @@ if(LEGATUS_ENABLE_SANITIZERS)
 endif()
 
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(RE2 REQUIRED re2)
 
 include(FetchContent)
 
@@ -143,6 +147,49 @@ target_link_libraries(legatus_common PUBLIC
 )
 
 # -----------------------------------------------------------------------------
+# Sandboxed Standard Library: legatus_stdlib_native
+# -----------------------------------------------------------------------------
+add_library(legatus_stdlib_native
+    src/stdlib/sandbox.cpp
+    src/stdlib/http_client.cpp
+    src/stdlib/task_context.cpp
+    src/stdlib/json_engine.cpp
+    src/stdlib/crypto_extended.cpp
+    src/stdlib/regex_engine.cpp
+    src/stdlib/encoding_engine.cpp
+    src/stdlib/uuid_engine.cpp
+    src/stdlib/kv_cache.cpp
+    src/stdlib/env_engine.cpp
+    src/stdlib/solix/primitives.cpp
+    src/stdlib/solix/string.cpp
+    src/stdlib/solix/math.cpp
+    src/stdlib/solix/time.cpp
+    src/stdlib/solix/crypto.cpp
+    src/stdlib/solix/console.cpp
+)
+
+target_include_directories(legatus_stdlib_native PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${solix_SOURCE_DIR}/core/include>
+    $<INSTALL_INTERFACE:include>
+    ${RE2_INCLUDE_DIRS}
+)
+
+target_link_directories(legatus_stdlib_native PUBLIC
+    ${RE2_LIBRARY_DIRS}
+)
+
+target_link_libraries(legatus_stdlib_native PUBLIC
+    legatus_common
+    solix_core
+    CURL::libcurl
+    ZLIB::ZLIB
+    ${RE2_LIBRARIES}
+    OpenSSL::Crypto
+    OpenSSL::SSL
+)
+
+# -----------------------------------------------------------------------------
 # Runner Library: legatus_runner_core
 # -----------------------------------------------------------------------------
 add_library(legatus_runner_core
@@ -157,6 +204,7 @@ target_include_directories(legatus_runner_core PUBLIC
 
 target_link_libraries(legatus_runner_core PUBLIC
     legatus_common
+    legatus_stdlib_native
     solix_core
 )
 
@@ -232,6 +280,12 @@ add_executable(legatus_tests
     tests/unit/test_lctp_client.cpp
     tests/unit/test_telemetry_and_cache.cpp
     tests/unit/test_cli_and_logging.cpp
+    tests/unit/test_stdlib_sandbox.cpp
+    tests/unit/test_stdlib_http.cpp
+    tests/unit/test_stdlib_json.cpp
+    tests/unit/test_stdlib_crypto.cpp
+    tests/unit/test_stdlib_regex.cpp
+    tests/unit/test_stdlib_encoding_and_kv.cpp
 )
 
 target_compile_definitions(legatus_tests PRIVATE

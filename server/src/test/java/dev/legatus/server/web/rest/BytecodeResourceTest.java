@@ -39,6 +39,9 @@ class BytecodeResourceTest {
     @Mock
     private WormAuditService wormAuditService;
 
+    @Mock
+    private dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
+
     private BytecodeResource bytecodeResource;
 
     private static final String VALID_SHA256 = "8a3f89b4c0e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7";
@@ -46,7 +49,7 @@ class BytecodeResourceTest {
 
     @BeforeEach
     void setUp() {
-        bytecodeResource = new BytecodeResource(bytecodeStorageService, wormAuditService);
+        bytecodeResource = new BytecodeResource(bytecodeStorageService, wormAuditService, bytecodeSecurityValidator);
     }
 
     @Test
@@ -100,7 +103,7 @@ class BytecodeResourceTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("10.10.10.10");
 
-        when(bytecodeStorageService.store(any(InputStream.class))).thenReturn(VALID_SHA256);
+        when(bytecodeStorageService.store(any(byte[].class))).thenReturn(VALID_SHA256);
         when(bytecodeStorageService.getSize(VALID_SHA256)).thenReturn(1024L);
 
         ResponseEntity<BytecodeUploadResponse> response = bytecodeResource.uploadBytecodeStream(
@@ -127,7 +130,7 @@ class BytecodeResourceTest {
         request.setRemoteAddr("10.20.30.40");
 
         MockMultipartFile file = new MockMultipartFile("file", "kernel.bc", "application/octet-stream", BYTECODE_BYTES);
-        when(bytecodeStorageService.store(any(InputStream.class))).thenReturn(VALID_SHA256);
+        when(bytecodeStorageService.store(any(byte[].class))).thenReturn(VALID_SHA256);
         when(bytecodeStorageService.getSize(VALID_SHA256)).thenReturn((long) BYTECODE_BYTES.length);
 
         ResponseEntity<BytecodeUploadResponse> response = bytecodeResource.uploadBytecodeMultipart(file, request);
@@ -136,5 +139,16 @@ class BytecodeResourceTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().sha256()).isEqualTo(VALID_SHA256);
         assertThat(response.getBody().sizeBytes()).isEqualTo(BYTECODE_BYTES.length);
+    }
+
+    @Test
+    @DisplayName("Should reject bytecode containing banned capabilities with BytecodeSecurityException")
+    void testUploadBytecodeProhibitedFails() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        doThrow(new dev.legatus.server.security.BytecodeSecurityException("Bytecode references prohibited syscalls: solix.system.Process"))
+            .when(bytecodeSecurityValidator).validateBytecode(any(byte[].class));
+
+        assertThatThrownBy(() -> bytecodeResource.uploadBytecodeStream(new ByteArrayInputStream(BYTECODE_BYTES), request))
+            .isInstanceOf(dev.legatus.server.security.BytecodeSecurityException.class);
     }
 }

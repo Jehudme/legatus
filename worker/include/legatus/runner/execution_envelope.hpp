@@ -14,6 +14,7 @@ struct ExecutionEnvelope {
     std::string bytecode_path;
     std::string arguments_json = "{}";
     std::map<std::string, std::string> secrets;
+    std::map<std::string, std::string> environment_variables;
     std::uint64_t instruction_budget = 1'000'000;
     std::uint64_t memory_limit_bytes = 128 * 1024 * 1024; // 128 MB default
 };
@@ -57,6 +58,16 @@ inline ExecutionEnvelope parse_envelope(const std::string& json_str) {
     if (j.contains("secrets") && j["secrets"].is_object()) {
         for (auto it = j["secrets"].begin(); it != j["secrets"].end(); ++it) {
             env.secrets[it.key()] = it.value().get<std::string>();
+        }
+    }
+
+    if (j.contains("environment") && j["environment"].is_object()) {
+        for (auto it = j["environment"].begin(); it != j["environment"].end(); ++it) {
+            env.environment_variables[it.key()] = it.value().get<std::string>();
+        }
+    } else if (j.contains("environment_variables") && j["environment_variables"].is_object()) {
+        for (auto it = j["environment_variables"].begin(); it != j["environment_variables"].end(); ++it) {
+            env.environment_variables[it.key()] = it.value().get<std::string>();
         }
     }
 

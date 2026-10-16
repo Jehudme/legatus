@@ -1,0 +1,96 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.InvalidOperationException;
+import solix.exceptions.NoSuchElementException;
+
+public class QueueIterator<T> implements IIterator<T> {
+    private LinkedList<T> _items;
+    private int32 _idx;
+
+    public QueueIterator(LinkedList<T> items) {
+        this._items = items;
+        this._idx = 0;
+    }
+
+    public bool has_next() {
+        return this._idx < this._items.size();
+    }
+
+    public T next() {
+        if (this._idx >= this._items.size()) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        T val = this._items.get(this._idx);
+        this._idx = this._idx + 1;
+        return val;
+    }
+}
+
+public class Queue<T> implements IReadOnlyCollection<T>, IIterable<T>, IStringable {
+    private LinkedList<T> _items;
+
+    public Queue() {
+        this._items = new LinkedList<T>();
+    }
+
+    public Queue(T[] items) {
+        this._items = new LinkedList<T>(items);
+    }
+
+    public Queue(ICollection<T> other) {
+        this._items = new LinkedList<T>(other);
+    }
+
+    public void enqueue(T item) {
+        this._items.add_last(item);
+    }
+
+    public T dequeue() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Queue is empty");
+        }
+        return this._items.remove_first();
+    }
+
+    public T peek() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Queue is empty");
+        }
+        return this._items.peek_first();
+    }
+
+    public int32 size() {
+        return this._items.size();
+    }
+
+    public bool is_empty() {
+        return this._items.is_empty();
+    }
+
+    public bool contains(T item) {
+        return this._items.contains(item);
+    }
+
+    public void clear() {
+        this._items.clear();
+    }
+
+    public T[] to_array() {
+        return this._items.to_array();
+    }
+
+    public void for_each(void(*)(T) action) {
+        if (action == null) return;
+        this._items.for_each(action);
+    }
+
+    public IIterator<T> iterator() {
+        return new QueueIterator<T>(this._items);
+    }
+
+    public String to_string() {
+        return new String("[Queue]");
+    }
+}

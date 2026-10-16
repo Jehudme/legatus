@@ -1,0 +1,76 @@
+package solix.core;
+
+import solix.exceptions.InvalidOperationException;
+
+public class Optional<T> implements IStringable {
+    private T _value;
+    private bool _has_value;
+
+    public Optional() {
+        this._has_value = false;
+    }
+
+    public Optional(T val) {
+        this._value = val;
+        this._has_value = true;
+    }
+
+
+    public bool has_value() {
+        return this._has_value;
+    }
+
+    public bool is_empty() {
+        return !this._has_value;
+    }
+
+    public T value() {
+        if (!this._has_value) {
+            throw new InvalidOperationException("Optional has no value.");
+        }
+        return this._value;
+    }
+
+    public T value_or(T fallback) {
+        if (this._has_value) {
+            return this._value;
+        }
+        return fallback;
+    }
+
+    public void if_present(void(*)(T) consumer) {
+        if (this._has_value) {
+            consumer(this._value);
+        }
+    }
+
+    public Optional<T> filter(bool(*)(T) predicate) {
+        if (this._has_value) {
+            if (predicate(this._value)) {
+                return this;
+            }
+        }
+        return new Optional<T>();
+    }
+
+    public Optional<U> map<U>(U(*)(T) mapper) {
+        if (this._has_value) {
+            return new Optional<U>(mapper(this._value));
+        }
+        return new Optional<U>();
+    }
+
+    public Optional<U> flat_map<U>(Optional<U>(*)(T) mapper) {
+        if (this._has_value) {
+            return mapper(this._value);
+        }
+        return new Optional<U>();
+    }
+
+    public String to_string() {
+        if (!this._has_value) {
+            return new String("Optional.empty");
+        }
+        return new String("Optional.of(...)");
+    }
+}

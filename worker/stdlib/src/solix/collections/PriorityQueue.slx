@@ -1,0 +1,156 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.InvalidOperationException;
+import solix.exceptions.NoSuchElementException;
+
+public class PriorityQueueIterator<T> implements IIterator<T> {
+    private List<T> _heap;
+    private int32 _idx;
+
+    public PriorityQueueIterator(List<T> heap) {
+        this._heap = heap;
+        this._idx = 0;
+    }
+
+    public bool has_next() {
+        return this._idx < this._heap.size();
+    }
+
+    public T next() {
+        if (this._idx >= this._heap.size()) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        T val = this._heap.get(this._idx);
+        this._idx = this._idx + 1;
+        return val;
+    }
+}
+
+public class PriorityQueue<T> implements IReadOnlyCollection<T>, IIterable<T>, IStringable {
+    private List<T> _heap;
+    private int32(*)(T, T) _comparator;
+
+    public PriorityQueue(int32(*)(T, T) comparator) {
+        this._heap = new List<T>();
+        this._comparator = comparator;
+    }
+
+    private bool higher_priority(T a, T b) {
+        if (this._comparator == null) return false;
+        int32 cmp = this._comparator(a, b);
+        return cmp < 0;
+    }
+
+    private void swap(int32 i, int32 j) {
+        T tmp = this._heap.get(i);
+        this._heap.set(i, this._heap.get(j));
+        this._heap.set(j, tmp);
+    }
+
+    private void sift_up(int32 idx) {
+        while (idx > 0) {
+            int32 parent = (idx - 1) / 2;
+            T cur_item = this._heap.get(idx);
+            T parent_item = this._heap.get(parent);
+            if (this.higher_priority(cur_item, parent_item)) {
+                this.swap(idx, parent);
+                idx = parent;
+            } else {
+                break;
+            }
+        }
+    }
+
+    private void sift_down(int32 idx) {
+        int32 count = this._heap.size();
+        while (true) {
+            int32 best = idx;
+            int32 left = 2 * idx + 1;
+            int32 right = 2 * idx + 2;
+
+            if (left < count) {
+                T left_item = this._heap.get(left);
+                T best_item = this._heap.get(best);
+                if (this.higher_priority(left_item, best_item)) {
+                    best = left;
+                }
+            }
+            if (right < count) {
+                T right_item = this._heap.get(right);
+                T best_item = this._heap.get(best);
+                if (this.higher_priority(right_item, best_item)) {
+                    best = right;
+                }
+            }
+
+            if (best != idx) {
+                this.swap(idx, best);
+                idx = best;
+            } else {
+                break;
+            }
+        }
+    }
+
+    public void enqueue(T item) {
+        this._heap.add(item);
+        int32 last_idx = this._heap.size() - 1;
+        this.sift_up(last_idx);
+    }
+
+    public T dequeue() {
+        if (this._heap.is_empty()) {
+            throw new InvalidOperationException("PriorityQueue is empty");
+        }
+        T root = this._heap.get(0);
+        int32 last_idx = this._heap.size() - 1;
+        T last_item = this._heap.remove_at(last_idx);
+        if (this._heap.size() > 0) {
+            this._heap.set(0, last_item);
+            this.sift_down(0);
+        }
+        return root;
+    }
+
+    public T peek() {
+        if (this._heap.is_empty()) {
+            throw new InvalidOperationException("PriorityQueue is empty");
+        }
+        return this._heap.get(0);
+    }
+
+    public int32 size() {
+        return this._heap.size();
+    }
+
+    public bool is_empty() {
+        return this._heap.is_empty();
+    }
+
+    public void clear() {
+        this._heap.clear();
+    }
+
+    public T[] to_array() {
+        return this._heap.to_array();
+    }
+
+    public bool contains(T item) {
+        return this._heap.contains(item);
+    }
+
+    public void for_each(void(*)(T) action) {
+        if (action == null) return;
+        this._heap.for_each(action);
+    }
+
+    public IIterator<T> iterator() {
+        return new PriorityQueueIterator<T>(this._heap);
+    }
+
+    public String to_string() {
+        return new String("[PriorityQueue]");
+    }
+}

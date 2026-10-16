@@ -1,0 +1,14 @@
+package legatus.env;
+
+public class Environment {
+    private static native string native_get_env(string key);
+    private static native int64 native_has_env(string key);
+
+    public static string getEnv(string key) {
+        return native_get_env(key);
+    }
+
+    public static bool hasEnv(string key) {
+        return native_has_env(key) != 0;
+    }
+}

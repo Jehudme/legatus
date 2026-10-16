@@ -1,0 +1,14 @@
+package legatus.encoding;
+
+public class UrlEncoding {
+    private static native string native_encode(string val);
+    private static native string native_decode(string val);
+
+    public static string encode(string val) {
+        return native_encode(val);
+    }
+
+    public static string decode(string val) {
+        return native_decode(val);
+    }
+}

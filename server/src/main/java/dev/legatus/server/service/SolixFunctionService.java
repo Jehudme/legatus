@@ -23,12 +23,17 @@ public class SolixFunctionService {
     private static final Logger LOG = LoggerFactory.getLogger(SolixFunctionService.class);
 
     private final SolixFunctionRepository solixFunctionRepository;
-
     private final SolixFunctionMapper solixFunctionMapper;
+    private final dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
 
-    public SolixFunctionService(SolixFunctionRepository solixFunctionRepository, SolixFunctionMapper solixFunctionMapper) {
+    public SolixFunctionService(
+        SolixFunctionRepository solixFunctionRepository,
+        SolixFunctionMapper solixFunctionMapper,
+        dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator
+    ) {
         this.solixFunctionRepository = solixFunctionRepository;
         this.solixFunctionMapper = solixFunctionMapper;
+        this.bytecodeSecurityValidator = bytecodeSecurityValidator;
     }
 
     /**
@@ -39,6 +44,9 @@ public class SolixFunctionService {
      */
     public SolixFunctionDTO save(SolixFunctionDTO solixFunctionDTO) {
         LOG.debug("Request to save SolixFunction : {}", solixFunctionDTO);
+        if (solixFunctionDTO.getBytecodeBlob() != null) {
+            bytecodeSecurityValidator.validateBytecode(solixFunctionDTO.getBytecodeBlob());
+        }
         SolixFunction solixFunction = solixFunctionMapper.toEntity(solixFunctionDTO);
         solixFunction = solixFunctionRepository.save(solixFunction);
         return solixFunctionMapper.toDto(solixFunction);
@@ -52,6 +60,9 @@ public class SolixFunctionService {
      */
     public SolixFunctionDTO update(SolixFunctionDTO solixFunctionDTO) {
         LOG.debug("Request to update SolixFunction : {}", solixFunctionDTO);
+        if (solixFunctionDTO.getBytecodeBlob() != null) {
+            bytecodeSecurityValidator.validateBytecode(solixFunctionDTO.getBytecodeBlob());
+        }
         SolixFunction solixFunction = solixFunctionMapper.toEntity(solixFunctionDTO);
         solixFunction = solixFunctionRepository.save(solixFunction);
         return solixFunctionMapper.toDto(solixFunction);

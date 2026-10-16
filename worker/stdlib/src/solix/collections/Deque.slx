@@ -1,0 +1,146 @@
+package solix.collections;
+
+import solix.core.IStringable;
+import solix.core.String;
+import solix.exceptions.InvalidOperationException;
+import solix.exceptions.NoSuchElementException;
+
+public class DequeIterator<T> implements IIterator<T> {
+    private LinkedList<T> _items;
+    private int32 _idx;
+
+    public DequeIterator(LinkedList<T> items) {
+        this._items = items;
+        this._idx = 0;
+    }
+
+    public bool has_next() {
+        return this._idx < this._items.size();
+    }
+
+    public T next() {
+        if (this._idx >= this._items.size()) {
+            throw new NoSuchElementException("Iterator exhausted");
+        }
+        T val = this._items.get(this._idx);
+        this._idx = this._idx + 1;
+        return val;
+    }
+}
+
+public class Deque<T> implements IDeque<T>, ICollection<T>, IIterable<T>, IStringable {
+    private LinkedList<T> _items;
+
+    public Deque() {
+        this._items = new LinkedList<T>();
+    }
+
+    public Deque(T[] items) {
+        this._items = new LinkedList<T>(items);
+    }
+
+    public Deque(ICollection<T> other) {
+        this._items = new LinkedList<T>(other);
+    }
+
+    public void add_first(T item) {
+        this._items.add_first(item);
+    }
+
+    public void push_front(T item) {
+        this._items.add_first(item);
+    }
+
+    public void add_last(T item) {
+        this._items.add_last(item);
+    }
+
+    public void push_back(T item) {
+        this._items.add_last(item);
+    }
+
+    public T remove_first() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Deque is empty");
+        }
+        return this._items.remove_first();
+    }
+
+    public T pop_front() {
+        return this.remove_first();
+    }
+
+    public T remove_last() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Deque is empty");
+        }
+        return this._items.remove_last();
+    }
+
+    public T pop_back() {
+        return this.remove_last();
+    }
+
+    public T peek_first() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Deque is empty");
+        }
+        return this._items.peek_first();
+    }
+
+    public T peek_front() {
+        return this.peek_first();
+    }
+
+    public T peek_last() {
+        if (this._items.is_empty()) {
+            throw new InvalidOperationException("Deque is empty");
+        }
+        return this._items.peek_last();
+    }
+
+    public T peek_back() {
+        return this.peek_last();
+    }
+
+    public int32 size() {
+        return this._items.size();
+    }
+
+    public bool is_empty() {
+        return this._items.is_empty();
+    }
+
+    public bool contains(T item) {
+        return this._items.contains(item);
+    }
+
+    public void clear() {
+        this._items.clear();
+    }
+
+    public T[] to_array() {
+        return this._items.to_array();
+    }
+
+    public void add(T item) {
+        this._items.add_last(item);
+    }
+
+    public bool remove(T item) {
+        return this._items.remove(item);
+    }
+
+    public void for_each(void(*)(T) action) {
+        if (action == null) return;
+        this._items.for_each(action);
+    }
+
+    public IIterator<T> iterator() {
+        return new DequeIterator<T>(this._items);
+    }
+
+    public String to_string() {
+        return new String("[Deque]");
+    }
+}

@@ -1,0 +1,18 @@
+package legatus.net.http;
+
+public class HttpClient {
+    private static native string native_send(string method, string url, string headersJson, string body);
+
+    public static string sendRaw(string method, string url, string headersJson, string body) {
+        return native_send(method, url, headersJson, body);
+    }
+
+    public static string get(string url) {
+        return native_send("GET", url, "{}", "");
+    }
+
+    public static string post(string url, string body, string contentType) {
+        string headers = "{\"Content-Type\":\"" + contentType + "\"}";
+        return native_send("POST", url, headers, body);
+    }
+}
