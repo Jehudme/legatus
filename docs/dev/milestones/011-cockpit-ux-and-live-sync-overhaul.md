@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-011
 * **Target Version:** `v1.7.0-cockpit-sync`
-* **Status:** IN_PROGRESS
+* **Status:** COMPLETED
 * **Lead Architect:** @runtime-architect & @ux-lead
 * **Target Delivery Date:** 2027-04-15
 * **Related ADRs:** ADR-0001, ADR-0002, ADR-0003, ADR-0005, ADR-0008, ADR-0010
@@ -60,19 +60,19 @@ graph TD
 ```
 
 ### 3.1 P0: Critical Blockers & Telemetry Fidelity
-- [ ] `[P0]` **Worker Memory Clamping Removal & System RAM Detection:** Remove `/ 2` artificial clamping in `lctp_client.cpp`, enable dynamic host physical RAM detection in `worker_config.cpp`, and accurately broadcast fluctuating memory in `ClusterMetricsService` and `StudioStreamBroadcaster`.
-- [ ] `[P0]` **Execute Workbench Lockout Resolution:** Guarantee `executeButton` re-enables immediately upon dispatch confirmation or error, enabling repeated execution runs without requiring UI reloads.
-- [ ] `[P0]` **Task Duration & Abort Wall Time Integrity:** Compute live duration for `EXECUTING` tasks from `started_at`, record true elapsed wall time on task abort (`TaskGatewayService`), and disable the [Abort Task] button for inactive/terminated tasks.
+- [x] `[P0]` **Worker Memory Clamping Removal & System RAM Detection:** Remove `/ 2` artificial clamping in `lctp_client.cpp`, enable dynamic host physical RAM detection in `worker_config.cpp`, and accurately broadcast fluctuating memory in `ClusterMetricsService` and `StudioStreamBroadcaster`.
+- [x] `[P0]` **Execute Workbench Lockout Resolution:** Guarantee `executeButton` re-enables immediately upon dispatch confirmation or error, enabling repeated execution runs without requiring UI reloads.
+- [x] `[P0]` **Task Duration & Abort Wall Time Integrity:** Compute live duration for `EXECUTING` tasks from `started_at`, record true elapsed wall time on task abort (`TaskGatewayService`), and disable the [Abort Task] button for inactive/terminated tasks.
 
 ### 3.2 P1: Cockpit Layout & Interaction Overhauls
-- [ ] `[P1]` **Unified Execution Profile Architecture & Workbench Redesign:** Link `function_id` inside `ExecutionProfile`. Redesign `execute_workbench.fxml` into a side-by-side layout: profiles master list, Create Profile panel, and Inspect & Execute panel.
-- [ ] `[P1]` **Task Live Inspector Overhaul with Terminal Console:** Add duration progress bar (hidden when unlimited), instruction progress bar (hidden when unlimited), and embedded STDOUT/STDERR log console in `task_explorer.fxml`.
-- [ ] `[P1]` **Quarantine Inline Attestation:** Replace intrusive `TextInputDialog` with an inline `friendlyNameField` inside the Attestation Card and streamline the visual card design.
+- [x] `[P1]` **Unified Execution Profile Architecture & Workbench Redesign:** Link `function_id` inside `ExecutionProfile`. Redesign `execute_workbench.fxml` into a side-by-side layout: profiles master list, Create Profile panel, and Inspect & Execute panel.
+- [x] `[P1]` **Task Live Inspector Overhaul with Terminal Console:** Add duration progress bar (hidden when unlimited), instruction progress bar (hidden when unlimited), and embedded STDOUT/STDERR log console in `task_explorer.fxml`.
+- [x] `[P1]` **Quarantine Inline Attestation:** Replace intrusive `TextInputDialog` with an inline `friendlyNameField` inside the Attestation Card and streamline the visual card design.
 
 ### 3.3 P2: Universal Live Sync & Table Polish
-- [ ] `[P2]` **Fleet Table Cores Column, Sorting & Live Countdown:** Add Cores column to `workersTable`, bind `sortedWorkers.comparatorProperty()` to table comparator for interactive header sorting, and decrement lease remaining time live.
-- [ ] `[P2]` **Functions Workbench Panel Split & Refresh Removal:** Remove refresh button and 1h invocations column; implement dedicated Create Function and Inspect Function panels with reactive WebSocket sync.
-- [ ] `[P2]` **Universal Top-of-List Prepending:** Enforce that all reactive additions to observable lists across Studio prepend at index 0.
+- [x] `[P2]` **Fleet Table Cores Column, Sorting & Live Countdown:** Add Cores column to `workersTable`, bind `sortedWorkers.comparatorProperty()` to table comparator for interactive header sorting, and decrement lease remaining time live.
+- [x] `[P2]` **Functions Workbench Panel Split & Refresh Removal:** Remove refresh button and 1h invocations column; implement dedicated Create Function and Inspect Function panels with reactive WebSocket sync.
+- [x] `[P2]` **Universal Top-of-List Prepending:** Enforce that all reactive additions to observable lists across Studio prepend at index 0.
 
 ---
 
