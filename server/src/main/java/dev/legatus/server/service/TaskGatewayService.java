@@ -220,7 +220,7 @@ public class TaskGatewayService {
             "TASK",
             taskId,
             AuditActionStatus.SUCCESS,
-            "{\"name\":\"" + task.getName() + "\",\"priority\":\"" + priority + "\"}",
+            serializeJson(Map.of("name", task.getName() != null ? task.getName() : "", "priority", priority.name())),
             sourceIp != null ? sourceIp : "127.0.0.1",
             WormAuditService.DEFAULT_COMPLIANCE_FLAG
         );
@@ -242,7 +242,9 @@ public class TaskGatewayService {
                 task.getPeakMemoryBytes(),
                 task.getWallTimeMs(),
                 task.getInstructionBudget(),
-                task.getTimeoutMs()
+                task.getTimeoutMs(),
+                task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
             ));
         }
 
@@ -344,7 +346,7 @@ public class TaskGatewayService {
             if (task.getCreatedAt() != null) {
                 task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getCreatedAt(), task.getCompletedAt()).toMillis()));
             }
-            task.setErrorJson("{\"code\":\"ERR_TASK_ABORTED\",\"reason\":\"" + reason + "\"}");
+            task.setErrorJson(serializeJson(Map.of("code", "ERR_TASK_ABORTED", "reason", reason != null ? reason : "")));
             computeTaskRepository.saveAndFlush(task);
 
             recordAudit("TASK_ABORTED", taskId, sourceIp, reason);
@@ -361,7 +363,9 @@ public class TaskGatewayService {
                     task.getPeakMemoryBytes(),
                     task.getWallTimeMs(),
                     task.getInstructionBudget(),
-                    task.getTimeoutMs()
+                    task.getTimeoutMs(),
+                    task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                    task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
                 ));
             }
 
@@ -383,7 +387,7 @@ public class TaskGatewayService {
         } else if (task.getCreatedAt() != null) {
             task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getCreatedAt(), task.getCompletedAt()).toMillis()));
         }
-        task.setErrorJson("{\"code\":\"ERR_TASK_ABORTED\",\"reason\":\"" + reason + "\"}");
+        task.setErrorJson(serializeJson(Map.of("code", "ERR_TASK_ABORTED", "reason", reason != null ? reason : "")));
         computeTaskRepository.saveAndFlush(task);
 
         recordAudit("TASK_ABORTED", taskId, sourceIp, reason);
@@ -400,7 +404,9 @@ public class TaskGatewayService {
                 task.getPeakMemoryBytes(),
                 task.getWallTimeMs(),
                 task.getInstructionBudget(),
-                task.getTimeoutMs()
+                task.getTimeoutMs(),
+                task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
             ));
         }
 
@@ -417,7 +423,7 @@ public class TaskGatewayService {
             "TASK",
             taskId,
             AuditActionStatus.SUCCESS,
-            "{\"reason\":\"" + reason + "\"}",
+            serializeJson(Map.of("reason", reason != null ? reason : "")),
             sourceIp != null ? sourceIp : "127.0.0.1",
             WormAuditService.DEFAULT_COMPLIANCE_FLAG
         );

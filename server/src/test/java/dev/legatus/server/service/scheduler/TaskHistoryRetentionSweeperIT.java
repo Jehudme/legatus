@@ -161,4 +161,32 @@ class TaskHistoryRetentionSweeperIT {
         assertThat(auditLogRepository.findById(statutoryAuditId)).isPresent();
         assertThat(auditLogRepository.count()).isGreaterThanOrEqualTo(initialAuditCount);
     }
+
+    @Test
+    @DisplayName("Should purge terminal tasks older than cutoff even when completedAt is null")
+    void testPurgeTerminalTasksWithNullCompletedAt() {
+        Instant completed200HoursAgo = Instant.now().minus(200, ChronoUnit.HOURS);
+        String nullCompletedTaskId = "task-aborted-null-completed-" + UUID.randomUUID().toString().substring(0, 8);
+        ComputeTask nullCompletedTask = new ComputeTask()
+            .taskId(nullCompletedTaskId)
+            .name("null-completed-aborted-task")
+            .status(TaskStatus.ABORTED)
+            .priority(TaskPriority.NORMAL)
+            .priorityWeight(50)
+            .idempotent(false)
+            .entryPoint("main")
+            .bytecodeSha256("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+            .instructionBudget(10_000_000L)
+            .maxMemoryBytes(67_108_864L)
+            .timeoutMs(30_000)
+            .attemptCount(1)
+            .maxRetries(2)
+            .createdAt(completed200HoursAgo)
+            .completedAt(null);
+        computeTaskRepository.saveAndFlush(nullCompletedTask);
+
+        int purged = retentionSweeper.purgeOldCompletedTasks();
+        assertThat(purged).isGreaterThanOrEqualTo(1);
+        assertThat(computeTaskRepository.findById(nullCompletedTaskId)).isEmpty();
+    }
 }

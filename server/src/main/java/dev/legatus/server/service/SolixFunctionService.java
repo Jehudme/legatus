@@ -152,6 +152,9 @@ public class SolixFunctionService {
      */
     public void delete(UUID id) {
         LOG.debug("Request to delete SolixFunction : {}", id);
+        if (computeTaskRepository != null && id != null) {
+            computeTaskRepository.unlinkFunctionFromTasks(id);
+        }
         solixFunctionRepository.deleteById(id);
     }
 }

@@ -50,11 +50,19 @@ public interface ComputeTaskRepository extends JpaRepository<ComputeTask, String
     long countByStatus(dev.legatus.server.domain.enumeration.TaskStatus status);
 
     @Modifying(clearAutomatically = true)
-    @Query("DELETE FROM ComputeTask t WHERE t.status IN :terminalStatuses AND t.completedAt < :cutoff")
+    @Query("DELETE FROM ComputeTask t WHERE t.status IN :terminalStatuses AND (t.completedAt < :cutoff OR (t.completedAt IS NULL AND t.createdAt < :cutoff))")
     int deleteCompletedTasksOlderThan(
         @Param("terminalStatuses") java.util.Collection<dev.legatus.server.domain.enumeration.TaskStatus> terminalStatuses,
         @Param("cutoff") java.time.Instant cutoff
     );
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ComputeTask t SET t.assignedWorker = null WHERE t.assignedWorker.workerId = :workerId")
+    int unlinkWorkerFromTasks(@Param("workerId") String workerId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ComputeTask t SET t.function = null WHERE t.function.functionId = :functionId")
+    int unlinkFunctionFromTasks(@Param("functionId") java.util.UUID functionId);
 
     @Query("SELECT COUNT(t) FROM ComputeTask t WHERE (t.function.functionId = :functionId OR t.bytecodeSha256 = :sha256) AND t.createdAt >= :since")
     long countInvocationsSince(

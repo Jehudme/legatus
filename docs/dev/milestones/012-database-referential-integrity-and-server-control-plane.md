@@ -42,21 +42,21 @@ This milestone resolves all server-side architectural defects while completely r
 ## 3. Prioritized Deliverables & Task Matrix
 
 ### 3.1 P0: Critical Blockers (Release Gate)
-- [ ] `[P0]` **Liquibase Foreign Key Cascade & Worker Deletion Fix:** Update Liquibase migrations with `ON DELETE SET NULL` on `fk_tasks__assigned_worker_id` and `fk_tasks__function_id`. Update `WorkerEnrollmentService.deleteWorker()` to unlink task references within a transaction so deletion succeeds cleanly.
-- [ ] `[P0]` **Worker Revocation Socket Severance:** Update `WorkerEnrollmentService.revokeWorker()` to look up the active session in `WorkerSessionRegistry` and close the WebSocket with code `1008` (Policy Violation) / `4403` (Lease Revoked).
-- [ ] `[P0]` **Threshold Math & RAM Saturation Normalization:** In `LctpWorkerWebSocketHandler`, store `maxMemoryBytes` as `totalMemoryBytes` if missing, divide host used RAM by actual total RAM, and reset hysteresis flags in `ThresholdScheduler` when RAM drops below target threshold.
-- [ ] `[P0]` **16-Task Concurrency Quota Enforcement:** Refactor `WorkerEligibilityFilter` Predicate 3 to check `activeTaskCount < worker.getMaxConcurrentTasks()`, enabling workers to execute up to 16 concurrent tasks regardless of physical core count.
+- [x] `[P0]` **Liquibase Foreign Key Cascade & Worker Deletion Fix:** Update Liquibase migrations with `ON DELETE SET NULL` on `fk_tasks__assigned_worker_id` and `fk_tasks__function_id`. Update `WorkerEnrollmentService.deleteWorker()` to unlink task references within a transaction so deletion succeeds cleanly.
+- [x] `[P0]` **Worker Revocation Socket Severance:** Update `WorkerEnrollmentService.revokeWorker()` to look up the active session in `WorkerSessionRegistry` and close the WebSocket with code `1008` (Policy Violation) / `4403` (Lease Revoked).
+- [x] `[P0]` **Threshold Math & RAM Saturation Normalization:** In `LctpWorkerWebSocketHandler`, store `maxMemoryBytes` as `totalMemoryBytes` if missing, divide host used RAM by actual total RAM, and reset hysteresis flags in `ThresholdScheduler` when RAM drops below target threshold.
+- [x] `[P0]` **16-Task Concurrency Quota Enforcement:** Refactor `WorkerEligibilityFilter` Predicate 3 to check `activeTaskCount < worker.getMaxConcurrentTasks()`, enabling workers to execute up to 16 concurrent tasks regardless of physical core count.
 
 ### 3.2 P1: High Priority (Milestone Core)
-- [ ] `[P1]` **Persistent Dynamic Cron Storage:** Implement `CronJobTrigger` entity, Liquibase table `legatus_cron_triggers`, and repository. Update `CronSchedulerService` to save dynamic triggers to the database and reload them on application startup.
-- [ ] `[P1]` **Retention Sweeper Null CompletedAt Purge:** Fix `ComputeTaskRepository.deleteCompletedTasksOlderThan` to purge all terminal tasks older than the cutoff regardless of whether `completedAt` is null.
-- [ ] `[P1]` **Lifecycle Frame Timestamp Enrichment:** Add `started_at` and `created_at` (epoch milliseconds) to `EventTaskLifecycleFrame.Payload` and propagate them via `StudioStreamBroadcaster`.
-- [ ] `[P1]` **Database Indexes on Hot Telemetry Columns:** Add Liquibase indexes on `tasks(status, priority_weight, created_at)`, `tasks(assigned_worker_worker_id)`, and `audit_logs(timestamp)`.
+- [x] `[P1]` **Persistent Dynamic Cron Storage:** Implement `CronJobTrigger` entity, Liquibase table `legatus_cron_triggers`, and repository. Update `CronSchedulerService` to save dynamic triggers to the database and reload them on application startup.
+- [x] `[P1]` **Retention Sweeper Null CompletedAt Purge:** Fix `ComputeTaskRepository.deleteCompletedTasksOlderThan` to purge all terminal tasks older than the cutoff regardless of whether `completedAt` is null.
+- [x] `[P1]` **Lifecycle Frame Timestamp Enrichment:** Add `started_at` and `created_at` (epoch milliseconds) to `EventTaskLifecycleFrame.Payload` and propagate them via `StudioStreamBroadcaster`.
+- [x] `[P1]` **Database Indexes on Hot Telemetry Columns:** Add Liquibase indexes on `tasks(status, priority_weight, created_at)`, `tasks(assigned_worker_worker_id)`, and `audit_logs(timestamp)`.
 
 ### 3.3 P2: Medium Priority (Ergonomics & Hardening)
-- [ ] `[P2]` **WORM Audit String Injection Protection:** Replace string concatenation in `TaskGatewayService` audit events with structured Jackson JSON serialization.
-- [ ] `[P2]` **Ticket Broker Bounded Eviction Buffer:** Bound `TicketBrokerService` token map to 100,000 entries with LRU rejection to prevent memory exhaustion under DDoS token requests.
-- [ ] `[P2]` **WebSocket Ping/Pong Heartbeat Control Frames:** Send standard WebSocket ping frames every 30 seconds to prevent middlebox timeout disconnects.
+- [x] `[P2]` **WORM Audit String Injection Protection:** Replace string concatenation in `TaskGatewayService` audit events with structured Jackson JSON serialization.
+- [x] `[P2]` **Ticket Broker Bounded Eviction Buffer:** Bound `TicketBrokerService` token map to 100,000 entries with LRU rejection to prevent memory exhaustion under DDoS token requests.
+- [x] `[P2]` **WebSocket Ping/Pong Heartbeat Control Frames:** Send standard WebSocket ping frames every 30 seconds to prevent middlebox timeout disconnects.
 
 ---
 
@@ -81,10 +81,10 @@ The previous test suite passed with 100% green builds because it actively assert
 
 | DoD Requirement | Target Benchmark | Verification Tool | Sign-off Status |
 | :--- | :--- | :--- | :--- |
-| **JUnit 5 Suite** | 100% pass across all Spring Boot unit & integration tests | `./mvnw clean test verify` | [ ] Pending |
-| **Database Cascades** | Clean worker/function deletion with historical tasks | `DatabaseReferentialIntegrityIT` | [ ] Pending |
-| **Zero Regressions** | All 15 existing Spring Boot ITs remain green | `./mvnw test -Dtest=*IT` | [ ] Pending |
-| **Living Specs Updated** | `server-spec.md` updated with cron persistence & cascade rules | Documentation audit | [ ] Pending |
+| **JUnit 5 Suite** | 100% pass across all Spring Boot unit & integration tests | `./mvnw clean test verify` | [x] Completed |
+| **Database Cascades** | Clean worker/function deletion with historical tasks | `DatabaseReferentialIntegrityIT` | [x] Completed |
+| **Zero Regressions** | All 15 existing Spring Boot ITs remain green | `./mvnw test -Dtest=*IT` | [x] Completed |
+| **Living Specs Updated** | `server-spec.md` updated with cron persistence & cascade rules | Documentation audit | [x] Completed |
 
 ---
 

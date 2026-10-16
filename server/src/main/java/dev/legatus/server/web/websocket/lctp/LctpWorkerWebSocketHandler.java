@@ -210,6 +210,11 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             worker.setAllocatableCores(frame.payload().allocatableCapacity().allocatableCores());
             worker.setMaxMemoryBytes(frame.payload().allocatableCapacity().maxMemoryBytes());
             worker.setMaxInstructionBudget(frame.payload().allocatableCapacity().maxInstructionBudgetPerTask());
+            if (worker.getTotalMemoryBytes() == null || worker.getTotalMemoryBytes() <= (1024L * 1024 * 1024)) {
+                if (frame.payload().allocatableCapacity().maxMemoryBytes() > 0) {
+                    worker.setTotalMemoryBytes(frame.payload().allocatableCapacity().maxMemoryBytes());
+                }
+            }
         }
         workerNodeRepository.save(worker);
 
@@ -309,7 +314,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     double targetCpu = w.getTargetCpuPct() != null ? w.getTargetCpuPct() : 75.0;
                     double targetRam = w.getTargetRamPct() != null ? w.getTargetRamPct() : 80.0;
                     int maxTasks = w.getMaxConcurrentTasks() != null ? w.getMaxConcurrentTasks() : 16;
-                    long totalMem = w.getTotalMemoryBytes() != null && w.getTotalMemoryBytes() > 0 ? w.getTotalMemoryBytes() : (1024L * 1024 * 1024);
+                    long totalMem = (w.getTotalMemoryBytes() != null && w.getTotalMemoryBytes() > 0)
+                        ? w.getTotalMemoryBytes()
+                        : ((w.getMaxMemoryBytes() != null && w.getMaxMemoryBytes() > 0) ? w.getMaxMemoryBytes() : (1024L * 1024 * 1024));
                     double ramPct = ((double) frame.payload().hostMetrics().memoryUsedBytes() / totalMem) * 100.0;
                     thresholdScheduler.recordTelemetry(
                         w.getWorkerId(),
@@ -375,7 +382,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                                 t.getPeakMemoryBytes(),
                                 t.getWallTimeMs(),
                                 t.getInstructionBudget(),
-                                t.getTimeoutMs()
+                                t.getTimeoutMs(),
+                                t.getStartedAt() != null ? t.getStartedAt().toEpochMilli() : null,
+                                t.getCreatedAt() != null ? t.getCreatedAt().toEpochMilli() : null
                             ));
                         }
                     }
@@ -482,7 +491,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     task.getPeakMemoryBytes(),
                     task.getWallTimeMs(),
                     task.getInstructionBudget(),
-                    task.getTimeoutMs()
+                    task.getTimeoutMs(),
+                    task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                    task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
                 ));
 
                 if (frame.payload().logChunk() != null && !frame.payload().logChunk().isBlank()) {
@@ -571,7 +582,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     task.getPeakMemoryBytes(),
                     task.getWallTimeMs(),
                     task.getInstructionBudget(),
-                    task.getTimeoutMs()
+                    task.getTimeoutMs(),
+                    task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                    task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
                 ));
 
                 String logLine = null;
@@ -652,6 +665,15 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                 case "CRASHED" -> TaskStatus.CRASHED;
                 default -> TaskStatus.FAILED;
             };
+        }
+    }
+
+    @Override
+    protected void handlePongMessage(WebSocketSession session, org.springframework.web.socket.PongMessage message) throws Exception {
+        LctpWorkerSession workerSession = (LctpWorkerSession) session.getAttributes().get("workerSession");
+        if (workerSession != null) {
+            workerSession.setLastHeartbeatAt(Instant.now());
+            LOG.trace("Received pong keepalive frame from worker session {}", workerSession.getSessionId());
         }
     }
 }

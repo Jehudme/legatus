@@ -61,12 +61,24 @@ class WorkerEligibilityFilterTest {
     }
 
     @Test
-    @DisplayName("Predicate 3: Should reject worker when no cores are available (C_avail < 1)")
-    void testPredicate3NoCoresAvailable() {
-        // Allocatable is 4, 3 active tasks -> 1 available core -> eligible
-        assertThat(filter.isEligible(worker, task, 3, 0L, null)).isTrue();
+    @DisplayName("Predicate 3: Should accept up to maxConcurrentTasks (16) regardless of core count (4), rejecting on reaching limit")
+    void testPredicate3MaxConcurrentTasksQuota() {
+        worker.setMaxConcurrentTasks(16);
+        // Allocatable cores is 4, but maxConcurrentTasks is 16: tasks 1 to 16 are accepted
+        assertThat(filter.isEligible(worker, task, 0, 0L, null)).isTrue();
+        assertThat(filter.isEligible(worker, task, 4, 0L, null)).isTrue();
+        assertThat(filter.isEligible(worker, task, 15, 0L, null)).isTrue();
 
-        // 4 active tasks -> 0 available cores -> ineligible
+        // 16 active tasks -> limit reached -> ineligible for 17th
+        assertThat(filter.isEligible(worker, task, 16, 0L, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Predicate 3: Should fall back to allocatable cores when maxConcurrentTasks is unspecified")
+    void testPredicate3FallbackToCores() {
+        worker.setMaxConcurrentTasks(null);
+        worker.setAllocatableCores(4);
+        assertThat(filter.isEligible(worker, task, 3, 0L, null)).isTrue();
         assertThat(filter.isEligible(worker, task, 4, 0L, null)).isFalse();
     }
 

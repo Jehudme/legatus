@@ -45,12 +45,12 @@ public class TicketBrokerService {
     public TicketBrokerService(Duration ttl) {
         this.workerTicketCache = Caffeine.newBuilder()
             .expireAfterWrite(ttl)
-            .maximumSize(50_000)
+            .maximumSize(100_000)
             .build();
 
         this.studioTicketCache = Caffeine.newBuilder()
             .expireAfterWrite(ttl)
-            .maximumSize(10_000)
+            .maximumSize(50_000)
             .build();
     }
 

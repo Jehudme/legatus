@@ -162,4 +162,21 @@ public class WorkerDeadManSweeper {
             }
         }
     }
+
+    /**
+     * Emits WebSocket ping control frames every 30 seconds to prevent middlebox timeout disconnects.
+     */
+    @Scheduled(fixedRate = 30000)
+    public void sendPingControlFrames() {
+        org.springframework.web.socket.PingMessage ping = new org.springframework.web.socket.PingMessage();
+        for (LctpWorkerSession session : sessionRegistry.getAllActiveSessions()) {
+            if (session.getWebSocketSession() != null && session.getWebSocketSession().isOpen()) {
+                try {
+                    session.getWebSocketSession().sendMessage(ping);
+                } catch (Exception e) {
+                    LOG.debug("Error sending ping control frame to worker session {}: {}", session.getSessionId(), e.getMessage());
+                }
+            }
+        }
+    }
 }

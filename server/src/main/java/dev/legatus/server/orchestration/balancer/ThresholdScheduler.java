@@ -151,6 +151,11 @@ public class ThresholdScheduler {
     public void clearWorker(String workerId) {
         if (workerId != null) {
             metricsStateMap.remove(workerId);
+            boolean anyBreached = metricsStateMap.values().stream().anyMatch(WorkerMetricsState::saturated);
+            if (!anyBreached) {
+                thresholdBreachWarning.set(false);
+                queueSaturatedError.set(false);
+            }
         }
     }
 

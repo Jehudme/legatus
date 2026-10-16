@@ -610,6 +610,12 @@ public class WorkerEnrollmentService {
         }
 
         // Step 4: Revoke cryptographic lease, purge database records, clear caches, and emit audit event
+        if (computeTaskRepositoryProvider != null) {
+            var taskRepo = computeTaskRepositoryProvider.getIfAvailable();
+            if (taskRepo != null) {
+                taskRepo.unlinkWorkerFromTasks(workerId);
+            }
+        }
         if (worker.getEnrollmentId() != null) {
             singleReadTokenCache.invalidate(worker.getEnrollmentId());
         }
@@ -662,6 +668,30 @@ public class WorkerEnrollmentService {
         worker.setState(WorkerState.REVOKED);
         worker.setActive(false);
         workerNodeRepository.save(worker);
+
+        // Sever active WebSocket connection with CloseStatus 1008 ("Lease Revoked")
+        if (workerSessionRegistryProvider != null) {
+            var reg = workerSessionRegistryProvider.getIfAvailable();
+            if (reg != null) {
+                reg.getByWorkerId(workerId).ifPresent(ws -> {
+                    try {
+                        ws.getWebSocketSession().close(new org.springframework.web.socket.CloseStatus(1008, "Lease Revoked"));
+                    } catch (Exception e) {
+                        LOG.warn("Error terminating session during worker revocation {}: {}", workerId, e.getMessage());
+                    }
+                });
+            }
+        }
+
+        if (worker.getEnrollmentId() != null) {
+            singleReadTokenCache.invalidate(worker.getEnrollmentId());
+        }
+        if (thresholdSchedulerProvider != null) {
+            var sched = thresholdSchedulerProvider.getIfAvailable();
+            if (sched != null) {
+                sched.clearWorker(workerId);
+            }
+        }
 
         wormAuditService.recordEvent(
             operatorUsername,
@@ -965,6 +995,9 @@ public class WorkerEnrollmentService {
             if (request.allocatableCapacity().maxMemoryBytes() != null) {
                 memory = request.allocatableCapacity().maxMemoryBytes();
                 worker.setMaxMemoryBytes(memory);
+                if (worker.getTotalMemoryBytes() == null || worker.getTotalMemoryBytes() <= (1024L * 1024 * 1024)) {
+                    worker.setTotalMemoryBytes(memory);
+                }
             }
             if (request.allocatableCapacity().maxInstructionBudgetPerTask() != null) {
                 budget = request.allocatableCapacity().maxInstructionBudgetPerTask();

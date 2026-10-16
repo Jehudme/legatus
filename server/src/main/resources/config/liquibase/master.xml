@@ -29,5 +29,6 @@
     <include file="config/liquibase/changelog/20261015180000_cleanup_legacy_fake_data.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261016000000_add_worker_control_plane_fields.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261016100000_add_function_tags_and_execution_profiles.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261016200000_cascade_constraints_and_cron_persistence.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>
 

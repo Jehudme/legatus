@@ -46,6 +46,7 @@ public class CronSchedulerService {
     private final SolixFunctionRepository solixFunctionRepository;
     private final TaskGatewayService taskGatewayService;
     private final WormAuditService wormAuditService;
+    private final dev.legatus.server.repository.CronJobTriggerRepository cronJobTriggerRepository;
     private final TaskScheduler scheduler;
     private final boolean ownsScheduler;
 
@@ -59,12 +60,14 @@ public class CronSchedulerService {
         SolixFunctionRepository solixFunctionRepository,
         TaskGatewayService taskGatewayService,
         WormAuditService wormAuditService,
+        @Autowired(required = false) dev.legatus.server.repository.CronJobTriggerRepository cronJobTriggerRepository,
         @Autowired(required = false) TaskScheduler taskScheduler
     ) {
         this.legatusProperties = legatusProperties;
         this.solixFunctionRepository = solixFunctionRepository;
         this.taskGatewayService = taskGatewayService;
         this.wormAuditService = wormAuditService;
+        this.cronJobTriggerRepository = cronJobTriggerRepository;
 
         if (taskScheduler != null) {
             this.scheduler = taskScheduler;
@@ -79,6 +82,16 @@ public class CronSchedulerService {
         }
     }
 
+    public CronSchedulerService(
+        LegatusProperties legatusProperties,
+        SolixFunctionRepository solixFunctionRepository,
+        TaskGatewayService taskGatewayService,
+        WormAuditService wormAuditService,
+        TaskScheduler taskScheduler
+    ) {
+        this(legatusProperties, solixFunctionRepository, taskGatewayService, wormAuditService, null, taskScheduler);
+    }
+
     /**
      * Bootstraps configured cron jobs upon application startup if the feature is enabled.
      */
@@ -90,24 +103,38 @@ public class CronSchedulerService {
         }
 
         List<LegatusProperties.CronJobConfig> jobs = legatusProperties.getCron().getJobs();
-        if (jobs == null || jobs.isEmpty()) {
-            LOG.debug("Cron scheduler initialized with zero statically configured jobs");
-            return;
+        if (jobs != null && !jobs.isEmpty()) {
+            LOG.info("Initializing Legatus Cron Scheduler with {} statically configured recurring job(s)", jobs.size());
+            for (LegatusProperties.CronJobConfig job : jobs) {
+                scheduleInternal(job, false);
+            }
         }
 
-        LOG.info("Initializing Legatus Cron Scheduler with {} configured recurring job(s)", jobs.size());
-        for (LegatusProperties.CronJobConfig job : jobs) {
-            registerJob(job);
+        // Reload persistent dynamic cron triggers from database
+        if (cronJobTriggerRepository != null) {
+            List<dev.legatus.server.domain.CronJobTrigger> persistedTriggers = cronJobTriggerRepository.findAllByActiveTrue();
+            LOG.info("Reloading {} persisted active cron trigger(s) from database", persistedTriggers.size());
+            for (dev.legatus.server.domain.CronJobTrigger trigger : persistedTriggers) {
+                LegatusProperties.CronJobConfig cfg = new LegatusProperties.CronJobConfig();
+                cfg.setName(trigger.getId());
+                cfg.setFunctionName(trigger.getFunctionId());
+                cfg.setCronExpression(trigger.getCronExpression());
+                scheduleInternal(cfg, false);
+            }
         }
     }
 
     /**
-     * Registers and schedules a new cron job.
+     * Registers and schedules a new cron job, persisting it to the database.
      *
      * @param job cron job definition
      * @return true if successfully scheduled, false otherwise
      */
     public synchronized boolean registerJob(LegatusProperties.CronJobConfig job) {
+        return registerJob(job, true);
+    }
+
+    public synchronized boolean registerJob(LegatusProperties.CronJobConfig job, boolean persist) {
         if (job == null || job.getName() == null || job.getName().isBlank() || job.getCronExpression() == null) {
             LOG.warn("Rejected registration of invalid cron job: name and expression required");
             return false;
@@ -118,8 +145,24 @@ public class CronSchedulerService {
             return false;
         }
 
-        // Cancel previous registration if exists
-        unregisterJob(job.getName());
+        boolean scheduled = scheduleInternal(job, true);
+        if (scheduled && persist && cronJobTriggerRepository != null) {
+            dev.legatus.server.domain.CronJobTrigger entity = cronJobTriggerRepository.findById(job.getName())
+                .orElseGet(() -> new dev.legatus.server.domain.CronJobTrigger());
+            entity.setId(job.getName());
+            entity.setCronExpression(job.getCronExpression());
+            entity.setFunctionId(job.getFunctionName());
+            entity.setActive(true);
+            cronJobTriggerRepository.save(entity);
+            LOG.debug("Persisted dynamic cron trigger '{}' to database", job.getName());
+        }
+        return scheduled;
+    }
+
+    private synchronized boolean scheduleInternal(LegatusProperties.CronJobConfig job, boolean cancelPrevious) {
+        if (cancelPrevious) {
+            unregisterJob(job.getName(), false);
+        }
 
         ScheduledFuture<?> future = scheduler.schedule(
             () -> {
@@ -147,6 +190,10 @@ public class CronSchedulerService {
      * @return true if an active job was removed, false otherwise
      */
     public synchronized boolean unregisterJob(String jobName) {
+        return unregisterJob(jobName, true);
+    }
+
+    public synchronized boolean unregisterJob(String jobName, boolean deleteFromDb) {
         if (jobName == null) {
             return false;
         }
@@ -156,9 +203,11 @@ public class CronSchedulerService {
         if (future != null) {
             future.cancel(false);
             LOG.info("Cancelled and unregistered cron job '{}'", jobName);
-            return true;
         }
-        return hadConfig;
+        if (deleteFromDb && cronJobTriggerRepository != null) {
+            cronJobTriggerRepository.deleteById(jobName);
+        }
+        return hadConfig || (future != null);
     }
 
     /**
@@ -173,6 +222,12 @@ public class CronSchedulerService {
             future.cancel(false);
         }
         pausedJobs.add(jobName);
+        if (cronJobTriggerRepository != null) {
+            cronJobTriggerRepository.findById(jobName).ifPresent(t -> {
+                t.setActive(false);
+                cronJobTriggerRepository.save(t);
+            });
+        }
         LOG.info("Paused cron job '{}'", jobName);
         return true;
     }
@@ -190,7 +245,13 @@ public class CronSchedulerService {
             return false;
         }
         pausedJobs.remove(jobName);
-        return registerJob(job);
+        if (cronJobTriggerRepository != null) {
+            cronJobTriggerRepository.findById(jobName).ifPresent(t -> {
+                t.setActive(true);
+                cronJobTriggerRepository.save(t);
+            });
+        }
+        return registerJob(job, false);
     }
 
     /**
@@ -266,6 +327,14 @@ public class CronSchedulerService {
 
         SubmitTaskResponse response = taskGatewayService.submitTask(request, "127.0.0.1 (cron-scheduler)");
         LOG.info("Cron job '{}' successfully dispatched compute task: {}", job.getName(), response.taskId());
+
+        if (cronJobTriggerRepository != null) {
+            cronJobTriggerRepository.findById(job.getName()).ifPresent(t -> {
+                t.setLastTriggeredAt(java.time.Instant.now());
+                t.setTotalInvocations(t.getTotalInvocations() != null ? t.getTotalInvocations() + 1 : 1L);
+                cronJobTriggerRepository.save(t);
+            });
+        }
 
         wormAuditService.recordEvent(
             "cron-scheduler",

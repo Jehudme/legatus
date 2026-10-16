@@ -33,7 +33,9 @@ public record EventTaskLifecycleFrame(
         @JsonProperty("peak_memory_bytes") Long peakMemoryBytes,
         @JsonProperty("execution_wall_time_ms") Long executionWallTimeMs,
         @JsonProperty("instruction_budget") Long instructionBudget,
-        @JsonProperty("timeout_ms") Integer timeoutMs
+        @JsonProperty("timeout_ms") Integer timeoutMs,
+        @JsonProperty("started_at") Long startedAt,
+        @JsonProperty("created_at") Long createdAt
     ) {
         public Payload(
             String taskId,
@@ -45,7 +47,22 @@ public record EventTaskLifecycleFrame(
             Long peakMemoryBytes,
             Long executionWallTimeMs
         ) {
-            this(taskId, name, status, exitCode, assignedWorkerId, instructionsConsumed, peakMemoryBytes, executionWallTimeMs, null, null);
+            this(taskId, name, status, exitCode, assignedWorkerId, instructionsConsumed, peakMemoryBytes, executionWallTimeMs, null, null, null, null);
+        }
+
+        public Payload(
+            String taskId,
+            String name,
+            String status,
+            Integer exitCode,
+            String assignedWorkerId,
+            Long instructionsConsumed,
+            Long peakMemoryBytes,
+            Long executionWallTimeMs,
+            Long instructionBudget,
+            Integer timeoutMs
+        ) {
+            this(taskId, name, status, exitCode, assignedWorkerId, instructionsConsumed, peakMemoryBytes, executionWallTimeMs, instructionBudget, timeoutMs, null, null);
         }
     }
 }

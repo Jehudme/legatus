@@ -177,7 +177,11 @@ public class LctpTaskDispatcher implements TaskDispatcher {
                     worker.getWorkerId(),
                     task.getInstructionsConsumed(),
                     task.getPeakMemoryBytes(),
-                    task.getWallTimeMs()
+                    task.getWallTimeMs(),
+                    task.getInstructionBudget(),
+                    task.getTimeoutMs(),
+                    task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                    task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
                 ));
             }
 

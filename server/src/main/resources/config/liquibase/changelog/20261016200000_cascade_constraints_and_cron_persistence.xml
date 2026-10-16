@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261016200000-1" author="legatus-server">
+        <comment>Replace tasks foreign keys with ON DELETE SET NULL to enable worker and function deletion cascades</comment>
+        
+        <dropForeignKeyConstraint baseTableName="tasks" constraintName="fk_tasks__assigned_worker_id"/>
+        <addForeignKeyConstraint baseTableName="tasks"
+                                 baseColumnNames="assigned_worker_worker_id"
+                                 constraintName="fk_tasks__assigned_worker_id"
+                                 referencedTableName="workers"
+                                 referencedColumnNames="worker_id"
+                                 onDelete="SET NULL"/>
+
+        <dropForeignKeyConstraint baseTableName="tasks" constraintName="fk_tasks__function_id"/>
+        <addForeignKeyConstraint baseTableName="tasks"
+                                 baseColumnNames="function_function_id"
+                                 constraintName="fk_tasks__function_id"
+                                 referencedTableName="functions"
+                                 referencedColumnNames="function_id"
+                                 onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261016200000-2" author="legatus-server">
+        <comment>Add hot telemetry index on audit_logs(timestamp)</comment>
+        <createIndex indexName="idx_audit_logs_timestamp" tableName="audit_logs">
+            <column name="timestamp"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261016200000-3" author="legatus-server">
+        <comment>Create persistent dynamic cron job triggers table</comment>
+        <createTable tableName="legatus_cron_triggers">
+            <column name="id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="cron_expression" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="function_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="execution_profile_id" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_triggered_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="total_invocations" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

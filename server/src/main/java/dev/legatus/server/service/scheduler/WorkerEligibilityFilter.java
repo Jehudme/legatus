@@ -55,12 +55,13 @@ public class WorkerEligibilityFilter {
             return false;
         }
 
-        // Predicate 3: C_avail(w) >= 1
-        int allocatableCores = worker.getAllocatableCores() != null ? worker.getAllocatableCores() : 1;
-        int availableCores = allocatableCores - activeTaskCount;
-        if (availableCores < 1) {
-            LOG.debug("Worker {} rejected: no available cores (allocatable: {}, active: {})",
-                worker.getWorkerId(), allocatableCores, activeTaskCount);
+        // Predicate 3: Task concurrency capacity check: activeTaskCount < maxConcurrentTasks
+        int maxConcurrentTasks = worker.getMaxConcurrentTasks() != null && worker.getMaxConcurrentTasks() > 0
+            ? worker.getMaxConcurrentTasks()
+            : (worker.getAllocatableCores() != null ? worker.getAllocatableCores() : 1);
+        if (activeTaskCount >= maxConcurrentTasks) {
+            LOG.debug("Worker {} rejected: max concurrency reached (maxConcurrentTasks: {}, active: {})",
+                worker.getWorkerId(), maxConcurrentTasks, activeTaskCount);
             return false;
         }
 
