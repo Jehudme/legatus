@@ -160,6 +160,8 @@ public class TasksViewModel implements AutoCloseable {
                                     existing.setInstructionsConsumed(t.effectiveInstructions());
                                     existing.setPeakMemoryBytes(t.effectiveMemory());
                                     existing.setExecutionWallTimeMs(t.effectiveWallTime());
+                                    if (t.instruction_budget() != null && t.instruction_budget() >= 0) existing.setInstructionBudget(t.instruction_budget());
+                                    if (t.timeout_ms() != null) existing.setTimeoutMs(t.timeout_ms());
                                     if (t.started_at() != null) existing.setStartedAt(t.started_at().toString());
                                     String finished = t.finished_at() != null ? t.finished_at().toString() : (t.completed_at() != null ? t.completed_at().toString() : "");
                                     if (!finished.isBlank()) existing.setFinishedAt(finished);
@@ -169,7 +171,7 @@ public class TasksViewModel implements AutoCloseable {
                             }
                             if (!found) {
                                 String finished = t.finished_at() != null ? t.finished_at().toString() : (t.completed_at() != null ? t.completed_at().toString() : "");
-                                allTasks.add(new TaskRecord(
+                                TaskRecord newRecord = new TaskRecord(
                                         t.task_id(),
                                         t.name() != null ? t.name() : "",
                                         t.status(),
@@ -183,7 +185,10 @@ public class TasksViewModel implements AutoCloseable {
                                         finished,
                                         t.worker_friendly_name() != null ? t.worker_friendly_name() : "",
                                         t.profile_name() != null ? t.profile_name() : ""
-                                ));
+                                );
+                                if (t.instruction_budget() != null && t.instruction_budget() >= 0) newRecord.setInstructionBudget(t.instruction_budget());
+                                if (t.timeout_ms() != null) newRecord.setTimeoutMs(t.timeout_ms());
+                                allTasks.add(0, newRecord);
                             }
                         }
                         if (selectedTask.get() == null && !allTasks.isEmpty()) {

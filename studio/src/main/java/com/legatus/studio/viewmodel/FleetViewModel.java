@@ -245,6 +245,7 @@ public class FleetViewModel {
     }
 
     public ObservableList<WorkerNode> getFilteredWorkers() { return sortedWorkers; }
+    public javafx.collections.transformation.SortedList<WorkerNode> getSortedWorkers() { return sortedWorkers; }
     public FilteredList<WorkerNode> getUnderlyingFilteredList() { return filteredWorkers; }
     public ObjectProperty<WorkerNode> selectedWorkerProperty() { return selectedWorker; }
     public WorkerNode getSelectedWorker() { return selectedWorker.get(); }

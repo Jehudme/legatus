@@ -28,7 +28,9 @@ public class ExecutionProfileService {
     }
 
     public CompletableFuture<List<RestDto.ExecutionProfileDto>> getProfiles(UUID functionId) {
-        String path = "/api/v1/execution-profiles?functionId=" + (functionId != null ? functionId.toString() : "");
+        String path = functionId != null
+                ? "/api/v1/execution-profiles?functionId=" + functionId
+                : "/api/v1/execution-profiles";
         return restClient.get(path, new TypeReference<List<RestDto.ExecutionProfileDto>>() {});
     }
 

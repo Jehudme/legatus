@@ -166,7 +166,7 @@ public class FunctionsViewModel {
                                             fn.invocationsLastHour() != null ? fn.invocationsLastHour() : 0L,
                                             fn
                                     );
-                                    bytecodeItems.add(item);
+                                    bytecodeItems.add(0, item);
                                 }
                             }
                         }

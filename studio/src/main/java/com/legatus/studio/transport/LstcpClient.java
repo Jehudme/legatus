@@ -68,6 +68,7 @@ public class LstcpClient implements WebSocket.Listener {
     private Consumer<EnrollmentRequestedPayload> enrollmentListener;
     private Consumer<TaskLifecyclePayload> taskLifecycleListener;
     private Consumer<TaskLogChunkPayload> taskLogChunkListener;
+    private final java.util.List<Consumer<TaskLogChunkPayload>> taskLogChunkListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private Consumer<TaskFailedAlertPayload> taskFailedAlertListener;
     private Consumer<RestDto.UserStateChangedPayload> userStateListener;
 
@@ -285,6 +286,9 @@ public class LstcpClient implements WebSocket.Listener {
                 case "EVENT_TASK_LOG_CHUNK" -> {
                     TaskLogChunkPayload chunk = MAPPER.treeToValue(payload, TaskLogChunkPayload.class);
                     if (taskLogChunkListener != null) taskLogChunkListener.accept(chunk);
+                    for (var l : taskLogChunkListeners) {
+                        try { l.accept(chunk); } catch (Exception ignored) {}
+                    }
                 }
                 case "EVENT_TASK_FAILED_ALERT" -> {
                     TaskFailedAlertPayload alert = MAPPER.treeToValue(payload, TaskFailedAlertPayload.class);
@@ -340,6 +344,12 @@ public class LstcpClient implements WebSocket.Listener {
     public void setEnrollmentListener(Consumer<EnrollmentRequestedPayload> listener) { this.enrollmentListener = listener; }
     public void setTaskLifecycleListener(Consumer<TaskLifecyclePayload> listener) { this.taskLifecycleListener = listener; }
     public void setTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) { this.taskLogChunkListener = listener; }
+    public void addTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) {
+        if (listener != null) this.taskLogChunkListeners.add(listener);
+    }
+    public void removeTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) {
+        if (listener != null) this.taskLogChunkListeners.remove(listener);
+    }
     public void setTaskFailedAlertListener(Consumer<TaskFailedAlertPayload> listener) { this.taskFailedAlertListener = listener; }
     public void setUserStateListener(Consumer<RestDto.UserStateChangedPayload> listener) { this.userStateListener = listener; }
 

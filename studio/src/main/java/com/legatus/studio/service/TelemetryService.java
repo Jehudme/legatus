@@ -92,14 +92,39 @@ public class TelemetryService implements AutoCloseable {
                 existing.setCpuLoadPct(update.cpu_load_pct());
                 existing.setMemoryUsedBytes(update.memory_used_bytes());
                 existing.setActiveTasksCount(update.active_tasks_count());
+                if (update.uptime_seconds() != null && update.uptime_seconds() > 0) {
+                    existing.setUptimeSeconds(update.uptime_seconds());
+                }
+                if (update.remaining_lease_sec() != null) {
+                    existing.setRemainingLeaseSec(update.remaining_lease_sec());
+                }
+                if (update.allocatable_cores() != null && update.allocatable_cores() > 0) {
+                    existing.setAllocatableCores(update.allocatable_cores());
+                }
+                if (update.max_memory_bytes() != null && update.max_memory_bytes() > 0) {
+                    existing.setMaxMemoryBytes(update.max_memory_bytes());
+                }
+                if (update.friendly_name() != null && !update.friendly_name().isBlank()) {
+                    existing.setFriendlyName(update.friendly_name());
+                }
             } else {
                 WorkerNode created = new WorkerNode(
-                        update.worker_id(), update.worker_id(), "", "linux", "x86_64",
-                        update.current_state(), 0, 0, update.cpu_load_pct(),
-                        update.memory_used_bytes(), update.active_tasks_count(), ""
+                        update.worker_id(),
+                        update.friendly_name() != null ? update.friendly_name() : update.worker_id(),
+                        update.worker_id(), "127.0.0.1", "linux", "x86_64",
+                        update.current_state(), true,
+                        update.allocatable_cores() != null ? update.allocatable_cores() : 4,
+                        update.max_memory_bytes() != null ? update.max_memory_bytes() : (16L * 1024 * 1024 * 1024),
+                        75.0, 80.0, 16, true,
+                        update.remaining_lease_sec() != null ? update.remaining_lease_sec() : 86400L,
+                        update.uptime_seconds() != null ? update.uptime_seconds() : 0L,
+                        update.cpu_load_pct(),
+                        update.memory_used_bytes(),
+                        update.active_tasks_count(),
+                        "", ""
                 );
                 workersMap.put(update.worker_id(), created);
-                workersList.add(created);
+                workersList.add(0, created);
             }
             if (logStreamBuffer != null) {
                 logStreamBuffer.appendLine(String.format("[%s] [WORKER] Node %s -> %s (CPU: %.1f%%, Memory: %d MB, Tasks: %d)",
@@ -122,7 +147,15 @@ public class TelemetryService implements AutoCloseable {
                     if (taskEvent.profile_name() != null) existing.setProfileName(taskEvent.profile_name());
                     if (taskEvent.instructions_consumed() != null) existing.setInstructionsConsumed(taskEvent.instructions_consumed());
                     if (taskEvent.peak_memory_bytes() != null) existing.setPeakMemoryBytes(taskEvent.peak_memory_bytes());
-                    if (taskEvent.execution_wall_time_ms() != null) existing.setExecutionWallTimeMs(taskEvent.execution_wall_time_ms());
+                    if (taskEvent.execution_wall_time_ms() != null && taskEvent.execution_wall_time_ms() > 0) {
+                        existing.setExecutionWallTimeMs(taskEvent.execution_wall_time_ms());
+                    }
+                    if (taskEvent.instruction_budget() != null && taskEvent.instruction_budget() >= 0) {
+                        existing.setInstructionBudget(taskEvent.instruction_budget());
+                    }
+                    if (taskEvent.timeout_ms() != null) {
+                        existing.setTimeoutMs(taskEvent.timeout_ms());
+                    }
                     if (taskEvent.started_at() != null) existing.setStartedAt(taskEvent.started_at().toString());
                     if (taskEvent.ended_at() != null) existing.setFinishedAt(taskEvent.ended_at().toString());
                     found = true;
@@ -140,7 +173,13 @@ public class TelemetryService implements AutoCloseable {
                         taskEvent.worker_friendly_name() != null ? taskEvent.worker_friendly_name() : "",
                         taskEvent.profile_name() != null ? taskEvent.profile_name() : ""
                 );
-                tasksList.add(newRecord);
+                if (taskEvent.instruction_budget() != null && taskEvent.instruction_budget() >= 0) {
+                    newRecord.setInstructionBudget(taskEvent.instruction_budget());
+                }
+                if (taskEvent.timeout_ms() != null) {
+                    newRecord.setTimeoutMs(taskEvent.timeout_ms());
+                }
+                tasksList.add(0, newRecord);
             }
             if (logStreamBuffer != null) {
                 logStreamBuffer.appendLine(String.format("[%s] [TASK] Task %s status: %s (Worker: %s)",
@@ -153,7 +192,22 @@ public class TelemetryService implements AutoCloseable {
         // Live task duration streaming for executing tasks
         for (TaskRecord task : tasksList) {
             if ("EXECUTING".equalsIgnoreCase(task.getStatus())) {
-                task.setExecutionWallTimeMs(task.getExecutionWallTimeMs() + TelemetryCoalescer.COALESCE_INTERVAL_MS);
+                String startTimeStr = task.getStartedAt();
+                if (startTimeStr == null || startTimeStr.isBlank()) {
+                    startTimeStr = task.getCreatedAt();
+                }
+                if (startTimeStr != null && !startTimeStr.isBlank()) {
+                    try {
+                        long elapsed = java.time.Duration.between(java.time.Instant.parse(startTimeStr), java.time.Instant.now()).toMillis();
+                        if (elapsed >= 0) {
+                            task.setExecutionWallTimeMs(elapsed);
+                        }
+                    } catch (Exception e) {
+                        task.setExecutionWallTimeMs(task.getExecutionWallTimeMs() + TelemetryCoalescer.COALESCE_INTERVAL_MS);
+                    }
+                } else {
+                    task.setExecutionWallTimeMs(task.getExecutionWallTimeMs() + TelemetryCoalescer.COALESCE_INTERVAL_MS);
+                }
             }
         }
 
@@ -166,7 +220,7 @@ public class TelemetryService implements AutoCloseable {
                         enr.os(), enr.architecture(), enr.fingerprint_hex(), enr.visual_code(),
                         enr.allocatable_cores(), enr.max_memory_bytes(), String.valueOf(enr.expires_at())
                 );
-                enrollmentsList.add(model);
+                enrollmentsList.add(0, model);
             }
             if (logStreamBuffer != null) {
                 logStreamBuffer.appendLine(String.format("[%s] [QUARANTINE] Worker enrollment requested: %s (%s, IP: %s)",

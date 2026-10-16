@@ -15,6 +15,8 @@ public interface ExecutionProfileRepository extends JpaRepository<ExecutionProfi
 
     List<ExecutionProfile> findAllByFunctionIdOrderByProfileNameAsc(UUID functionId);
 
+    List<ExecutionProfile> findAllByOrderByProfileNameAsc();
+
     Optional<ExecutionProfile> findByFunctionIdAndProfileName(UUID functionId, String profileName);
 
     void deleteByFunctionIdAndProfileName(UUID functionId, String profileName);

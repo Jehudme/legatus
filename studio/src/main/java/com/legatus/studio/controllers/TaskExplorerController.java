@@ -1,15 +1,27 @@
 package com.legatus.studio.controllers;
 
 import com.legatus.studio.model.TaskRecord;
+import com.legatus.studio.protocol.Frame;
+import com.legatus.studio.protocol.TaskLogChunkPayload;
+import com.legatus.studio.service.StudioContext;
 import com.legatus.studio.viewmodel.TasksViewModel;
+import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
 
+import java.util.Map;
+import java.util.function.Consumer;
+
+/**
+ * Controller driving the Task Explorer Ledger, Live Inspector, and Embedded Streaming Console (MS-004, MS-011).
+ */
 public class TaskExplorerController {
 
+    // Left Side: Ledger Table
     @FXML private TextField searchField;
-    @FXML private ComboBox<String> statusFilterCombo;
     @FXML private TableView<TaskRecord> tasksTable;
     @FXML private TableColumn<TaskRecord, String> taskIdCol;
     @FXML private TableColumn<TaskRecord, String> nameCol;
@@ -19,17 +31,35 @@ public class TaskExplorerController {
     @FXML private TableColumn<TaskRecord, String> endTimeCol;
     @FXML private TableColumn<TaskRecord, String> workerCol;
 
+    // Right Side: Task Live Inspector
     @FXML private Label selectedTaskIdLabel;
     @FXML private Label selectedNameLabel;
     @FXML private Label selectedStatusLabel;
     @FXML private Label selectedWorkerLabel;
+
     @FXML private Label selectedDurationLabel;
     @FXML private Label selectedTimingLabel;
+    @FXML private VBox durationProgressBox;
+    @FXML private Label durationProgressLabel;
+    @FXML private ProgressBar durationProgressBar;
+
+    @FXML private VBox instructionProgressBox;
     @FXML private Label selectedInstructionsLabel;
     @FXML private ProgressBar instructionProgressBar;
+
+    @FXML private TextArea taskTerminalArea;
     @FXML private Button abortButton;
+    @FXML private Label abortStatusLabel;
 
     private TasksViewModel viewModel;
+    private StudioContext context;
+    private String currentlyInspectedTaskId = null;
+    private Consumer<TaskLogChunkPayload> logChunkListener;
+
+    public void setContext(StudioContext context) {
+        this.context = context;
+        attachWebSocketLogStreaming();
+    }
 
     public void setViewModel(TasksViewModel viewModel) {
         this.viewModel = viewModel;
@@ -41,19 +71,37 @@ public class TaskExplorerController {
         if (viewModel != null) {
             bindViewModel();
         }
+        if (context != null) {
+            attachWebSocketLogStreaming();
+        }
+    }
+
+    private void attachWebSocketLogStreaming() {
+        if (context == null || context.getLstcpClient() == null) return;
+
+        // Register multi-cast task log chunk listener
+        if (this.logChunkListener == null) {
+            this.logChunkListener = chunk -> {
+                if (chunk == null || chunk.task_id() == null) return;
+                if (chunk.task_id().equals(currentlyInspectedTaskId)) {
+                    Platform.runLater(() -> {
+                        if (chunk.log_chunk() != null && taskTerminalArea != null) {
+                            taskTerminalArea.appendText(chunk.log_chunk() + "\n");
+                        }
+                    });
+                }
+            };
+            context.getLstcpClient().addTaskLogChunkListener(logChunkListener);
+        }
     }
 
     private void bindViewModel() {
         if (viewModel == null) return;
 
+        // Search query binding
         searchField.textProperty().bindBidirectional(viewModel.searchQueryProperty());
-        if (statusFilterCombo != null) {
-            statusFilterCombo.getItems().setAll("ALL", "QUEUED", "EXECUTING", "COMPLETED", "FAILED", "ABORTED");
-            if (statusFilterCombo.getValue() == null) {
-                statusFilterCombo.setValue(viewModel.filterStatusProperty().get() != null ? viewModel.filterStatusProperty().get() : "ALL");
-            }
-            statusFilterCombo.valueProperty().bindBidirectional(viewModel.filterStatusProperty());
-        }
+
+        // Tasks table bindings
         tasksTable.setItems(viewModel.getFilteredTasks());
 
         taskIdCol.setCellValueFactory(c -> c.getValue().taskIdProperty());
@@ -65,8 +113,8 @@ public class TaskExplorerController {
             }
             return c.getValue().nameProperty();
         });
-        statusCol.setCellValueFactory(c -> c.getValue().statusProperty());
 
+        statusCol.setCellValueFactory(c -> c.getValue().statusProperty());
         statusCol.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -90,15 +138,15 @@ public class TaskExplorerController {
             }
         });
 
-        durationCol.setCellValueFactory(c -> javafx.beans.binding.Bindings.createStringBinding(
+        durationCol.setCellValueFactory(c -> Bindings.createStringBinding(
                 c.getValue()::getFormattedDuration, c.getValue().executionWallTimeMsProperty()
         ));
 
-        startTimeCol.setCellValueFactory(c -> javafx.beans.binding.Bindings.createStringBinding(
+        startTimeCol.setCellValueFactory(c -> Bindings.createStringBinding(
                 c.getValue()::getFormattedStartTime, c.getValue().startedAtProperty()
         ));
 
-        endTimeCol.setCellValueFactory(c -> javafx.beans.binding.Bindings.createStringBinding(
+        endTimeCol.setCellValueFactory(c -> Bindings.createStringBinding(
                 c.getValue()::getFormattedEndTime, c.getValue().finishedAtProperty(), c.getValue().statusProperty()
         ));
 
@@ -110,58 +158,146 @@ public class TaskExplorerController {
             return c.getValue().assignedWorkerIdProperty();
         });
 
-        tasksTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
-            if (newV != null) {
-                viewModel.setSelectedTask(newV);
-                selectedTaskIdLabel.setText(newV.getTaskId());
-
-                String fnProfile = newV.getName();
-                if (newV.getProfileName() != null && !newV.getProfileName().isBlank()) {
-                    fnProfile += " [" + newV.getProfileName() + "]";
-                }
-                selectedNameLabel.setText(fnProfile);
-                selectedStatusLabel.setText(newV.getStatus());
-
-                String workerDisplay = newV.getWorkerFriendlyName() != null && !newV.getWorkerFriendlyName().isBlank()
-                        ? newV.getWorkerFriendlyName() + " (" + newV.getAssignedWorkerId() + ")"
-                        : (newV.getAssignedWorkerId().isBlank() ? "Unassigned" : newV.getAssignedWorkerId());
-                selectedWorkerLabel.setText(workerDisplay);
-
-                if (selectedDurationLabel != null) {
-                    selectedDurationLabel.textProperty().bind(javafx.beans.binding.Bindings.createStringBinding(
-                            newV::getFormattedDuration, newV.executionWallTimeMsProperty()
-                    ));
-                }
-                if (selectedTimingLabel != null) {
-                    selectedTimingLabel.textProperty().bind(javafx.beans.binding.Bindings.createStringBinding(
-                            () -> newV.getFormattedStartTime() + " / " + newV.getFormattedEndTime(),
-                            newV.startedAtProperty(), newV.finishedAtProperty(), newV.statusProperty()
-                    ));
-                }
-
-                selectedInstructionsLabel.setText(newV.getInstructionsConsumed() + " / " + newV.getInstructionBudget());
-
-                double progress = newV.getInstructionBudget() > 0
-                        ? (double) newV.getInstructionsConsumed() / newV.getInstructionBudget()
-                        : 0.0;
-                instructionProgressBar.setProgress(Math.min(1.0, progress));
-
-                abortButton.setDisable("COMPLETED".equalsIgnoreCase(newV.getStatus()) || "FAILED".equalsIgnoreCase(newV.getStatus()) || "ABORTED".equalsIgnoreCase(newV.getStatus()));
+        // Task selection listener
+        tasksTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, selected) -> {
+            if (selected != null) {
+                inspectTask(selected);
             }
         });
+
+        if (abortStatusLabel != null) {
+            abortStatusLabel.textProperty().bind(viewModel.statusMessageProperty());
+        }
 
         viewModel.refreshTasks();
     }
 
+    private void inspectTask(TaskRecord task) {
+        if (task == null) return;
+        this.currentlyInspectedTaskId = task.getTaskId();
+        viewModel.setSelectedTask(task);
+
+        selectedTaskIdLabel.setText(task.getTaskId());
+
+        String fnProfile = task.getName();
+        if (task.getProfileName() != null && !task.getProfileName().isBlank()) {
+            fnProfile += " [" + task.getProfileName() + "]";
+        }
+        selectedNameLabel.setText(fnProfile);
+
+        // Status badge styling
+        updateStatusBadge(task.getStatus());
+        task.statusProperty().addListener((obs, oldV, newStatus) -> updateStatusBadge(newStatus));
+
+        // Worker display
+        String workerDisplay = task.getWorkerFriendlyName() != null && !task.getWorkerFriendlyName().isBlank()
+                ? task.getWorkerFriendlyName() + " (" + task.getAssignedWorkerId() + ")"
+                : (task.getAssignedWorkerId().isBlank() ? "Unassigned" : task.getAssignedWorkerId());
+        selectedWorkerLabel.setText(workerDisplay);
+
+        // Duration text
+        selectedDurationLabel.textProperty().bind(Bindings.createStringBinding(
+                task::getFormattedDuration, task.executionWallTimeMsProperty()
+        ));
+
+        // Timestamps text
+        selectedTimingLabel.textProperty().bind(Bindings.createStringBinding(
+                () -> task.getFormattedStartTime() + " / " + task.getFormattedEndTime(),
+                task.startedAtProperty(), task.finishedAtProperty(), task.statusProperty()
+        ));
+
+        // Duration progress bar (hide if unlimited or <= 0)
+        updateDurationMeter(task);
+        task.executionWallTimeMsProperty().addListener((obs, oldV, cur) -> updateDurationMeter(task));
+        task.timeoutMsProperty().addListener((obs, oldV, cur) -> updateDurationMeter(task));
+
+        // Instruction progress bar (hide if unlimited or <= 0)
+        updateInstructionMeter(task);
+        task.instructionsConsumedProperty().addListener((obs, oldV, cur) -> updateInstructionMeter(task));
+        task.instructionBudgetProperty().addListener((obs, oldV, cur) -> updateInstructionMeter(task));
+
+        // Abort button enable/disable (strictly disable if not executing/queued)
+        updateAbortButtonState(task.getStatus());
+        task.statusProperty().addListener((obs, oldV, curStatus) -> updateAbortButtonState(curStatus));
+
+        // Clear terminal and subscribe to logs
+        taskTerminalArea.clear();
+        taskTerminalArea.appendText("[SYSTEM] Subscribed to logs for task " + task.getTaskId() + " (status=" + task.getStatus() + ")\n");
+
+        if (context != null && context.getLstcpClient() != null) {
+            context.getLstcpClient().sendFrame(Frame.create("SUBSCRIBE_TASK_LOGS", Map.of("task_id", task.getTaskId())));
+        }
+    }
+
+    private void updateStatusBadge(String status) {
+        if (selectedStatusLabel == null) return;
+        String st = status != null ? status.toUpperCase() : "UNKNOWN";
+        selectedStatusLabel.setText(st);
+
+        String bg = switch (st) {
+            case "COMPLETED" -> "#15803d";
+            case "EXECUTING" -> "#0284c7";
+            case "FAILED" -> "#b91c1c";
+            case "ABORTED", "ABORTING" -> "#b45309";
+            default -> "#475569";
+        };
+        selectedStatusLabel.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: white; -fx-padding: 3 10 3 10; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
+    }
+
+    private void updateDurationMeter(TaskRecord task) {
+        if (durationProgressBox == null) return;
+        long timeoutMs = task.getTimeoutMs();
+
+        // If unlimited (<= 0), do not show the bar as requested
+        if (timeoutMs <= 0) {
+            durationProgressBox.setVisible(false);
+            durationProgressBox.setManaged(false);
+        } else {
+            durationProgressBox.setVisible(true);
+            durationProgressBox.setManaged(true);
+            long elapsed = task.getExecutionWallTimeMs();
+            double progress = (double) elapsed / timeoutMs;
+            durationProgressBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
+            durationProgressLabel.setText(String.format("%,dms / %,dms", elapsed, timeoutMs));
+        }
+    }
+
+    private void updateInstructionMeter(TaskRecord task) {
+        if (instructionProgressBox == null) return;
+        long budget = task.getInstructionBudget();
+
+        // If unlimited (<= 0), do not show the bar as requested
+        if (budget <= 0) {
+            instructionProgressBox.setVisible(false);
+            instructionProgressBox.setManaged(false);
+        } else {
+            instructionProgressBox.setVisible(true);
+            instructionProgressBox.setManaged(true);
+            long consumed = task.getInstructionsConsumed();
+            double progress = (double) consumed / budget;
+            instructionProgressBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
+            selectedInstructionsLabel.setText(String.format("%,d / %,d instructions", consumed, budget));
+        }
+    }
+
+    private void updateAbortButtonState(String status) {
+        if (abortButton == null) return;
+        String st = status != null ? status.toUpperCase() : "";
+        boolean canAbort = "EXECUTING".equals(st) || "QUEUED".equals(st) || "SUBMITTING".equals(st) || "DISPATCHED".equals(st);
+        abortButton.setDisable(!canAbort);
+    }
+
     @FXML
-    private void onRefreshClicked() {
-        if (viewModel != null) {
-            viewModel.refreshTasks();
+    private void onClearLogsClicked() {
+        if (taskTerminalArea != null) {
+            taskTerminalArea.clear();
         }
     }
 
     @FXML
     private void onAbortClicked() {
-        if (viewModel != null) viewModel.triggerAbort("Operator requested abort");
+        if (viewModel != null) {
+            viewModel.triggerAbort("Operator requested abort");
+        }
     }
 }

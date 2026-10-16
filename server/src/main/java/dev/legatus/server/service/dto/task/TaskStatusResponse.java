@@ -49,8 +49,32 @@ public record TaskStatusResponse(
     Map<String, Object> output,
 
     @JsonProperty("error")
-    Map<String, Object> error
+    Map<String, Object> error,
+
+    @JsonProperty("instruction_budget")
+    Long instructionBudget,
+
+    @JsonProperty("timeout_ms")
+    Integer timeoutMs
 ) {
+
+    public TaskStatusResponse(
+        String taskId,
+        String name,
+        TaskStatus status,
+        Integer exitCode,
+        TaskPriority priority,
+        String assignedWorkerId,
+        int attemptCount,
+        long submittedAt,
+        Long startedAt,
+        Long completedAt,
+        TaskMetrics metrics,
+        Map<String, Object> output,
+        Map<String, Object> error
+    ) {
+        this(taskId, name, status, exitCode, priority, assignedWorkerId, attemptCount, submittedAt, startedAt, completedAt, metrics, output, error, null, null);
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record TaskMetrics(

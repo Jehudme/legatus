@@ -176,7 +176,13 @@ WorkerConfig WorkerConfig::default_for_system() {
     long page_size = sysconf(_SC_PAGE_SIZE);
     if (pages > 0 && page_size > 0) {
         uint64_t total_ram = static_cast<uint64_t>(pages) * static_cast<uint64_t>(page_size);
-        cfg.resources.max_memory_bytes = total_ram / 2; // Default 50% RAM
+        cfg.resources.max_memory_bytes = total_ram;
+    }
+#elif defined(_WIN32)
+    MEMORYSTATUSEX mem_status;
+    mem_status.dwLength = sizeof(mem_status);
+    if (GlobalMemoryStatusEx(&mem_status)) {
+        cfg.resources.max_memory_bytes = mem_status.ullTotalPhys;
     }
 #endif
 

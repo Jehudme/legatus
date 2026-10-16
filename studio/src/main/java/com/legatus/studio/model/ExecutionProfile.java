@@ -13,6 +13,7 @@ public class ExecutionProfile {
     private final StringProperty profileId = new SimpleStringProperty("");
     private final StringProperty profileName = new SimpleStringProperty("");
     private final ObjectProperty<UUID> functionId = new SimpleObjectProperty<>();
+    private final StringProperty functionName = new SimpleStringProperty("");
     private final StringProperty argumentsJson = new SimpleStringProperty("{}");
     private final LongProperty instructionBudget = new SimpleLongProperty(10_000_000L);
     private final BooleanProperty unlimitedInstructions = new SimpleBooleanProperty(false);
@@ -80,6 +81,10 @@ public class ExecutionProfile {
     public ObjectProperty<UUID> functionIdProperty() { return functionId; }
     public UUID getFunctionId() { return functionId.get(); }
     public void setFunctionId(UUID value) { this.functionId.set(value); }
+
+    public StringProperty functionNameProperty() { return functionName; }
+    public String getFunctionName() { return functionName.get(); }
+    public void setFunctionName(String value) { this.functionName.set(value != null ? value : ""); }
 
     public StringProperty argumentsJsonProperty() { return argumentsJson; }
     public String getArgumentsJson() { return argumentsJson.get(); }

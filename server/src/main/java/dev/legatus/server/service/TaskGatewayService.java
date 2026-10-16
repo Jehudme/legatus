@@ -240,7 +240,9 @@ public class TaskGatewayService {
                 scheduledWorker.map(WorkerNode::getWorkerId).orElse(null),
                 task.getInstructionsConsumed(),
                 task.getPeakMemoryBytes(),
-                task.getWallTimeMs()
+                task.getWallTimeMs(),
+                task.getInstructionBudget(),
+                task.getTimeoutMs()
             ));
         }
 
@@ -304,7 +306,9 @@ public class TaskGatewayService {
             completedAt,
             metrics,
             output,
-            error
+            error,
+            task.getInstructionBudget(),
+            task.getTimeoutMs()
         );
     }
 
@@ -337,6 +341,9 @@ public class TaskGatewayService {
         if (task.getStatus() == TaskStatus.QUEUED) {
             task.setStatus(TaskStatus.ABORTED);
             task.setCompletedAt(Instant.now());
+            if (task.getCreatedAt() != null) {
+                task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getCreatedAt(), task.getCompletedAt()).toMillis()));
+            }
             task.setErrorJson("{\"code\":\"ERR_TASK_ABORTED\",\"reason\":\"" + reason + "\"}");
             computeTaskRepository.saveAndFlush(task);
 
@@ -352,7 +359,9 @@ public class TaskGatewayService {
                     null,
                     task.getInstructionsConsumed(),
                     task.getPeakMemoryBytes(),
-                    task.getWallTimeMs()
+                    task.getWallTimeMs(),
+                    task.getInstructionBudget(),
+                    task.getTimeoutMs()
                 ));
             }
 
@@ -369,6 +378,11 @@ public class TaskGatewayService {
 
         task.setStatus(TaskStatus.ABORTED);
         task.setCompletedAt(Instant.now());
+        if (task.getStartedAt() != null) {
+            task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getStartedAt(), task.getCompletedAt()).toMillis()));
+        } else if (task.getCreatedAt() != null) {
+            task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getCreatedAt(), task.getCompletedAt()).toMillis()));
+        }
         task.setErrorJson("{\"code\":\"ERR_TASK_ABORTED\",\"reason\":\"" + reason + "\"}");
         computeTaskRepository.saveAndFlush(task);
 
@@ -384,7 +398,9 @@ public class TaskGatewayService {
                 workerId,
                 task.getInstructionsConsumed(),
                 task.getPeakMemoryBytes(),
-                task.getWallTimeMs()
+                task.getWallTimeMs(),
+                task.getInstructionBudget(),
+                task.getTimeoutMs()
             ));
         }
 

@@ -4,7 +4,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.55" stylesheets="@styles.css"
+<SplitPane dividerPositions="0.52" stylesheets="@styles.css"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.legatus.studio.controllers.FunctionsWorkbenchController">
 
@@ -15,105 +15,136 @@
         </padding>
 
         <HBox alignment="CENTER_LEFT" spacing="12.0">
-            <Label text="Function Catalog &amp; Bytecode Registry" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Label text="Function Catalog &amp; Registry" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button text="Refresh" onAction="#onRefreshCatalogClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
+            <Label text="Live WebSocket Sync" style="-fx-font-size: 11px; -fx-text-fill: #34d399; -fx-font-weight: bold;" />
         </HBox>
 
         <HBox alignment="CENTER_LEFT" spacing="8.0">
             <Label text="Filter:" styleClass="gauge-title" />
-            <TextField fx:id="tagFilterField" promptText="Filter by tag or name..." HBox.hgrow="ALWAYS" />
+            <TextField fx:id="tagFilterField" promptText="Filter by name or tag..." HBox.hgrow="ALWAYS" />
             <Button fx:id="clearFilterButton" text="Clear" onAction="#onClearFilterClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
         </HBox>
 
         <TableView fx:id="bytecodeTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="functionNameCol" text="Function" prefWidth="150.0" />
-                <TableColumn fx:id="tagsCol" text="Tags" prefWidth="130.0" />
-                <TableColumn fx:id="invocationsCol" text="1h Invocations" prefWidth="100.0" />
-                <TableColumn fx:id="sha256Col" text="SHA-256 Digest" prefWidth="180.0" />
-                <TableColumn fx:id="createdAtCol" text="Created At" prefWidth="140.0" />
+                <TableColumn fx:id="functionNameCol" text="Function Name" prefWidth="170.0" />
+                <TableColumn fx:id="tagsCol" text="Tags" prefWidth="140.0" />
+                <TableColumn fx:id="sha256Col" text="SHA-256 Digest" prefWidth="200.0" />
+                <TableColumn fx:id="createdAtCol" text="Created At" prefWidth="150.0" />
             </columns>
         </TableView>
     </VBox>
 
-    <!-- Right side: Dedicated Function Catalog Inspector & Bytecode Uploader -->
-    <ScrollPane fitToWidth="true" style="-fx-background-color: #0b1120; -fx-background: #0b1120;">
-        <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
-            <padding>
-                <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
-            </padding>
+    <!-- Right side: Dedicated Two-Panel Interface (Inspect vs Create) -->
+    <TabPane fx:id="functionTabPane" tabClosingPolicy="UNAVAILABLE" style="-fx-background-color: #0b1120;">
+        <!-- Panel 1: Selected Function Metadata Inspector -->
+        <Tab fx:id="inspectTab" text="Inspect Function">
+            <ScrollPane fitToWidth="true" style="-fx-background-color: #0b1120; -fx-background: #0b1120;">
+                <VBox spacing="14.0" style="-fx-background-color: #0b1120;">
+                    <padding>
+                        <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+                    </padding>
 
-            <!-- Card 1: Selected Function Metadata Inspector -->
-            <Label text="Function Metadata Inspector" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+                    <Label text="Function Metadata &amp; Configuration" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
 
-            <VBox fx:id="inspectorContainer" spacing="12.0" styleClass="attestation-card">
-                <HBox alignment="CENTER_LEFT" spacing="10.0">
-                    <VBox spacing="2.0" HBox.hgrow="ALWAYS">
-                        <Label fx:id="inspectorFunctionName" text="Select a function from catalog" style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
-                        <Label fx:id="inspectorSha256" text="--" style="-fx-font-family: monospace; -fx-font-size: 11px; -fx-text-fill: #94a3b8;" wrapText="true" />
+                    <VBox fx:id="inspectorContainer" spacing="12.0" styleClass="attestation-card">
+                        <!-- 1. Identity & Digest -->
+                        <GridPane hgap="12.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints prefWidth="120.0" />
+                                <ColumnConstraints hgrow="ALWAYS" />
+                            </columnConstraints>
+
+                            <Label text="FUNCTION NAME:" styleClass="gauge-title" GridPane.rowIndex="0" GridPane.columnIndex="0" />
+                            <Label fx:id="inspectorFunctionName" text="Select a function from catalog" style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+
+                            <Label text="SHA-256 DIGEST:" styleClass="gauge-title" GridPane.rowIndex="1" GridPane.columnIndex="0" />
+                            <Label fx:id="inspectorSha256" text="--" style="-fx-font-family: monospace; -fx-font-size: 11px; -fx-text-fill: #38bdf8;" wrapText="true" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+
+                            <Label text="CREATED AT:" styleClass="gauge-title" GridPane.rowIndex="2" GridPane.columnIndex="0" />
+                            <Label fx:id="inspectorCreatedAt" text="--" style="-fx-font-size: 12px; -fx-text-fill: #cbd5e1;" GridPane.rowIndex="2" GridPane.columnIndex="1" />
+                        </GridPane>
+
+                        <Separator />
+
+                        <!-- 2. Tags -->
+                        <VBox spacing="6.0">
+                            <Label text="TAGS" styleClass="gauge-title" />
+                            <FlowPane fx:id="tagsChipPane" hgap="6.0" vgap="6.0" />
+                            <HBox spacing="8.0" alignment="CENTER_LEFT">
+                                <TextField fx:id="newTagField" promptText="Add tag (e.g. analytics, batch)..." HBox.hgrow="ALWAYS" />
+                                <Button text="Add Tag" onAction="#onAddTagClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                            </HBox>
+                        </VBox>
+
+                        <Separator />
+
+                        <!-- 3. Description -->
+                        <VBox spacing="6.0">
+                            <Label text="DESCRIPTION &amp; NOTES" styleClass="gauge-title" />
+                            <TextArea fx:id="descriptionArea" prefRowCount="3" promptText="Enter functional specification or notes..." wrapText="true" />
+                        </VBox>
+
+                        <!-- 4. Action Buttons -->
+                        <HBox spacing="10.0" alignment="CENTER_RIGHT">
+                            <Button fx:id="saveMetadataButton" text="Save Metadata" onAction="#onSaveMetadataClicked"
+                                    style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold;" />
+                            <Button fx:id="openInWorkbenchButton" text="Open in Execution Workbench →" onAction="#onOpenInWorkbenchClicked"
+                                    style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold;" />
+                        </HBox>
+
+                        <Label fx:id="metadataStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
                     </VBox>
-                    <Label fx:id="inspectorUsageBadge" text="0 invocations/hr" styleClass="badge-online" />
-                </HBox>
-
-                <HBox alignment="CENTER_LEFT" spacing="8.0">
-                    <Label text="CREATED AT:" styleClass="gauge-title" />
-                    <Label fx:id="inspectorCreatedAt" text="--" style="-fx-font-size: 12px; -fx-text-fill: #cbd5e1;" />
-                </HBox>
-
-                <Separator />
-
-                <VBox spacing="6.0">
-                    <Label text="DESCRIPTION" styleClass="gauge-title" />
-                    <TextArea fx:id="descriptionArea" prefRowCount="3" promptText="Enter function description..." wrapText="true" />
                 </VBox>
+            </ScrollPane>
+        </Tab>
 
-                <VBox spacing="6.0">
-                    <Label text="TAGS" styleClass="gauge-title" />
-                    <FlowPane fx:id="tagsChipPane" hgap="6.0" vgap="6.0" />
-                    <HBox spacing="8.0" alignment="CENTER_LEFT">
-                        <TextField fx:id="newTagField" promptText="Add tag (e.g. analytics)" HBox.hgrow="ALWAYS" />
-                        <Button text="Add Tag" onAction="#onAddTagClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
-                    </HBox>
+        <!-- Panel 2: Register & Deploy New Function -->
+        <Tab fx:id="createTab" text="Deploy New Function">
+            <ScrollPane fitToWidth="true" style="-fx-background-color: #0b1120; -fx-background: #0b1120;">
+                <VBox spacing="14.0" style="-fx-background-color: #0b1120;">
+                    <padding>
+                        <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+                    </padding>
+
+                    <Label text="Deploy New Solix Bytecode (.slxb)" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+
+                    <VBox spacing="12.0" styleClass="attestation-card">
+                        <!-- File Selector -->
+                        <VBox spacing="4.0">
+                            <Label text="BYTECODE BINARY" styleClass="gauge-title" />
+                            <HBox spacing="8.0" alignment="CENTER_LEFT">
+                                <Button text="Choose .slxb File..." onAction="#onChooseFileClicked" style="-fx-background-color: #334155; -fx-text-fill: white; -fx-font-weight: bold;" />
+                                <Label fx:id="filePathLabel" text="No file selected." style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" wrapText="true" HBox.hgrow="ALWAYS" />
+                            </HBox>
+                        </VBox>
+
+                        <VBox spacing="4.0">
+                            <Label text="CALCULATED SHA-256 DIGEST:" styleClass="gauge-title" />
+                            <Label fx:id="sha256Label" text="--" style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
+                        </VBox>
+
+                        <Separator />
+
+                        <!-- Metadata Inputs -->
+                        <VBox spacing="4.0">
+                            <Label text="Function Name" styleClass="gauge-title" />
+                            <TextField fx:id="functionNameField" promptText="e.g. image-resizer, payment-processor" />
+                        </VBox>
+
+                        <VBox spacing="4.0">
+                            <Label text="Entry Point" styleClass="gauge-title" />
+                            <TextField fx:id="entrypointField" text="main" />
+                        </VBox>
+
+                        <Button fx:id="uploadButton" text="Register &amp; Deploy Function" onAction="#onUploadClicked"
+                                style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+
+                        <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
+                    </VBox>
                 </VBox>
-
-                <HBox spacing="10.0" alignment="CENTER_RIGHT">
-                    <Button fx:id="saveMetadataButton" text="Save Metadata" onAction="#onSaveMetadataClicked"
-                            style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold;" />
-                    <Button fx:id="openInWorkbenchButton" text="Open in Execution Workbench →" onAction="#onOpenInWorkbenchClicked"
-                            style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold;" />
-                </HBox>
-
-                <Label fx:id="metadataStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
-            </VBox>
-
-            <Separator style="-fx-padding: 8 0 8 0;" />
-
-            <!-- Card 2: Upload & Register New Bytecode -->
-            <Label text="Register &amp; Upload Bytecode (.slxb)" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #cbd5e1;" />
-
-            <VBox spacing="10.0" styleClass="attestation-card">
-                <Button text="Choose File..." onAction="#onChooseFileClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
-                <Label fx:id="filePathLabel" text="No file selected." style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" wrapText="true" />
-
-                <Label text="CALCULATED SHA-256 DIGEST:" styleClass="gauge-title" />
-                <Label fx:id="sha256Label" text="--" style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
-
-                <VBox spacing="4.0">
-                    <Label text="Function Name" styleClass="gauge-title" />
-                    <TextField fx:id="functionNameField" promptText="e.g. matrix-factorization" />
-                </VBox>
-
-                <VBox spacing="4.0">
-                    <Label text="Entry Point" styleClass="gauge-title" />
-                    <TextField fx:id="entrypointField" text="main" />
-                </VBox>
-
-                <Button fx:id="uploadButton" text="Register Bytecode" onAction="#onUploadClicked"
-                        style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
-
-                <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
-            </VBox>
-        </VBox>
-    </ScrollPane>
+            </ScrollPane>
+        </Tab>
+    </TabPane>
 </SplitPane>

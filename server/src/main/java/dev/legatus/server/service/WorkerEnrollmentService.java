@@ -429,6 +429,7 @@ public class WorkerEnrollmentService {
         worker.setSecretHash(secretHash);
         worker.setState(WorkerState.APPROVED);
         worker.setAssignedCluster(assignedCluster != null ? assignedCluster : DEFAULT_CLUSTER_NAME);
+        worker.setLeaseExpiresAt(Instant.now().plus(24, java.time.temporal.ChronoUnit.HOURS));
 
         workerNodeRepository.save(worker);
 

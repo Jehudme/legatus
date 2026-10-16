@@ -22,11 +22,21 @@ public record TaskLifecyclePayload(
         @JsonProperty("started_at") Object started_at,
         @JsonProperty("ended_at") @JsonAlias({ "ended_at", "completed_at", "finished_at" }) Object ended_at,
         @JsonProperty("worker_friendly_name") String worker_friendly_name,
-        @JsonProperty("profile_name") String profile_name
+        @JsonProperty("profile_name") String profile_name,
+        @JsonProperty("instruction_budget") Long instruction_budget,
+        @JsonProperty("timeout_ms") Integer timeout_ms
 ) {
     public TaskLifecyclePayload(String task_id, String name, String status, Integer exit_code,
                                 String assigned_worker_id, Long instructions_consumed,
                                 Long peak_memory_bytes, Long execution_wall_time_ms) {
-        this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, null, null, null, null);
+        this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, null, null, null, null, null, null);
+    }
+
+    public TaskLifecyclePayload(String task_id, String name, String status, Integer exit_code,
+                                String assigned_worker_id, Long instructions_consumed,
+                                Long peak_memory_bytes, Long execution_wall_time_ms,
+                                Object started_at, Object ended_at,
+                                String worker_friendly_name, String profile_name) {
+        this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, started_at, ended_at, worker_friendly_name, profile_name, null, null);
     }
 }

@@ -121,6 +121,7 @@ public class MainCockpitController {
                 case TASKS -> {
                     TaskExplorerController c = ViewLoaderService.switchView(contentContainer, module.getFxmlName());
                     if (c != null && ctx.getTelemetryService() != null && ctx.getTaskService() != null) {
+                        c.setContext(ctx);
                         c.setViewModel(new com.legatus.studio.viewmodel.TasksViewModel(
                                 ctx.getTelemetryService().getTasksList(), ctx.getTaskService()));
                     }

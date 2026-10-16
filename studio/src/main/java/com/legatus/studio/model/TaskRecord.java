@@ -17,6 +17,7 @@ public class TaskRecord {
     private final LongProperty peakMemoryBytes = new SimpleLongProperty(0);
     private final LongProperty maxMemoryBytes = new SimpleLongProperty(67_108_864); // 64 MB
     private final LongProperty executionWallTimeMs = new SimpleLongProperty(0);
+    private final LongProperty timeoutMs = new SimpleLongProperty(60_000L);
     private final DoubleProperty progressPct = new SimpleDoubleProperty(0.0);
     private final IntegerProperty abortCountdownSeconds = new SimpleIntegerProperty(10);
     private final BooleanProperty isAborting = new SimpleBooleanProperty(false);
@@ -93,6 +94,10 @@ public class TaskRecord {
     public LongProperty executionWallTimeMsProperty() { return executionWallTimeMs; }
     public long getExecutionWallTimeMs() { return executionWallTimeMs.get(); }
     public void setExecutionWallTimeMs(long value) { this.executionWallTimeMs.set(value); }
+
+    public LongProperty timeoutMsProperty() { return timeoutMs; }
+    public long getTimeoutMs() { return timeoutMs.get(); }
+    public void setTimeoutMs(long value) { this.timeoutMs.set(value); }
 
     public DoubleProperty progressPctProperty() { return progressPct; }
     public double getProgressPct() { return progressPct.get(); }

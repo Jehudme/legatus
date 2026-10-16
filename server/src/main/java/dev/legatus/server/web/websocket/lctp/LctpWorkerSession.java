@@ -19,6 +19,7 @@ public class LctpWorkerSession {
     private final WorkerTicket ticket;
     private final Set<String> activeTaskIds = ConcurrentHashMap.newKeySet();
     private final Set<String> cachedBytecodeDigests = ConcurrentHashMap.newKeySet();
+    private final Instant connectedAt;
     private volatile Instant lastHeartbeatAt;
     private volatile boolean draining;
     private volatile String state;
@@ -29,9 +30,14 @@ public class LctpWorkerSession {
         this.workerId = workerId;
         this.webSocketSession = webSocketSession;
         this.ticket = ticket;
-        this.lastHeartbeatAt = Instant.now();
+        this.connectedAt = Instant.now();
+        this.lastHeartbeatAt = this.connectedAt;
         this.draining = false;
         this.state = "NEGOTIATING";
+    }
+
+    public Instant getConnectedAt() {
+        return connectedAt;
     }
 
     public synchronized void sendText(String payload) throws IOException {

@@ -58,6 +58,7 @@ private:
     uint32_t max_concurrent_tasks_{16};
     bool auto_renew_lease_{true};
     uint64_t remaining_lease_sec_{86400};
+    std::chrono::steady_clock::time_point lease_updated_at_{std::chrono::steady_clock::now()};
     uint32_t heartbeat_interval_ms_{5000};
     std::string log_level_{"info"};
     std::string runtime_config_json_{"{}"};

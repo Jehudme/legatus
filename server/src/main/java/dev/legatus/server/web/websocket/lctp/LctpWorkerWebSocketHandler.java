@@ -200,6 +200,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         // Update node hardware boundaries and state in database
         worker.setState(WorkerState.ONLINE);
         worker.setLastSeenAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+        if (worker.getLeaseExpiresAt() == null) {
+            worker.setLeaseExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
+        }
         if (frame.payload().allocatableCapacity() != null) {
             worker.setAllocatableCores(frame.payload().allocatableCapacity().allocatableCores());
             worker.setMaxMemoryBytes(frame.payload().allocatableCapacity().maxMemoryBytes());
@@ -301,6 +304,65 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     );
                 });
             }
+
+            if (studioEventPublisher != null) {
+                workerNodeRepository.findById(session.getWorkerId()).ifPresent(w -> {
+                    long remainingSec = w.getLeaseExpiresAt() != null
+                        ? Math.max(0L, java.time.Duration.between(Instant.now(), w.getLeaseExpiresAt()).toSeconds())
+                        : 86400L;
+                    long uptime = java.time.Duration.between(session.getConnectedAt(), Instant.now()).toSeconds();
+                    studioEventPublisher.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                        w.getWorkerId(),
+                        w.getState().name(),
+                        w.getState().name(),
+                        frame.payload().hostMetrics().cpuLoadPct(),
+                        frame.payload().hostMetrics().memoryUsedBytes(),
+                        session.getActiveTaskIds().size(),
+                        uptime,
+                        remainingSec,
+                        w.getAllocatableCores(),
+                        w.getMaxMemoryBytes(),
+                        w.getFriendlyName() != null ? w.getFriendlyName() : w.getHostname()
+                    ));
+                });
+            }
+        }
+
+        if (frame.payload().runningTasks() != null) {
+            for (HeartbeatFrame.RunningTask rt : frame.payload().runningTasks()) {
+                computeTaskRepository.findById(rt.taskId()).ifPresent(t -> {
+                    boolean changed = false;
+                    if (rt.instructionsConsumed() != null && !rt.instructionsConsumed().equals(t.getInstructionsConsumed())) {
+                        t.setInstructionsConsumed(rt.instructionsConsumed());
+                        changed = true;
+                    }
+                    if (rt.elapsedWallTimeMs() != null && rt.elapsedWallTimeMs() > 0) {
+                        t.setWallTimeMs(rt.elapsedWallTimeMs());
+                        changed = true;
+                    } else if (t.getStartedAt() != null) {
+                        long elapsed = Math.max(1L, java.time.Duration.between(t.getStartedAt(), Instant.now()).toMillis());
+                        t.setWallTimeMs(elapsed);
+                        changed = true;
+                    }
+                    if (changed) {
+                        computeTaskRepository.save(t);
+                        if (studioEventPublisher != null) {
+                            studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                                t.getTaskId(),
+                                t.getName(),
+                                t.getStatus().name(),
+                                t.getExitCode(),
+                                session.getWorkerId(),
+                                t.getInstructionsConsumed(),
+                                t.getPeakMemoryBytes(),
+                                t.getWallTimeMs(),
+                                t.getInstructionBudget(),
+                                t.getTimeoutMs()
+                            ));
+                        }
+                    }
+                });
+            }
         }
 
         // Stale config version check on heartbeat
@@ -382,6 +444,13 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         computeTaskRepository.findById(frame.payload().taskId()).ifPresent(task -> {
             task.setInstructionsConsumed(frame.payload().instructionsConsumed());
             task.setPeakMemoryBytes(Math.max(task.getPeakMemoryBytes() != null ? task.getPeakMemoryBytes() : 0L, frame.payload().memoryUsedBytes()));
+            if (task.getStartedAt() != null) {
+                long elapsed = Math.max(1L, java.time.Duration.between(task.getStartedAt(), Instant.now()).toMillis());
+                task.setWallTimeMs(elapsed);
+            } else if (task.getCreatedAt() != null) {
+                long elapsed = Math.max(1L, java.time.Duration.between(task.getCreatedAt(), Instant.now()).toMillis());
+                task.setWallTimeMs(elapsed);
+            }
             computeTaskRepository.save(task);
 
             if (studioEventPublisher != null) {
@@ -393,7 +462,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     session.getWorkerId(),
                     task.getInstructionsConsumed(),
                     task.getPeakMemoryBytes(),
-                    task.getWallTimeMs()
+                    task.getWallTimeMs(),
+                    task.getInstructionBudget(),
+                    task.getTimeoutMs()
                 ));
 
                 if (frame.payload().logChunk() != null && !frame.payload().logChunk().isBlank()) {
@@ -432,9 +503,18 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             if (frame.payload().metrics() != null) {
                 task.setInstructionsConsumed(frame.payload().metrics().instructionsConsumed());
                 task.setPeakMemoryBytes(frame.payload().metrics().peakMemoryBytes());
-                task.setWallTimeMs(frame.payload().metrics().executionWallTimeMs());
+                if (frame.payload().metrics().executionWallTimeMs() != null && frame.payload().metrics().executionWallTimeMs() > 0) {
+                    task.setWallTimeMs(frame.payload().metrics().executionWallTimeMs());
+                }
             }
             task.setCompletedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+            if (task.getWallTimeMs() == null || task.getWallTimeMs() <= 0) {
+                if (task.getStartedAt() != null) {
+                    task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getStartedAt(), task.getCompletedAt()).toMillis()));
+                } else if (task.getCreatedAt() != null) {
+                    task.setWallTimeMs(Math.max(1L, java.time.Duration.between(task.getCreatedAt(), task.getCompletedAt()).toMillis()));
+                }
+            }
 
             if (frame.payload().output() != null) {
                 try {
@@ -471,7 +551,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     session.getWorkerId(),
                     task.getInstructionsConsumed(),
                     task.getPeakMemoryBytes(),
-                    task.getWallTimeMs()
+                    task.getWallTimeMs(),
+                    task.getInstructionBudget(),
+                    task.getTimeoutMs()
                 ));
 
                 String logLine = null;

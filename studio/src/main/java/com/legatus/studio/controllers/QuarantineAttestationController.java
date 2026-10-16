@@ -17,6 +17,7 @@ public class QuarantineAttestationController {
     @FXML private Label submittedAtLabel;
     @FXML private Label fingerprintLabel;
     @FXML private Label visualCodeLabel;
+    @FXML private TextField friendlyNameField;
     @FXML private TextField leaseDurationField;
     @FXML private TextField rejectReasonField;
     @FXML private CheckBox blacklistIpCheckBox;
@@ -122,6 +123,7 @@ public class QuarantineAttestationController {
                 if (submittedAtLabel != null) submittedAtLabel.setText(newV.getSubmittedAt());
                 if (fingerprintLabel != null) fingerprintLabel.setText(newV.getFingerprintHex());
                 if (visualCodeLabel != null) visualCodeLabel.setText(newV.getVisualCode());
+                if (friendlyNameField != null) friendlyNameField.setText(newV.getHostname());
             } else {
                 viewModel.setSelectedEnrollment(null);
                 if (workerIdLabel != null) workerIdLabel.setText("-");
@@ -132,6 +134,7 @@ public class QuarantineAttestationController {
                 if (submittedAtLabel != null) submittedAtLabel.setText("-");
                 if (fingerprintLabel != null) fingerprintLabel.setText("-");
                 if (visualCodeLabel != null) visualCodeLabel.setText("-");
+                if (friendlyNameField != null) friendlyNameField.setText("");
             }
         });
 
@@ -156,16 +159,11 @@ public class QuarantineAttestationController {
             QuarantineEnrollment selected = viewModel.getSelectedEnrollment();
             if (selected == null) return;
 
-            TextInputDialog dialog = new TextInputDialog(selected.getHostname());
-            dialog.setTitle("Assign Friendly Worker Name");
-            dialog.setHeaderText("Attestation Approval for Node: " + selected.getHostname());
-            dialog.setContentText("Assign human-readable friendly name for this worker:");
+            String friendlyName = (friendlyNameField != null && friendlyNameField.getText() != null && !friendlyNameField.getText().isBlank())
+                    ? friendlyNameField.getText().trim()
+                    : selected.getHostname();
 
-            var opt = dialog.showAndWait();
-            if (opt.isPresent()) {
-                String friendlyName = opt.get().trim();
-                viewModel.approveSelected(friendlyName.isEmpty() ? selected.getHostname() : friendlyName);
-            }
+            viewModel.approveSelected(friendlyName);
         }
     }
 

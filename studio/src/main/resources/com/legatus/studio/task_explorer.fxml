@@ -4,12 +4,12 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.65" stylesheets="@styles.css"
+<SplitPane dividerPositions="0.55" stylesheets="@styles.css"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.legatus.studio.controllers.TaskExplorerController">
 
-    <!-- Left side: Task Ledger Table -->
-    <VBox spacing="12.0">
+    <!-- Left side: Task Ledger Table (Live Sync via WebSocket, No manual refresh button) -->
+    <VBox spacing="12.0" style="-fx-background-color: #0b1120;">
         <padding>
             <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
         </padding>
@@ -17,56 +17,107 @@
         <HBox spacing="12.0" alignment="CENTER_LEFT">
             <Label text="Task Ledger" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
             <Region HBox.hgrow="ALWAYS" />
-            <TextField fx:id="searchField" promptText="Search tasks..." prefWidth="200.0" />
-            <Button text="Refresh" onAction="#onRefreshClicked" style="-fx-background-color: #334155; -fx-text-fill: #f8fafc; -fx-font-weight: bold;" />
+            <TextField fx:id="searchField" promptText="Search tasks by ID or name..." prefWidth="240.0" />
         </HBox>
 
         <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="taskIdCol" text="Task ID" prefWidth="160.0" />
-                <TableColumn fx:id="nameCol" text="Function / Profile" prefWidth="180.0" />
-                <TableColumn fx:id="statusCol" text="Status" prefWidth="110.0" />
-                <TableColumn fx:id="durationCol" text="Duration" prefWidth="110.0" />
-                <TableColumn fx:id="startTimeCol" text="Start Time" prefWidth="120.0" />
-                <TableColumn fx:id="endTimeCol" text="End Time" prefWidth="120.0" />
-                <TableColumn fx:id="workerCol" text="Worker Node" prefWidth="140.0" />
+                <TableColumn fx:id="taskIdCol" text="Task ID" prefWidth="150.0" />
+                <TableColumn fx:id="nameCol" text="Function / Profile" prefWidth="160.0" />
+                <TableColumn fx:id="statusCol" text="Status" prefWidth="105.0" />
+                <TableColumn fx:id="durationCol" text="Duration" prefWidth="105.0" />
+                <TableColumn fx:id="startTimeCol" text="Start Time" prefWidth="110.0" />
+                <TableColumn fx:id="endTimeCol" text="End Time" prefWidth="110.0" />
+                <TableColumn fx:id="workerCol" text="Worker Node" prefWidth="130.0" />
             </columns>
         </TableView>
     </VBox>
 
-    <!-- Right side: Task Live Inspector Card -->
-    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
-        <padding>
-            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
-        </padding>
+    <!-- Right side: Task Live Inspector -->
+    <ScrollPane fitToWidth="true" style="-fx-background-color: #090d16; -fx-background: #090d16;">
+        <VBox spacing="14.0" style="-fx-background-color: #090d16;">
+            <padding>
+                <Insets top="16.0" right="18.0" bottom="16.0" left="18.0" />
+            </padding>
 
-        <Label text="Task Live Inspector" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+            <Label text="Task Live Inspector" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
 
-        <VBox spacing="10.0" styleClass="gauge-card">
-            <Label text="TASK ID" styleClass="gauge-title" />
-            <Label fx:id="selectedTaskIdLabel" text="Select a task..." styleClass="gauge-value" />
+            <!-- Card 1: Task Identity & Host Assignment -->
+            <VBox spacing="10.0" styleClass="attestation-card">
+                <HBox alignment="CENTER_LEFT" spacing="12.0">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="TASK ID" styleClass="gauge-title" />
+                        <Label fx:id="selectedTaskIdLabel" text="Select a task to inspect..." styleClass="gauge-value" wrapText="true" />
+                    </VBox>
+                    <Label fx:id="selectedStatusLabel" text="--" styleClass="badge-inactive" />
+                </HBox>
 
-            <Label text="FUNCTION &amp; PROFILE" styleClass="gauge-title" />
-            <Label fx:id="selectedNameLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
+                <Separator />
 
-            <Label text="LIFECYCLE STATUS" styleClass="gauge-title" />
-            <Label fx:id="selectedStatusLabel" text="--" styleClass="badge-online" />
+                <HBox spacing="16.0">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="FUNCTION &amp; PROFILE" styleClass="gauge-title" />
+                        <Label fx:id="selectedNameLabel" text="--" style="-fx-text-fill: #cbd5e1; -fx-font-size: 13px; -fx-font-weight: bold;" />
+                    </VBox>
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="ASSIGNED WORKER NODE" styleClass="gauge-title" />
+                        <Label fx:id="selectedWorkerLabel" text="--" style="-fx-text-fill: #cbd5e1; -fx-font-size: 12px; -fx-font-family: monospace;" />
+                    </VBox>
+                </HBox>
+            </VBox>
 
-            <Label text="ASSIGNED WORKER NODE" styleClass="gauge-title" />
-            <Label fx:id="selectedWorkerLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
+            <!-- Card 2: Execution Timing & Duration Meter -->
+            <VBox spacing="10.0" styleClass="attestation-card">
+                <HBox spacing="16.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="EXECUTION DURATION" styleClass="gauge-title" />
+                        <Label fx:id="selectedDurationLabel" text="--" style="-fx-text-fill: #38bdf8; -fx-font-weight: bold; -fx-font-size: 18px; -fx-font-family: monospace;" />
+                    </VBox>
+                    <VBox spacing="4.0" alignment="TOP_RIGHT">
+                        <Label text="START &amp; END TIMESTAMPS" styleClass="gauge-title" />
+                        <Label fx:id="selectedTimingLabel" text="-- / --" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px; -fx-font-family: monospace;" />
+                    </VBox>
+                </HBox>
 
-            <Label text="EXECUTION DURATION" styleClass="gauge-title" />
-            <Label fx:id="selectedDurationLabel" text="--" style="-fx-text-fill: #38bdf8; -fx-font-weight: bold;" />
+                <!-- Duration Progress Bar (Hidden if timeout is infinite or <= 0) -->
+                <VBox fx:id="durationProgressBox" spacing="4.0">
+                    <HBox alignment="CENTER_LEFT">
+                        <Label text="WALL-CLOCK TIME BUDGET" styleClass="gauge-title" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Label fx:id="durationProgressLabel" text="0ms / 60,000ms" style="-fx-font-size: 11px; -fx-text-fill: #94a3b8; -fx-font-family: monospace;" />
+                    </HBox>
+                    <ProgressBar fx:id="durationProgressBar" progress="0.0" maxWidth="Infinity" prefHeight="8.0" />
+                </VBox>
+            </VBox>
 
-            <Label text="START &amp; END TIMESTAMPS" styleClass="gauge-title" />
-            <Label fx:id="selectedTimingLabel" text="-- / --" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+            <!-- Card 3: Instruction Budget Progress (Hidden if budget is infinite or <= 0) -->
+            <VBox fx:id="instructionProgressBox" spacing="8.0" styleClass="attestation-card">
+                <HBox alignment="CENTER_LEFT">
+                    <Label text="INSTRUCTION BUDGET PROGRESS" styleClass="gauge-title" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Label fx:id="selectedInstructionsLabel" text="0 / 10,000,000" style="-fx-font-size: 11px; -fx-text-fill: #94a3b8; -fx-font-family: monospace;" />
+                </HBox>
+                <ProgressBar fx:id="instructionProgressBar" progress="0.0" maxWidth="Infinity" prefHeight="8.0" />
+            </VBox>
 
-            <Label text="INSTRUCTION BUDGET PROGRESS" styleClass="gauge-title" />
-            <ProgressBar fx:id="instructionProgressBar" progress="0.0" maxWidth="Infinity" />
-            <Label fx:id="selectedInstructionsLabel" text="0 / 10,000,000" style="-fx-font-size: 11px; -fx-text-fill: #94a3b8;" />
+            <!-- Card 4: Live STDOUT / STDERR Streaming Console -->
+            <VBox spacing="8.0" styleClass="attestation-card">
+                <HBox alignment="CENTER_LEFT">
+                    <Label text="TASK STDOUT / STDERR OUTPUT STREAM" styleClass="gauge-title" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="Clear Logs" onAction="#onClearLogsClicked" style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+                </HBox>
+
+                <TextArea fx:id="taskTerminalArea" editable="false" prefRowCount="8" wrapText="true"
+                          style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-control-inner-background: #050811; -fx-text-fill: #34d399; -fx-border-color: #334155; -fx-border-radius: 4;" />
+            </VBox>
+
+            <!-- Abort Button (Strictly disabled for non-running tasks) -->
+            <HBox spacing="12.0" alignment="CENTER_LEFT">
+                <Button fx:id="abortButton" text="Abort Task (Two-Stage)" onAction="#onAbortClicked"
+                        style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 9 22 9 22;" />
+                <Label fx:id="abortStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #f59e0b;" wrapText="true" HBox.hgrow="ALWAYS" />
+            </HBox>
         </VBox>
-
-        <Button fx:id="abortButton" text="Abort Task (Two-Stage)" onAction="#onAbortClicked"
-                style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
-    </VBox>
+    </ScrollPane>
 </SplitPane>

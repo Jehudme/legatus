@@ -105,6 +105,20 @@ public class ExecutionProfileService {
     }
 
     /**
+     * Get all execution profiles across all functions.
+     *
+     * @return list of all profiles.
+     */
+    @Transactional(readOnly = true)
+    public List<ExecutionProfileDTO> findAll() {
+        LOG.debug("Request to get all ExecutionProfiles");
+        return executionProfileRepository.findAllByOrderByProfileNameAsc()
+            .stream()
+            .map(executionProfileMapper::toDto)
+            .toList();
+    }
+
+    /**
      * Get one execution profile by id.
      *
      * @param id the profile id.

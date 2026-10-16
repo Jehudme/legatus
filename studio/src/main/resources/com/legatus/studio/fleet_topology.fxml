@@ -23,7 +23,8 @@
 
         <TableView fx:id="workersTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="nameCol" text="Worker Name" prefWidth="180.0" />
+                <TableColumn fx:id="nameCol" text="Worker Name" prefWidth="160.0" />
+                <TableColumn fx:id="coresCol" text="Cores" prefWidth="70.0" />
                 <TableColumn fx:id="ipCol" text="Source IP" prefWidth="110.0" />
                 <TableColumn fx:id="uptimeCol" text="Uptime" prefWidth="100.0" />
                 <TableColumn fx:id="cpuCol" text="CPU Load" prefWidth="120.0" />

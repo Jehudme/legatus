@@ -77,7 +77,7 @@ public class ExecutionProfileResource {
     ) {
         LOG.debug("REST request to get ExecutionProfiles for function : {}", functionId);
         if (functionId == null) {
-            return ResponseEntity.ok(List.of());
+            return ResponseEntity.ok(executionProfileService.findAll());
         }
         return ResponseEntity.ok(executionProfileService.findAllByFunctionId(functionId));
     }

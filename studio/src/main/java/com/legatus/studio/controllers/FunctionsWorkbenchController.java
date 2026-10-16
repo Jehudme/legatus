@@ -26,15 +26,17 @@ public class FunctionsWorkbenchController {
     @FXML private TableView<BytecodeItem> bytecodeTable;
     @FXML private TableColumn<BytecodeItem, String> functionNameCol;
     @FXML private TableColumn<BytecodeItem, String> tagsCol;
-    @FXML private TableColumn<BytecodeItem, Number> invocationsCol;
     @FXML private TableColumn<BytecodeItem, String> sha256Col;
     @FXML private TableColumn<BytecodeItem, String> createdAtCol;
+
+    @FXML private TabPane functionTabPane;
+    @FXML private Tab inspectTab;
+    @FXML private Tab createTab;
 
     // Inspector
     @FXML private VBox inspectorContainer;
     @FXML private Label inspectorFunctionName;
     @FXML private Label inspectorSha256;
-    @FXML private Label inspectorUsageBadge;
     @FXML private Label inspectorCreatedAt;
     @FXML private TextArea descriptionArea;
     @FXML private FlowPane tagsChipPane;
@@ -70,11 +72,12 @@ public class FunctionsWorkbenchController {
         if (viewModel == null) return;
 
         filteredBytecodeItems = new FilteredList<>(viewModel.getBytecodeItems(), p -> true);
-        bytecodeTable.setItems(filteredBytecodeItems);
+        javafx.collections.transformation.SortedList<BytecodeItem> sorted = new javafx.collections.transformation.SortedList<>(filteredBytecodeItems);
+        sorted.comparatorProperty().bind(bytecodeTable.comparatorProperty());
+        bytecodeTable.setItems(sorted);
 
         functionNameCol.setCellValueFactory(c -> c.getValue().functionNameProperty());
         tagsCol.setCellValueFactory(c -> c.getValue().tagsProperty());
-        invocationsCol.setCellValueFactory(c -> c.getValue().invocationsLastHourProperty());
         sha256Col.setCellValueFactory(c -> c.getValue().sha256Property());
         createdAtCol.setCellValueFactory(c -> c.getValue().uploadedAtProperty());
 
@@ -119,7 +122,6 @@ public class FunctionsWorkbenchController {
         if (item == null) {
             inspectorFunctionName.setText("Select a function from catalog");
             inspectorSha256.setText("--");
-            inspectorUsageBadge.setText("0 invocations/hr");
             inspectorCreatedAt.setText("--");
             descriptionArea.setText("");
             tagsChipPane.getChildren().clear();
@@ -128,12 +130,15 @@ public class FunctionsWorkbenchController {
             return;
         }
 
+        if (functionTabPane != null && inspectTab != null) {
+            functionTabPane.getSelectionModel().select(inspectTab);
+        }
+
         openInWorkbenchButton.setDisable(false);
         saveMetadataButton.setDisable(false);
 
         inspectorFunctionName.setText(item.getFunctionName());
         inspectorSha256.setText(item.getSha256());
-        inspectorUsageBadge.setText(item.getInvocationsLastHour() + " invocations in last 60m");
         inspectorCreatedAt.setText(item.getUploadedAt().isBlank() ? "N/A" : item.getUploadedAt());
         descriptionArea.setText(item.getDescription());
 

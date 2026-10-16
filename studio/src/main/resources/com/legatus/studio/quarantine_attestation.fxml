@@ -92,7 +92,12 @@
                     </VBox>
                 </VBox>
 
-                <HBox spacing="16.0" alignment="CENTER_LEFT">
+                <VBox spacing="6.0" styleClass="gauge-card">
+                    <Label text="ASSIGN FRIENDLY WORKER NAME" styleClass="gauge-title" />
+                    <TextField fx:id="friendlyNameField" promptText="Assign human-readable name for this node..." />
+                </VBox>
+
+                <HBox spacing="16.0" alignment="BOTTOM_LEFT">
                     <VBox spacing="4.0" HBox.hgrow="ALWAYS">
                         <Label text="Initial Lease Duration" styleClass="gauge-title" />
                         <TextField fx:id="leaseDurationField" text="24h" />

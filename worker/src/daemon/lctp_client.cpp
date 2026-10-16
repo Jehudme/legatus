@@ -240,10 +240,6 @@ void LctpClient::send_heartbeat() {
     auto metrics = legatus::common::TelemetryCollector::collect();
     uint64_t mem_used = metrics.memory_used_bytes;
     uint64_t mem_free = metrics.memory_free_bytes;
-    if (config_.resources.max_memory_bytes > 0 && mem_used > config_.resources.max_memory_bytes) {
-        mem_used = config_.resources.max_memory_bytes / 2;
-        mem_free = config_.resources.max_memory_bytes / 2;
-    }
 
     nlohmann::json p = {
         {"session_id", current_sess},
@@ -472,7 +468,10 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             send_frame(LctpFrame::create("TASK_LOG_CHUNK", chunk_payload));
         };
 
+        auto start_time = std::chrono::steady_clock::now();
         auto result = supervisor_->launch_task(envelope, on_log_chunk);
+        auto end_time = std::chrono::steady_clock::now();
+        int64_t wall_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         task_running->store(false);
         if (progress_thread.joinable()) {
             progress_thread.join();
@@ -495,8 +494,8 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             terminal_status = "FAILED";
         }
 
-        spdlog::info("Task {} finished with status={}, exit_code={}, instructions={}",
-                     result.task_id, terminal_status, result.exit_code, result.instructions_executed);
+        spdlog::info("Task {} finished with status={}, exit_code={}, instructions={}, wall_time={}ms",
+                     result.task_id, terminal_status, result.exit_code, result.instructions_executed, wall_time_ms);
 
         nlohmann::json p = {
             {"task_id", result.task_id},
@@ -505,7 +504,7 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             {"metrics", {
                 {"instructions_consumed", result.instructions_executed},
                 {"peak_memory_bytes", result.peak_memory_bytes},
-                {"execution_wall_time_ms", 100}
+                {"execution_wall_time_ms", std::max(static_cast<int64_t>(1), wall_time_ms)}
             }},
             {"output", result.stdout_output.empty() ? nullptr : nlohmann::json(result.stdout_output)},
             {"error", result.error_message.empty() ? nullptr : nlohmann::json({

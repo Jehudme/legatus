@@ -6,13 +6,17 @@ import com.legatus.studio.model.BytecodeItem;
 import com.legatus.studio.model.ExecutionProfile;
 import com.legatus.studio.protocol.Frame;
 import com.legatus.studio.protocol.RestDto;
+import com.legatus.studio.protocol.TaskLogChunkPayload;
 import com.legatus.studio.service.ExecutionProfileService;
 import com.legatus.studio.service.FxAsync;
 import com.legatus.studio.service.StudioContext;
 import com.legatus.studio.viewmodel.MainViewModel;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.FileChooser;
@@ -20,42 +24,49 @@ import javafx.util.StringConverter;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
- * Controller for the Dedicated Function Execution Workbench (MS-009).
+ * Controller for the Function Execution Workbench and Profile Manager (MS-009, MS-011).
  */
 public class ExecuteWorkbenchController {
 
     private static final ObjectMapper MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
-    @FXML private ComboBox<BytecodeItem> functionSelector;
+    // Left Side: Profiles Master Table
+    @FXML private TextField profileSearchField;
+    @FXML private TableView<ExecutionProfile> profilesTable;
+    @FXML private TableColumn<ExecutionProfile, String> profileNameCol;
+    @FXML private TableColumn<ExecutionProfile, String> functionNameCol;
+    @FXML private TableColumn<ExecutionProfile, String> priorityCol;
+    @FXML private TableColumn<ExecutionProfile, String> budgetCol;
 
-    // Profile bar
-    @FXML private ComboBox<ExecutionProfile> profileSelector;
-    @FXML private Button saveProfileBtn;
-    @FXML private Button saveAsProfileBtn;
-    @FXML private Button deleteProfileBtn;
-    @FXML private Button exportProfileBtn;
-    @FXML private Button importProfileBtn;
+    // Right Side: TabPane
+    @FXML private TabPane profileTabs;
+    @FXML private Tab inspectTab;
+    @FXML private Tab createTab;
 
-    // Argument Editor
-    @FXML private TextArea argumentsArea;
-    @FXML private Label jsonValidationLabel;
+    // Tab 1: Inspect & Execute
+    @FXML private Label inspectHeaderLabel;
+    @FXML private ComboBox<BytecodeItem> inspectFunctionSelector;
+    @FXML private TextField inspectProfileNameField;
+    @FXML private TextArea inspectArgumentsArea;
+    @FXML private Label inspectJsonValidationLabel;
+    @FXML private TextField inspectInstructionBudgetField;
+    @FXML private CheckBox inspectUnlimitedInstructionsCheck;
+    @FXML private TextField inspectTimeLimitField;
+    @FXML private CheckBox inspectUnlimitedTimeCheck;
+    @FXML private TextField inspectMemoryField;
+    @FXML private ComboBox<String> inspectPriorityCombo;
+    @FXML private CheckBox inspectNotifyOnFailureCheck;
 
-    // Quotas & Constraints
-    @FXML private TextField instructionBudgetField;
-    @FXML private CheckBox unlimitedInstructionsCheck;
-    @FXML private TextField timeLimitField;
-    @FXML private CheckBox unlimitedTimeCheck;
-    @FXML private TextField memoryField;
-    @FXML private ComboBox<String> priorityCombo;
-    @FXML private CheckBox notifyOnFailureCheck;
-
-    // Actions
     @FXML private Button executeButton;
+    @FXML private Button saveProfileBtn;
+    @FXML private Button exportProfileBtn;
+    @FXML private Button deleteProfileBtn;
     @FXML private Label dispatchStatusLabel;
 
-    // Monitor & Console
+    // Live Execution Monitor
     @FXML private Label activeTaskIdLabel;
     @FXML private Label activeWorkerIdLabel;
     @FXML private Label taskStatusBadge;
@@ -63,10 +74,29 @@ public class ExecuteWorkbenchController {
     @FXML private ProgressBar executionProgressBar;
     @FXML private TextArea terminalArea;
 
+    // Tab 2: Create New Profile
+    @FXML private ComboBox<BytecodeItem> createFunctionSelector;
+    @FXML private TextField createProfileNameField;
+    @FXML private TextArea createArgumentsArea;
+    @FXML private Label createJsonValidationLabel;
+    @FXML private TextField createInstructionBudgetField;
+    @FXML private CheckBox createUnlimitedInstructionsCheck;
+    @FXML private TextField createTimeLimitField;
+    @FXML private CheckBox createUnlimitedTimeCheck;
+    @FXML private TextField createMemoryField;
+    @FXML private ComboBox<String> createPriorityCombo;
+    @FXML private CheckBox createNotifyOnFailureCheck;
+    @FXML private Button createProfileBtn;
+    @FXML private Button createImportProfileBtn;
+    @FXML private Label createStatusLabel;
+
     private StudioContext context;
     private MainViewModel mainViewModel;
     private final ObservableList<ExecutionProfile> profiles = FXCollections.observableArrayList();
+    private FilteredList<ExecutionProfile> filteredProfiles;
+    private ExecutionProfile currentlyInspectedProfile = null;
     private String currentMonitoredTaskId = null;
+    private Consumer<TaskLogChunkPayload> logChunkListener;
 
     public void setContext(StudioContext context, MainViewModel mainViewModel) {
         this.context = context;
@@ -76,56 +106,90 @@ public class ExecuteWorkbenchController {
 
     @FXML
     public void initialize() {
-        if (priorityCombo != null) {
-            priorityCombo.setItems(FXCollections.observableArrayList(
-                    "NORMAL", "HIGH", "LOW", "CRITICAL", "BATCH"
-            ));
-            priorityCombo.setValue("NORMAL");
+        // Priority options
+        ObservableList<String> priorities = FXCollections.observableArrayList("NORMAL", "HIGH", "LOW", "CRITICAL", "BATCH");
+        if (inspectPriorityCombo != null) {
+            inspectPriorityCombo.setItems(priorities);
+            inspectPriorityCombo.setValue("NORMAL");
+        }
+        if (createPriorityCombo != null) {
+            createPriorityCombo.setItems(priorities);
+            createPriorityCombo.setValue("NORMAL");
         }
 
-        if (profileSelector != null) {
-            profileSelector.setItems(profiles);
-            profileSelector.setConverter(new StringConverter<>() {
-                @Override
-                public String toString(ExecutionProfile profile) {
-                    return profile != null ? profile.getProfileName() : "";
-                }
-                @Override
-                public ExecutionProfile fromString(String string) {
-                    return null;
+        // String converter for BytecodeItem dropdowns
+        StringConverter<BytecodeItem> functionConverter = new StringConverter<>() {
+            @Override
+            public String toString(BytecodeItem item) {
+                if (item == null) return "";
+                String sha = item.getSha256();
+                String shortSha = sha != null && sha.length() > 8 ? sha.substring(0, 8) : sha;
+                return item.getFunctionName() + " (" + shortSha + ")";
+            }
+            @Override
+            public BytecodeItem fromString(String string) { return null; }
+        };
+
+        if (inspectFunctionSelector != null) inspectFunctionSelector.setConverter(functionConverter);
+        if (createFunctionSelector != null) createFunctionSelector.setConverter(functionConverter);
+
+        // Bind table columns
+        if (profileNameCol != null) profileNameCol.setCellValueFactory(c -> c.getValue().profileNameProperty());
+        if (functionNameCol != null) functionNameCol.setCellValueFactory(c -> c.getValue().functionNameProperty());
+        if (priorityCol != null) priorityCol.setCellValueFactory(c -> c.getValue().priorityProperty());
+        if (budgetCol != null) budgetCol.setCellValueFactory(c -> {
+            if (c.getValue().isUnlimitedInstructions()) {
+                return new SimpleStringProperty("Unlimited (∞)");
+            }
+            return new SimpleStringProperty(String.format("%,d", c.getValue().getInstructionBudget()));
+        });
+
+        // Search filter
+        filteredProfiles = new FilteredList<>(profiles, p -> true);
+        if (profileSearchField != null) {
+            profileSearchField.textProperty().addListener((obs, oldV, query) -> {
+                String q = query != null ? query.trim().toLowerCase() : "";
+                filteredProfiles.setPredicate(p -> {
+                    if (q.isEmpty()) return true;
+                    return p.getProfileName().toLowerCase().contains(q)
+                            || p.getFunctionName().toLowerCase().contains(q)
+                            || p.getPriority().toLowerCase().contains(q);
+                });
+            });
+        }
+
+        SortedList<ExecutionProfile> sortedProfiles = new SortedList<>(filteredProfiles);
+        if (profilesTable != null) {
+            sortedProfiles.comparatorProperty().bind(profilesTable.comparatorProperty());
+            profilesTable.setItems(sortedProfiles);
+
+            profilesTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, selected) -> {
+                if (selected != null) {
+                    inspectProfile(selected);
                 }
             });
         }
 
-        if (functionSelector != null) {
-            functionSelector.setConverter(new StringConverter<>() {
-                @Override
-                public String toString(BytecodeItem item) {
-                    if (item == null) return "";
-                    String sha = item.getSha256();
-                    String shortSha = sha.length() > 10 ? sha.substring(0, 10) : sha;
-                    return item.getFunctionName() + " [" + item.getEntryPoint() + "] (" + shortSha + ")";
-                }
-                @Override
-                public BytecodeItem fromString(String string) {
-                    return null;
-                }
-            });
+        // Live JSON validation listeners
+        if (inspectArgumentsArea != null) {
+            inspectArgumentsArea.textProperty().addListener((obs, oldV, text) -> validateJsonSyntax(text, inspectJsonValidationLabel));
+        }
+        if (createArgumentsArea != null) {
+            createArgumentsArea.textProperty().addListener((obs, oldV, text) -> validateJsonSyntax(text, createJsonValidationLabel));
         }
 
-        // Live JSON validation listener
-        if (argumentsArea != null) {
-            argumentsArea.textProperty().addListener((obs, oldV, newV) -> validateJsonSyntax(newV));
+        // Quota disable bindings
+        if (inspectUnlimitedInstructionsCheck != null && inspectInstructionBudgetField != null) {
+            inspectUnlimitedInstructionsCheck.selectedProperty().addListener((obs, oldV, sel) -> inspectInstructionBudgetField.setDisable(sel));
         }
-
-        // Unlimited toggle bindings
-        if (unlimitedInstructionsCheck != null && instructionBudgetField != null) {
-            unlimitedInstructionsCheck.selectedProperty().addListener((obs, oldV, selected) ->
-                    instructionBudgetField.setDisable(selected));
+        if (inspectUnlimitedTimeCheck != null && inspectTimeLimitField != null) {
+            inspectUnlimitedTimeCheck.selectedProperty().addListener((obs, oldV, sel) -> inspectTimeLimitField.setDisable(sel));
         }
-        if (unlimitedTimeCheck != null && timeLimitField != null) {
-            unlimitedTimeCheck.selectedProperty().addListener((obs, oldV, selected) ->
-                    timeLimitField.setDisable(selected));
+        if (createUnlimitedInstructionsCheck != null && createInstructionBudgetField != null) {
+            createUnlimitedInstructionsCheck.selectedProperty().addListener((obs, oldV, sel) -> createInstructionBudgetField.setDisable(sel));
+        }
+        if (createUnlimitedTimeCheck != null && createTimeLimitField != null) {
+            createUnlimitedTimeCheck.selectedProperty().addListener((obs, oldV, sel) -> createTimeLimitField.setDisable(sel));
         }
 
         if (context != null) {
@@ -136,41 +200,28 @@ public class ExecuteWorkbenchController {
     private void initializeBindings() {
         if (context == null) return;
 
-        // Populate functions
+        // Populate functions into selectors
         if (context.getFunctionsViewModel() != null) {
-            functionSelector.setItems(context.getFunctionsViewModel().getBytecodeItems());
+            ObservableList<BytecodeItem> items = context.getFunctionsViewModel().getBytecodeItems();
+            if (inspectFunctionSelector != null) inspectFunctionSelector.setItems(items);
+            if (createFunctionSelector != null) {
+                createFunctionSelector.setItems(items);
+                if (!items.isEmpty()) createFunctionSelector.getSelectionModel().select(0);
+            }
         }
 
-        // Select pre-targeted function if navigated from catalog
-        if (mainViewModel != null && mainViewModel.getTargetFunctionForExecution() != null) {
-            functionSelector.getSelectionModel().select(mainViewModel.getTargetFunctionForExecution());
-        } else if (!functionSelector.getItems().isEmpty() && functionSelector.getSelectionModel().isEmpty()) {
-            functionSelector.getSelectionModel().select(0);
-        }
+        // Load all profiles
+        loadAllProfiles();
 
-        // Function selection listener -> reload profiles
-        functionSelector.getSelectionModel().selectedItemProperty().addListener((obs, oldV, selectedFn) -> {
-            loadProfilesForFunction(selectedFn);
-        });
-
-        // Profile selection listener -> populate inputs
-        profileSelector.getSelectionModel().selectedItemProperty().addListener((obs, oldV, profile) -> {
-            applyProfile(profile);
-        });
-
-        // Load profiles for initial selection
-        if (functionSelector.getSelectionModel().getSelectedItem() != null) {
-            loadProfilesForFunction(functionSelector.getSelectionModel().getSelectedItem());
-        }
-
-        // Attach WebSocket listeners for live logs and progress
+        // Attach telemetry listeners
         attachTelemetryListeners();
     }
 
     private void attachTelemetryListeners() {
         if (context.getLstcpClient() == null) return;
 
-        context.getLstcpClient().setTaskLogChunkListener(chunk -> {
+        // Register multi-cast task log chunk listener
+        this.logChunkListener = chunk -> {
             if (chunk == null || chunk.task_id() == null) return;
             if (chunk.task_id().equals(currentMonitoredTaskId)) {
                 Platform.runLater(() -> {
@@ -185,7 +236,8 @@ public class ExecuteWorkbenchController {
                     }
                 });
             }
-        });
+        };
+        context.getLstcpClient().addTaskLogChunkListener(logChunkListener);
 
         context.getLstcpClient().setTaskLifecycleListener(lifecycle -> {
             if (lifecycle == null || lifecycle.task_id() == null) return;
@@ -213,60 +265,77 @@ public class ExecuteWorkbenchController {
         });
     }
 
-    private void loadProfilesForFunction(BytecodeItem function) {
+    private void loadAllProfiles() {
         profiles.clear();
-        if (function == null) return;
-
-        UUID funcId = function.getFunctionId();
         ExecutionProfileService service = context.getExecutionProfileService();
+        if (service == null) return;
 
-        if (service != null && funcId != null) {
-            service.getProfiles(funcId).thenAccept(list -> {
-                FxAsync.runOnFxThread(() -> {
-                    for (RestDto.ExecutionProfileDto dto : list) {
-                        profiles.add(ExecutionProfile.fromDto(dto));
-                    }
-                    if (profiles.isEmpty()) {
-                        seedDefaultProfiles(funcId);
-                    }
-                    if (!profiles.isEmpty()) {
-                        profileSelector.getSelectionModel().select(0);
-                    }
-                });
-            }).exceptionally(ex -> {
-                FxAsync.runOnFxThread(() -> seedDefaultProfiles(funcId));
-                return null;
+        service.getProfiles(null).thenAccept(list -> {
+            FxAsync.runOnFxThread(() -> {
+                for (RestDto.ExecutionProfileDto dto : list) {
+                    ExecutionProfile p = ExecutionProfile.fromDto(dto);
+                    resolveFunctionName(p);
+                    profiles.add(p);
+                }
+                if (profiles.isEmpty()) {
+                    seedDefaultProfiles();
+                }
+                if (!profiles.isEmpty()) {
+                    profilesTable.getSelectionModel().select(0);
+                }
             });
-        } else {
-            seedDefaultProfiles(funcId);
-            if (!profiles.isEmpty()) {
-                profileSelector.getSelectionModel().select(0);
+        }).exceptionally(ex -> {
+            FxAsync.runOnFxThread(this::seedDefaultProfiles);
+            return null;
+        });
+    }
+
+    private void resolveFunctionName(ExecutionProfile p) {
+        if (p.getFunctionId() != null && context.getFunctionsViewModel() != null) {
+            for (BytecodeItem item : context.getFunctionsViewModel().getBytecodeItems()) {
+                if (p.getFunctionId().equals(item.getFunctionId())) {
+                    p.setFunctionName(item.getFunctionName());
+                    return;
+                }
             }
+        }
+        if (p.getFunctionName().isBlank()) {
+            p.setFunctionName(p.getFunctionId() != null ? p.getFunctionId().toString().substring(0, 8) : "General");
         }
     }
 
-    private void seedDefaultProfiles(UUID functionId) {
+    private void seedDefaultProfiles() {
         profiles.clear();
+        UUID funcId = null;
+        String funcName = "Default";
+        if (context.getFunctionsViewModel() != null && !context.getFunctionsViewModel().getBytecodeItems().isEmpty()) {
+            BytecodeItem first = context.getFunctionsViewModel().getBytecodeItems().get(0);
+            funcId = first.getFunctionId();
+            funcName = first.getFunctionName();
+        }
 
-        ExecutionProfile pDefault = new ExecutionProfile("", "Default", functionId);
-        pDefault.setArgumentsJson("{\n  \"action\": \"run\"\n}");
+        ExecutionProfile pDefault = new ExecutionProfile("", "Standard Run", funcId);
+        pDefault.setFunctionName(funcName);
+        pDefault.setArgumentsJson("{\n  \"action\": \"process\",\n  \"batch_size\": 50\n}");
         pDefault.setInstructionBudget(10_000_000L);
         pDefault.setTimeLimitMs(60_000L);
         pDefault.setMemoryMb(64L);
         pDefault.setPriority("NORMAL");
         pDefault.setNotifyOnFailure(false);
-        profiles.add(pDefault);
+        profiles.add(0, pDefault);
 
-        ExecutionProfile pFast = new ExecutionProfile("", "Fast Test", functionId);
+        ExecutionProfile pFast = new ExecutionProfile("", "Fast Verification", funcId);
+        pFast.setFunctionName(funcName);
         pFast.setArgumentsJson("{\n  \"quick\": true\n}");
         pFast.setInstructionBudget(1_000_000L);
         pFast.setTimeLimitMs(5_000L);
         pFast.setMemoryMb(32L);
         pFast.setPriority("HIGH");
         pFast.setNotifyOnFailure(true);
-        profiles.add(pFast);
+        profiles.add(0, pFast);
 
-        ExecutionProfile pUnbounded = new ExecutionProfile("", "Unbounded Batch", functionId);
+        ExecutionProfile pUnbounded = new ExecutionProfile("", "Heavy Batch Computation", funcId);
+        pUnbounded.setFunctionName(funcName);
         pUnbounded.setArgumentsJson("{}");
         pUnbounded.setInstructionBudget(0L);
         pUnbounded.setUnlimitedInstructions(true);
@@ -275,138 +344,147 @@ public class ExecuteWorkbenchController {
         pUnbounded.setMemoryMb(256L);
         pUnbounded.setPriority("BATCH");
         pUnbounded.setNotifyOnFailure(true);
-        profiles.add(pUnbounded);
-    }
+        profiles.add(0, pUnbounded);
 
-    private void applyProfile(ExecutionProfile profile) {
-        if (profile == null) return;
-
-        argumentsArea.setText(profile.getArgumentsJson() != null ? profile.getArgumentsJson() : "{}");
-        instructionBudgetField.setText(String.valueOf(profile.getInstructionBudget()));
-        unlimitedInstructionsCheck.setSelected(profile.isUnlimitedInstructions());
-        timeLimitField.setText(String.valueOf(profile.getTimeLimitMs()));
-        unlimitedTimeCheck.setSelected(profile.isUnlimitedTime());
-        memoryField.setText(String.valueOf(profile.getMemoryMb()));
-        if (profile.getPriority() != null) {
-            priorityCombo.setValue(profile.getPriority());
+        if (profilesTable != null && !profiles.isEmpty()) {
+            profilesTable.getSelectionModel().select(0);
         }
-        notifyOnFailureCheck.setSelected(profile.isNotifyOnFailure());
-        validateJsonSyntax(argumentsArea.getText());
     }
 
-    private void validateJsonSyntax(String text) {
+    private void inspectProfile(ExecutionProfile profile) {
+        if (profile == null) return;
+        this.currentlyInspectedProfile = profile;
+
+        if (profileTabs != null && inspectTab != null) {
+            profileTabs.getSelectionModel().select(inspectTab);
+        }
+
+        if (inspectHeaderLabel != null) {
+            inspectHeaderLabel.setText("Profile: " + profile.getProfileName());
+        }
+
+        if (inspectProfileNameField != null) inspectProfileNameField.setText(profile.getProfileName());
+
+        // Select function in combo
+        if (inspectFunctionSelector != null && profile.getFunctionId() != null) {
+            for (BytecodeItem item : inspectFunctionSelector.getItems()) {
+                if (profile.getFunctionId().equals(item.getFunctionId())) {
+                    inspectFunctionSelector.getSelectionModel().select(item);
+                    break;
+                }
+            }
+        }
+
+        if (inspectArgumentsArea != null) {
+            inspectArgumentsArea.setText(profile.getArgumentsJson() != null ? profile.getArgumentsJson() : "{}");
+            validateJsonSyntax(inspectArgumentsArea.getText(), inspectJsonValidationLabel);
+        }
+
+        if (inspectInstructionBudgetField != null) inspectInstructionBudgetField.setText(String.valueOf(profile.getInstructionBudget()));
+        if (inspectUnlimitedInstructionsCheck != null) inspectUnlimitedInstructionsCheck.setSelected(profile.isUnlimitedInstructions());
+
+        if (inspectTimeLimitField != null) inspectTimeLimitField.setText(String.valueOf(profile.getTimeLimitMs()));
+        if (inspectUnlimitedTimeCheck != null) inspectUnlimitedTimeCheck.setSelected(profile.isUnlimitedTime());
+
+        if (inspectMemoryField != null) inspectMemoryField.setText(String.valueOf(profile.getMemoryMb()));
+        if (inspectPriorityCombo != null && profile.getPriority() != null) inspectPriorityCombo.setValue(profile.getPriority());
+        if (inspectNotifyOnFailureCheck != null) inspectNotifyOnFailureCheck.setSelected(profile.isNotifyOnFailure());
+
+        if (dispatchStatusLabel != null) dispatchStatusLabel.setText("");
+    }
+
+    private void validateJsonSyntax(String text, Label label) {
+        if (label == null) return;
         if (text == null || text.isBlank()) {
-            jsonValidationLabel.setText("✓ Empty Arguments");
-            jsonValidationLabel.setStyle("-fx-text-fill: #94a3b8;");
+            label.setText("✓ Empty Arguments");
+            label.setStyle("-fx-text-fill: #94a3b8;");
             return;
         }
         try {
             MAPPER.readTree(text);
-            jsonValidationLabel.setText("✓ Valid JSON");
-            jsonValidationLabel.setStyle("-fx-text-fill: #34d399; -fx-font-weight: bold;");
+            label.setText("✓ Valid JSON");
+            label.setStyle("-fx-text-fill: #34d399; -fx-font-weight: bold;");
         } catch (Exception e) {
-            jsonValidationLabel.setText("✗ Invalid JSON");
-            jsonValidationLabel.setStyle("-fx-text-fill: #f87171; -fx-font-weight: bold;");
+            label.setText("✗ Invalid JSON");
+            label.setStyle("-fx-text-fill: #f87171; -fx-font-weight: bold;");
+        }
+    }
+
+    @FXML
+    private void onSwitchToCreateTab() {
+        if (profileTabs != null && createTab != null) {
+            profileTabs.getSelectionModel().select(createTab);
         }
     }
 
     @FXML
     private void onFormatJsonClicked() {
-        String text = argumentsArea.getText();
+        formatJsonInArea(inspectArgumentsArea, inspectJsonValidationLabel);
+    }
+
+    @FXML
+    private void onCreateFormatJsonClicked() {
+        formatJsonInArea(createArgumentsArea, createJsonValidationLabel);
+    }
+
+    private void formatJsonInArea(TextArea area, Label label) {
+        if (area == null) return;
+        String text = area.getText();
         if (text == null || text.isBlank()) return;
         try {
             Object obj = MAPPER.readValue(text, Object.class);
             String formatted = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
-            argumentsArea.setText(formatted);
-            validateJsonSyntax(formatted);
+            area.setText(formatted);
+            validateJsonSyntax(formatted, label);
         } catch (Exception e) {
-            jsonValidationLabel.setText("Format Failed: " + e.getMessage());
-            jsonValidationLabel.setStyle("-fx-text-fill: #f87171;");
+            if (label != null) {
+                label.setText("Format Failed: " + e.getMessage());
+                label.setStyle("-fx-text-fill: #f87171;");
+            }
         }
     }
 
     @FXML
     private void onSaveProfileClicked() {
-        ExecutionProfile current = profileSelector.getSelectionModel().getSelectedItem();
-        BytecodeItem fn = functionSelector.getSelectionModel().getSelectedItem();
-        if (current == null || fn == null) return;
+        if (currentlyInspectedProfile == null) return;
 
-        updateProfileFromInputs(current);
-        if (fn.getFunctionId() != null) {
-            current.setFunctionId(fn.getFunctionId());
-            dispatchStatusLabel.setText("Saving profile '" + current.getProfileName() + "'...");
-            context.getExecutionProfileService().saveProfile(current.toDto())
-                    .thenAccept(saved -> FxAsync.runOnFxThread(() -> {
-                        current.setProfileId(saved.profile_id());
-                        current.setVersion(saved.version() != null ? saved.version() : 0L);
-                        dispatchStatusLabel.setText("Profile '" + current.getProfileName() + "' saved.");
-                    }))
-                    .exceptionally(ex -> {
-                        FxAsync.runOnFxThread(() -> dispatchStatusLabel.setText("Failed to save profile: " + ex.getMessage()));
-                        return null;
-                    });
-        } else {
-            dispatchStatusLabel.setText("Local profile '" + current.getProfileName() + "' updated.");
+        updateProfileFromInspectInputs(currentlyInspectedProfile);
+        BytecodeItem fn = inspectFunctionSelector.getSelectionModel().getSelectedItem();
+        if (fn != null && fn.getFunctionId() != null) {
+            currentlyInspectedProfile.setFunctionId(fn.getFunctionId());
+            currentlyInspectedProfile.setFunctionName(fn.getFunctionName());
         }
-    }
 
-    @FXML
-    private void onSaveAsProfileClicked() {
-        BytecodeItem fn = functionSelector.getSelectionModel().getSelectedItem();
-        if (fn == null) return;
-
-        TextInputDialog dialog = new TextInputDialog("New-Profile");
-        dialog.setTitle("Save Execution Profile As");
-        dialog.setHeaderText("Create a new execution profile for function: " + fn.getFunctionName());
-        dialog.setContentText("Profile Name:");
-
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(name -> {
-            String trimmed = name.trim();
-            if (trimmed.isEmpty()) return;
-
-            ExecutionProfile newProfile = new ExecutionProfile("", trimmed, fn.getFunctionId());
-            updateProfileFromInputs(newProfile);
-
-            if (fn.getFunctionId() != null) {
-                dispatchStatusLabel.setText("Saving new profile '" + trimmed + "'...");
-                context.getExecutionProfileService().saveProfile(newProfile.toDto())
-                        .thenAccept(saved -> FxAsync.runOnFxThread(() -> {
-                            newProfile.setProfileId(saved.profile_id());
-                            newProfile.setVersion(saved.version() != null ? saved.version() : 0L);
-                            profiles.add(newProfile);
-                            profileSelector.getSelectionModel().select(newProfile);
-                            dispatchStatusLabel.setText("Profile '" + trimmed + "' created.");
-                        }))
-                        .exceptionally(ex -> {
-                            FxAsync.runOnFxThread(() -> dispatchStatusLabel.setText("Save As Failed: " + ex.getMessage()));
-                            return null;
-                        });
-            } else {
-                profiles.add(newProfile);
-                profileSelector.getSelectionModel().select(newProfile);
-                dispatchStatusLabel.setText("Local profile '" + trimmed + "' created.");
-            }
-        });
+        dispatchStatusLabel.setText("Saving profile '" + currentlyInspectedProfile.getProfileName() + "'...");
+        context.getExecutionProfileService().saveProfile(currentlyInspectedProfile.toDto())
+                .thenAccept(saved -> FxAsync.runOnFxThread(() -> {
+                    currentlyInspectedProfile.setProfileId(saved.profile_id());
+                    currentlyInspectedProfile.setVersion(saved.version() != null ? saved.version() : 0L);
+                    profilesTable.refresh();
+                    dispatchStatusLabel.setText("Profile '" + currentlyInspectedProfile.getProfileName() + "' saved successfully.");
+                }))
+                .exceptionally(ex -> {
+                    FxAsync.runOnFxThread(() -> dispatchStatusLabel.setText("Save Failed: " + ex.getMessage()));
+                    return null;
+                });
     }
 
     @FXML
     private void onDeleteProfileClicked() {
-        ExecutionProfile current = profileSelector.getSelectionModel().getSelectedItem();
-        if (current == null) return;
+        if (currentlyInspectedProfile == null) return;
 
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Delete Profile");
-        confirm.setHeaderText("Delete profile '" + current.getProfileName() + "'?");
-        confirm.setContentText("Are you sure you want to remove this execution profile?");
+        confirm.setHeaderText("Delete profile '" + currentlyInspectedProfile.getProfileName() + "'?");
+        confirm.setContentText("Are you sure you want to permanently delete this execution profile?");
 
         Optional<ButtonType> res = confirm.showAndWait();
         if (res.isPresent() && res.get() == ButtonType.OK) {
-            if (current.getProfileId() != null && !current.getProfileId().isBlank()) {
-                context.getExecutionProfileService().deleteProfile(current.getProfileId())
+            ExecutionProfile target = currentlyInspectedProfile;
+            if (target.getProfileId() != null && !target.getProfileId().isBlank()) {
+                context.getExecutionProfileService().deleteProfile(target.getProfileId())
                         .thenRun(() -> FxAsync.runOnFxThread(() -> {
-                            profiles.remove(current);
-                            if (!profiles.isEmpty()) profileSelector.getSelectionModel().select(0);
+                            profiles.remove(target);
                             dispatchStatusLabel.setText("Profile deleted.");
                         }))
                         .exceptionally(ex -> {
@@ -414,27 +492,25 @@ public class ExecuteWorkbenchController {
                             return null;
                         });
             } else {
-                profiles.remove(current);
-                if (!profiles.isEmpty()) profileSelector.getSelectionModel().select(0);
-                dispatchStatusLabel.setText("Profile removed.");
+                profiles.remove(target);
+                dispatchStatusLabel.setText("Local profile removed.");
             }
         }
     }
 
     @FXML
     private void onExportProfileClicked() {
-        ExecutionProfile current = profileSelector.getSelectionModel().getSelectedItem();
-        if (current == null) return;
+        if (currentlyInspectedProfile == null) return;
 
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Export Execution Profile");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files (*.json)", "*.json"));
-        chooser.setInitialFileName(current.getProfileName().toLowerCase().replace(" ", "-") + ".json");
+        chooser.setInitialFileName(currentlyInspectedProfile.getProfileName().toLowerCase().replace(" ", "-") + ".json");
         File file = chooser.showSaveDialog(null);
         if (file != null) {
             try {
-                updateProfileFromInputs(current);
-                context.getExecutionProfileService().exportProfile(current.toDto(), file.toPath());
+                updateProfileFromInspectInputs(currentlyInspectedProfile);
+                context.getExecutionProfileService().exportProfile(currentlyInspectedProfile.toDto(), file.toPath());
                 dispatchStatusLabel.setText("Exported profile to " + file.getName());
             } catch (Exception e) {
                 dispatchStatusLabel.setText("Export failed: " + e.getMessage());
@@ -443,8 +519,59 @@ public class ExecuteWorkbenchController {
     }
 
     @FXML
+    private void onCreateProfileClicked() {
+        String name = createProfileNameField.getText() != null ? createProfileNameField.getText().trim() : "";
+        if (name.isEmpty()) {
+            createStatusLabel.setText("Please enter a profile name.");
+            return;
+        }
+
+        BytecodeItem fn = createFunctionSelector.getSelectionModel().getSelectedItem();
+        UUID fnId = fn != null ? fn.getFunctionId() : null;
+        String fnName = fn != null ? fn.getFunctionName() : "General";
+
+        ExecutionProfile newProfile = new ExecutionProfile("", name, fnId);
+        newProfile.setFunctionName(fnName);
+        newProfile.setArgumentsJson(createArgumentsArea.getText());
+
+        try {
+            newProfile.setInstructionBudget(Long.parseLong(createInstructionBudgetField.getText().trim()));
+        } catch (NumberFormatException ignored) {}
+        newProfile.setUnlimitedInstructions(createUnlimitedInstructionsCheck.isSelected());
+
+        try {
+            newProfile.setTimeLimitMs(Long.parseLong(createTimeLimitField.getText().trim()));
+        } catch (NumberFormatException ignored) {}
+        newProfile.setUnlimitedTime(createUnlimitedTimeCheck.isSelected());
+
+        try {
+            newProfile.setMemoryMb(Long.parseLong(createMemoryField.getText().trim()));
+        } catch (NumberFormatException ignored) {}
+
+        newProfile.setPriority(createPriorityCombo.getValue() != null ? createPriorityCombo.getValue() : "NORMAL");
+        newProfile.setNotifyOnFailure(createNotifyOnFailureCheck.isSelected());
+
+        createStatusLabel.setText("Creating profile '" + name + "'...");
+        context.getExecutionProfileService().saveProfile(newProfile.toDto())
+                .thenAccept(saved -> FxAsync.runOnFxThread(() -> {
+                    newProfile.setProfileId(saved.profile_id());
+                    newProfile.setVersion(saved.version() != null ? saved.version() : 0L);
+                    // Prepend to top of list as required
+                    profiles.add(0, newProfile);
+                    profilesTable.getSelectionModel().select(newProfile);
+                    createStatusLabel.setText("Profile '" + name + "' created successfully.");
+                    // Reset fields
+                    createProfileNameField.clear();
+                    createArgumentsArea.setText("{}");
+                }))
+                .exceptionally(ex -> {
+                    FxAsync.runOnFxThread(() -> createStatusLabel.setText("Create Failed: " + ex.getMessage()));
+                    return null;
+                });
+    }
+
+    @FXML
     private void onImportProfileClicked() {
-        BytecodeItem fn = functionSelector.getSelectionModel().getSelectedItem();
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Import Execution Profile");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files (*.json)", "*.json"));
@@ -453,47 +580,84 @@ public class ExecuteWorkbenchController {
             try {
                 RestDto.ExecutionProfileDto importedDto = context.getExecutionProfileService().importProfile(file.toPath());
                 ExecutionProfile imported = ExecutionProfile.fromDto(importedDto);
-                if (fn != null && fn.getFunctionId() != null) {
-                    imported.setFunctionId(fn.getFunctionId());
-                }
                 imported.setProfileId(""); // reset ID for new import
-                profiles.add(imported);
-                profileSelector.getSelectionModel().select(imported);
-                dispatchStatusLabel.setText("Imported profile '" + imported.getProfileName() + "'");
+                resolveFunctionName(imported);
+
+                context.getExecutionProfileService().saveProfile(imported.toDto())
+                        .thenAccept(saved -> FxAsync.runOnFxThread(() -> {
+                            imported.setProfileId(saved.profile_id());
+                            imported.setVersion(saved.version() != null ? saved.version() : 0L);
+                            // Prepend on top
+                            profiles.add(0, imported);
+                            profilesTable.getSelectionModel().select(imported);
+                            if (createStatusLabel != null) createStatusLabel.setText("Imported profile '" + imported.getProfileName() + "'");
+                        }))
+                        .exceptionally(ex -> {
+                            FxAsync.runOnFxThread(() -> {
+                                profiles.add(0, imported);
+                                profilesTable.getSelectionModel().select(imported);
+                            });
+                            return null;
+                        });
             } catch (Exception e) {
-                dispatchStatusLabel.setText("Import failed: " + e.getMessage());
+                if (createStatusLabel != null) createStatusLabel.setText("Import failed: " + e.getMessage());
             }
         }
     }
 
-    private void updateProfileFromInputs(ExecutionProfile p) {
-        p.setArgumentsJson(argumentsArea.getText());
-        try {
-            p.setInstructionBudget(Long.parseLong(instructionBudgetField.getText().trim()));
-        } catch (NumberFormatException ignored) {}
-        p.setUnlimitedInstructions(unlimitedInstructionsCheck.isSelected());
-        try {
-            p.setTimeLimitMs(Long.parseLong(timeLimitField.getText().trim()));
-        } catch (NumberFormatException ignored) {}
-        p.setUnlimitedTime(unlimitedTimeCheck.isSelected());
-        try {
-            p.setMemoryMb(Long.parseLong(memoryField.getText().trim()));
-        } catch (NumberFormatException ignored) {}
-        p.setPriority(priorityCombo.getValue());
-        p.setNotifyOnFailure(notifyOnFailureCheck.isSelected());
+    private void updateProfileFromInspectInputs(ExecutionProfile p) {
+        if (p == null) return;
+        if (inspectProfileNameField != null && !inspectProfileNameField.getText().isBlank()) {
+            p.setProfileName(inspectProfileNameField.getText().trim());
+        }
+        if (inspectArgumentsArea != null) {
+            p.setArgumentsJson(inspectArgumentsArea.getText());
+        }
+        if (inspectInstructionBudgetField != null) {
+            try {
+                p.setInstructionBudget(Long.parseLong(inspectInstructionBudgetField.getText().trim()));
+            } catch (NumberFormatException ignored) {}
+        }
+        if (inspectUnlimitedInstructionsCheck != null) {
+            p.setUnlimitedInstructions(inspectUnlimitedInstructionsCheck.isSelected());
+        }
+        if (inspectTimeLimitField != null) {
+            try {
+                p.setTimeLimitMs(Long.parseLong(inspectTimeLimitField.getText().trim()));
+            } catch (NumberFormatException ignored) {}
+        }
+        if (inspectUnlimitedTimeCheck != null) {
+            p.setUnlimitedTime(inspectUnlimitedTimeCheck.isSelected());
+        }
+        if (inspectMemoryField != null) {
+            try {
+                p.setMemoryMb(Long.parseLong(inspectMemoryField.getText().trim()));
+            } catch (NumberFormatException ignored) {}
+        }
+        if (inspectPriorityCombo != null && inspectPriorityCombo.getValue() != null) {
+            p.setPriority(inspectPriorityCombo.getValue());
+        }
+        if (inspectNotifyOnFailureCheck != null) {
+            p.setNotifyOnFailure(inspectNotifyOnFailureCheck.isSelected());
+        }
     }
 
     @FXML
     private void onExecuteClicked() {
-        BytecodeItem fn = functionSelector.getSelectionModel().getSelectedItem();
+        if (currentlyInspectedProfile == null) {
+            dispatchStatusLabel.setText("Please select an execution profile first.");
+            return;
+        }
+
+        BytecodeItem fn = inspectFunctionSelector.getSelectionModel().getSelectedItem();
         if (fn == null || fn.getSha256() == null || fn.getSha256().isBlank()) {
-            dispatchStatusLabel.setText("Please select a target function first.");
+            dispatchStatusLabel.setText("Please select a target function for this profile.");
             return;
         }
 
         // Parse arguments JSON
         Map<String, Object> argsMap = new HashMap<>();
-        String rawJson = argumentsArea.getText();
+        String rawJson = inspectArgumentsArea.getText();
         if (rawJson != null && !rawJson.isBlank()) {
             try {
                 argsMap = MAPPER.readValue(rawJson, Map.class);
@@ -505,24 +669,24 @@ public class ExecuteWorkbenchController {
 
         long budget = 10_000_000L;
         try {
-            budget = Long.parseLong(instructionBudgetField.getText().trim());
+            budget = Long.parseLong(inspectInstructionBudgetField.getText().trim());
         } catch (NumberFormatException ignored) {}
-        boolean unlimitedBudget = unlimitedInstructionsCheck.isSelected();
+        boolean unlimitedBudget = inspectUnlimitedInstructionsCheck.isSelected();
 
         int timeout = 60_000;
         try {
-            timeout = Integer.parseInt(timeLimitField.getText().trim());
+            timeout = Integer.parseInt(inspectTimeLimitField.getText().trim());
         } catch (NumberFormatException ignored) {}
-        boolean unlimitedTimeout = unlimitedTimeCheck.isSelected();
+        boolean unlimitedTimeout = inspectUnlimitedTimeCheck.isSelected();
 
         long memoryMb = 64L;
         try {
-            memoryMb = Long.parseLong(memoryField.getText().trim());
+            memoryMb = Long.parseLong(inspectMemoryField.getText().trim());
         } catch (NumberFormatException ignored) {}
         long memoryBytes = memoryMb * 1024L * 1024L;
 
-        String priority = priorityCombo.getValue() != null ? priorityCombo.getValue() : "NORMAL";
-        boolean notifyOnFailure = notifyOnFailureCheck.isSelected();
+        String priority = inspectPriorityCombo.getValue() != null ? inspectPriorityCombo.getValue() : "NORMAL";
+        boolean notifyOnFailure = inspectNotifyOnFailureCheck.isSelected();
 
         executeButton.setDisable(true);
         dispatchStatusLabel.setText("Submitting task to cluster...");
@@ -545,20 +709,22 @@ public class ExecuteWorkbenchController {
                 notifyOnFailure,
                 argsMap
         ).thenAccept(resp -> FxAsync.runOnFxThread(() -> {
+            // Restore execution button immediately so user can execute again anytime!
+            executeButton.setDisable(false);
+
             if (resp != null && resp.task_id() != null) {
                 this.currentMonitoredTaskId = resp.task_id();
                 activeTaskIdLabel.setText(resp.task_id());
                 taskStatusBadge.setText(resp.status() != null ? resp.status() : "QUEUED");
                 taskStatusBadge.setStyle("-fx-background-color: rgba(56, 189, 248, 0.2); -fx-text-fill: #38bdf8;");
                 dispatchStatusLabel.setText("Task dispatched: " + resp.task_id());
-                terminalArea.appendText("[SYSTEM] Dispatched task " + resp.task_id() + " (entry=" + fn.getEntryPoint() + ")\n");
+                terminalArea.appendText("[SYSTEM] Dispatched task " + resp.task_id() + " (profile=" + currentlyInspectedProfile.getProfileName() + ", entry=" + fn.getEntryPoint() + ")\n");
 
                 // Subscribe to logs over WebSocket
                 if (context.getLstcpClient() != null) {
                     context.getLstcpClient().sendFrame(Frame.create("SUBSCRIBE_TASK_LOGS", Map.of("task_id", resp.task_id())));
                 }
             } else {
-                executeButton.setDisable(false);
                 dispatchStatusLabel.setText("Failed to dispatch task: invalid response");
             }
         })).exceptionally(ex -> {
@@ -575,6 +741,6 @@ public class ExecuteWorkbenchController {
 
     @FXML
     private void onClearTerminalClicked() {
-        terminalArea.clear();
+        if (terminalArea != null) terminalArea.clear();
     }
 }

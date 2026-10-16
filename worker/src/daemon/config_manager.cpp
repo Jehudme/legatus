@@ -39,6 +39,7 @@ bool ConfigManager::apply_server_config(const nlohmann::json& payload) {
         }
         if (payload.contains("remaining_lease_sec")) {
             remaining_lease_sec_ = payload.value("remaining_lease_sec", remaining_lease_sec_);
+            lease_updated_at_ = std::chrono::steady_clock::now();
         }
         if (payload.contains("heartbeat_interval_ms")) {
             heartbeat_interval_ms_ = payload.value("heartbeat_interval_ms", heartbeat_interval_ms_);
@@ -111,7 +112,12 @@ bool ConfigManager::auto_renew_lease() const {
 
 uint64_t ConfigManager::remaining_lease_sec() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return remaining_lease_sec_;
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::steady_clock::now() - lease_updated_at_).count();
+    if (elapsed >= static_cast<int64_t>(remaining_lease_sec_)) {
+        return 0;
+    }
+    return remaining_lease_sec_ - elapsed;
 }
 
 uint32_t ConfigManager::heartbeat_interval_ms() const {

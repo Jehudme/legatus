@@ -29,6 +29,22 @@ public record EventWorkerStateChangedFrame(
         @JsonProperty("current_state") String currentState,
         @JsonProperty("cpu_load_pct") Double cpuLoadPct,
         @JsonProperty("memory_used_bytes") Long memoryUsedBytes,
-        @JsonProperty("active_tasks_count") Integer activeTasksCount
-    ) {}
+        @JsonProperty("active_tasks_count") Integer activeTasksCount,
+        @JsonProperty("uptime_seconds") Long uptimeSeconds,
+        @JsonProperty("remaining_lease_sec") Long remainingLeaseSec,
+        @JsonProperty("allocatable_cores") Integer allocatableCores,
+        @JsonProperty("max_memory_bytes") Long maxMemoryBytes,
+        @JsonProperty("friendly_name") String friendlyName
+    ) {
+        public Payload(
+            String workerId,
+            String previousState,
+            String currentState,
+            Double cpuLoadPct,
+            Long memoryUsedBytes,
+            Integer activeTasksCount
+        ) {
+            this(workerId, previousState, currentState, cpuLoadPct, memoryUsedBytes, activeTasksCount, null, null, null, null, null);
+        }
+    }
 }

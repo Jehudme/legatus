@@ -306,12 +306,14 @@ public final class RestDto {
             @JsonProperty("worker_friendly_name") String worker_friendly_name,
             @JsonProperty("function_name") String function_name,
             @JsonProperty("profile_name") String profile_name,
+            @JsonProperty("instruction_budget") Long instruction_budget,
+            @JsonProperty("timeout_ms") Integer timeout_ms,
             @JsonProperty("metrics") TaskMetricsDto metrics
     ) {
         public TaskStatusResponse(String task_id, String name, String status, Integer exit_code, String assigned_worker_id,
                                   Long instructions_consumed, Long peak_memory_bytes, Long execution_wall_time_ms,
                                   String created_at, String finished_at) {
-            this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, created_at, null, null, finished_at, null, null, null, null);
+            this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, created_at, null, null, finished_at, null, null, null, null, null, null);
         }
 
         public long effectiveInstructions() {

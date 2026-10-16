@@ -15,6 +15,7 @@ public class FleetTopologyController {
     @FXML private TableView<WorkerNode> workersTable;
 
     @FXML private TableColumn<WorkerNode, String> nameCol;
+    @FXML private TableColumn<WorkerNode, Number> coresCol;
     @FXML private TableColumn<WorkerNode, String> workerIdCol;
     @FXML private TableColumn<WorkerNode, String> hostnameCol;
     @FXML private TableColumn<WorkerNode, String> ipCol;
@@ -94,7 +95,8 @@ public class FleetTopologyController {
             stateFilterCombo.valueProperty().bindBidirectional(viewModel.stateFilterProperty());
         }
 
-        workersTable.setItems(viewModel.getFilteredWorkers());
+        viewModel.getSortedWorkers().comparatorProperty().bind(workersTable.comparatorProperty());
+        workersTable.setItems(viewModel.getSortedWorkers());
 
         // Cell value factories
         if (nameCol != null) {
@@ -102,6 +104,9 @@ public class FleetTopologyController {
                     () -> c.getValue().getDisplayName(),
                     c.getValue().friendlyNameProperty(), c.getValue().hostnameProperty(), c.getValue().workerIdProperty()
             ));
+        }
+        if (coresCol != null) {
+            coresCol.setCellValueFactory(c -> c.getValue().allocatableCoresProperty());
         }
         if (workerIdCol != null) {
             workerIdCol.setCellValueFactory(c -> c.getValue().workerIdProperty());
@@ -156,20 +161,20 @@ public class FleetTopologyController {
         }
         if (leaseCol != null) {
             leaseCol.setCellValueFactory(c -> Bindings.createStringBinding(
-                    () -> c.getValue().getFormattedLeaseRemaining(),
-                    c.getValue().remainingLeaseSecProperty()
+                    () -> c.getValue().getFormattedLeaseRemaining() + (c.getValue().isAutoRenewLease() ? " [R]" : ""),
+                    c.getValue().remainingLeaseSecProperty(), c.getValue().autoRenewLeaseProperty()
             ));
             leaseCol.setCellFactory(col -> new TableCell<>() {
                 @Override
                 protected void updateItem(String item, boolean empty) {
                     super.updateItem(item, empty);
-                    if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    if (empty || item == null) {
                         setGraphic(null);
                         setText(null);
                     } else {
-                        WorkerNode w = getTableRow().getItem();
-                        long remaining = w.getRemainingLeaseSec();
-                        Label badge = new Label(w.getFormattedLeaseRemaining() + (w.isAutoRenewLease() ? " [R]" : ""));
+                        WorkerNode w = getTableRow() != null ? getTableRow().getItem() : null;
+                        long remaining = w != null ? w.getRemainingLeaseSec() : 0L;
+                        Label badge = new Label(item);
                         if (remaining > 600) {
                             badge.getStyleClass().setAll("badge-lease-green");
                         } else if (remaining > 120) {
