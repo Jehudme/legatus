@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-016
 * **Target Version:** `v2.0.0-cluster-verification`
-* **Status:** ACTIVE
+* **Status:** COMPLETED
 * **Lead Architect:** @qa-lead & @runtime-architect
 * **Target Delivery Date:** 2027-07-01
 * **Related ADRs:** ADR-0001 through ADR-0010
@@ -40,22 +40,22 @@ This harness automatically validates all 9 defect scenarios reported by the oper
 ## 3. Prioritized Deliverables & Task Matrix
 
 ### 3.1 P0: Critical Blockers (Release Gate)
-- [ ] `[P0]` **Automated Real-Binary E2E Test Harness (`ClusterE2ETest.java` & `test_cluster_e2e.sh`):** Build an automated test harness that starts the compiled server JAR on an ephemeral port, starts `legatusd` pointing to the server, and dispatches real Solix bytecode tasks over LCTP.
-- [ ] `[P0]` **Automated Verification of Defect Scenario 1 (Worker Deletion with Task History):** Harness enrolls worker, executes 5 tasks to completion, and deletes the worker via REST. Asserts HTTP 204 response, worker removal from database, and that all 5 tasks remain in history with `assigned_worker = null`.
-- [ ] `[P0]` **Automated Verification of Defect Scenario 2 (Worker Revocation Socket Severance):** Harness revokes worker lease via REST. Asserts that the worker's active WebSocket is severed immediately (< 200ms) and subsequent heartbeats from that worker are rejected with HTTP 403.
-- [ ] `[P0]` **Automated Verification of Defect Scenario 3 (16 Concurrent Tasks on 4 Cores):** Harness dispatches 16 concurrent long-running tasks to a worker configured with `max_concurrent_tasks = 16` on a 4-core machine. Asserts that all 16 tasks are accepted and reach `EXECUTING` state simultaneously without artificial core cap.
-- [ ] `[P0]` **Automated Verification of Defect Scenario 4 (Task Abort Status Transition):** Harness dispatches an infinite loop task, issues `ABORT_TASK`, and asserts the worker terminates the runner and transitions task state cleanly from `ABORTING` to `ABORTED` (exit code 143/130) within 2 seconds.
+- [x] `[P0]` **Automated Real-Binary E2E Test Harness (`ClusterE2ETest.java` & `test_cluster_e2e.sh`):** Build an automated test harness that starts the compiled server JAR on an ephemeral port, starts `legatusd` pointing to the server, and dispatches real Solix bytecode tasks over LCTP.
+- [x] `[P0]` **Automated Verification of Defect Scenario 1 (Worker Deletion with Task History):** Harness enrolls worker, executes 5 tasks to completion, and deletes the worker via REST. Asserts HTTP 204 response, worker removal from database, and that all 5 tasks remain in history with `assigned_worker = null`.
+- [x] `[P0]` **Automated Verification of Defect Scenario 2 (Worker Revocation Socket Severance):** Harness revokes worker lease via REST. Asserts that the worker's active WebSocket is severed immediately (< 200ms) and subsequent heartbeats from that worker are rejected with HTTP 403.
+- [x] `[P0]` **Automated Verification of Defect Scenario 3 (16 Concurrent Tasks on 4 Cores):** Harness dispatches 16 concurrent long-running tasks to a worker configured with `max_concurrent_tasks = 16` on a 4-core machine. Asserts that all 16 tasks are accepted and reach `EXECUTING` state simultaneously without artificial core cap.
+- [x] `[P0]` **Automated Verification of Defect Scenario 4 (Task Abort Status Transition):** Harness dispatches an infinite loop task, issues `ABORT_TASK`, and asserts the worker terminates the runner and transitions task state cleanly from `ABORTING` to `ABORTED` (exit code 143/130) within 2 seconds.
 
 ### 3.2 P1: High Priority (Milestone Core)
-- [ ] `[P1]` **Automated Verification of Defect Scenario 5 (RAM Load & Threshold Hysteresis):** Harness simulates a 16 GB worker transmitting 10.5 GB RAM used. Asserts server calculates load as ~65.6%, does not trigger threshold breach, and clears hysteresis flags when load decreases.
-- [ ] `[P1]` **Automated Verification of Defect Scenario 6 (5MB Guest Stdout Flood):** Harness executes bytecode generating 5MB of `console.print()` logs. Asserts output is cleanly streamed to client without corrupting supervisor JSON envelope parsing or leaking file descriptors.
-- [ ] `[P1]` **Automated Verification of Defect Scenario 7 (Multicast LSTCP Telemetry Streaming):** Harness connects two simulated Studio clients simultaneously. Dispatches tasks. Asserts both clients receive identical `TASK_LIFECYCLE` and metric frames without event loss or listener clobbering.
-- [ ] `[P1]` **Automated Verification of Defect Scenario 8 (Dynamic Cron Persistence Across Restart):** Harness registers a dynamic cron job, restarts the server process, and verifies that the scheduled task triggers automatically from the reloaded database definition.
-- [ ] `[P1]` **Automated Verification of Defect Scenario 9 (Task Retention Sweeper Null CompletedAt):** Harness creates aborted/failed tasks with null `completedAt` timestamps older than the retention cutoff. Runs sweeper. Asserts tasks are cleanly purged from the database.
+- [x] `[P1]` **Automated Verification of Defect Scenario 5 (RAM Load & Threshold Hysteresis):** Harness simulates a 16 GB worker transmitting 10.5 GB RAM used. Asserts server calculates load as ~65.6%, does not trigger threshold breach, and clears hysteresis flags when load decreases.
+- [x] `[P1]` **Automated Verification of Defect Scenario 6 (5MB Guest Stdout Flood):** Harness executes bytecode generating 5MB of `console.print()` logs. Asserts output is cleanly streamed to client without corrupting supervisor JSON envelope parsing or leaking file descriptors.
+- [x] `[P1]` **Automated Verification of Defect Scenario 7 (Multicast LSTCP Telemetry Streaming):** Harness connects two simulated Studio clients simultaneously. Dispatches tasks. Asserts both clients receive identical `TASK_LIFECYCLE` and metric frames without event loss or listener clobbering.
+- [x] `[P1]` **Automated Verification of Defect Scenario 8 (Dynamic Cron Persistence Across Restart):** Harness registers a dynamic cron job, restarts the server process, and verifies that the scheduled task triggers automatically from the reloaded database definition.
+- [x] `[P1]` **Automated Verification of Defect Scenario 9 (Task Retention Sweeper Null CompletedAt):** Harness creates aborted/failed tasks with null `completedAt` timestamps older than the retention cutoff. Runs sweeper. Asserts tasks are cleanly purged from the database.
 
 ### 3.3 P2: Medium Priority (Ergonomics & Hardening)
-- [ ] `[P2]` **Cluster Soak Test Runner (`scripts/soak_test_cluster.sh`):** Implement a continuous soak test script that executes 1,000 rapid task dispatches over 2 hours, asserting zero zombie processes (`ps aux | grep legatus-runner`), zero file descriptor leaks (`lsof`), and bounded memory growth.
-- [ ] `[P2]` **Unified CI Command (`scripts/run_all_military_tests.sh`):** Implement a unified master test script that runs all Catch2 tests with ASan/UBSan, all Spring Boot integration tests, all TestFX UI tests, and the E2E cluster harness in a single deterministic pass.
+- [x] `[P2]` **Cluster Soak Test Runner (`scripts/soak_test_cluster.sh`):** Implement a continuous soak test script that executes 1,000 rapid task dispatches over 2 hours, asserting zero zombie processes (`ps aux | grep legatus-runner`), zero file descriptor leaks (`lsof`), and bounded memory growth.
+- [x] `[P2]` **Unified CI Command (`scripts/run_all_military_tests.sh`):** Implement a unified master test script that runs all Catch2 tests with ASan/UBSan, all Spring Boot integration tests, all TestFX UI tests, and the E2E cluster harness in a single deterministic pass.
 
 ---
 
@@ -91,10 +91,10 @@ graph TD
 
 | DoD Requirement | Target Benchmark | Verification Tool | Sign-off Status |
 | :--- | :--- | :--- | :--- |
-| **E2E Cluster Suite** | All 9 defect scenarios pass with real binaries | `scripts/test_cluster_e2e.sh` | [ ] Pending |
-| **Zero Memory Leaks** | Zero ASan/UBSan errors across 1,000 tasks | Clang 18 Sanitizers | [ ] Pending |
-| **Zero Zombie Processes** | 0 orphaned `legatus-runner` processes after test run | `pgrep legatus-runner` returns empty | [ ] Pending |
-| **Full DoD Compliance** | Code, tests, sanitizers, documentation, and ADRs complete | Master audit checklist | [ ] Pending |
+| **E2E Cluster Suite** | All 9 defect scenarios pass with real binaries | `scripts/test_cluster_e2e.sh` | [x] COMPLETED |
+| **Zero Memory Leaks** | Zero ASan/UBSan errors across 1,000 tasks | Clang 18 Sanitizers | [x] COMPLETED |
+| **Zero Zombie Processes** | 0 orphaned `legatus-runner` processes after test run | `pgrep legatus-runner` returns empty | [x] COMPLETED |
+| **Full DoD Compliance** | Code, tests, sanitizers, documentation, and ADRs complete | Master audit checklist | [x] COMPLETED |
 
 ---
 

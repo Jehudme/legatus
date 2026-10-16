@@ -220,7 +220,7 @@ class WorkerNodeResourceIT {
     @AfterEach
     void cleanup() {
         if (insertedWorkerNode != null) {
-            workerNodeRepository.delete(insertedWorkerNode);
+            workerNodeRepository.deleteById(insertedWorkerNode.getWorkerId());
             insertedWorkerNode = null;
         }
     }

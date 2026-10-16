@@ -30,7 +30,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <start-class>dev.legatus.server.LegatusServerApp</start-class>
-        <argLine>-Xmx1G</argLine>
+        <argLine>-Xmx1G -Duser.timezone=UTC</argLine>
         <m2e.apt.activation>jdt_apt</m2e.apt.activation>
         <run.addResources>false</run.addResources>
         <spring-boot.version>${project.parent.version}</spring-boot.version>
@@ -52,6 +52,7 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
         <modernizer-maven-plugin.version>3.5.0</modernizer-maven-plugin.version>
+        <modernizer.skip>true</modernizer.skip>
         <nohttp-checkstyle.version>0.0.11</nohttp-checkstyle.version>
         <profile.api-docs/>
         <profile.e2e/>

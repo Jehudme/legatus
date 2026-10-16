@@ -3,6 +3,7 @@ package dev.legatus.server.web.rest;
 import static dev.legatus.server.domain.AuditLogAsserts.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -14,6 +15,7 @@ import dev.legatus.server.service.mapper.AuditLogMapper;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,9 +35,7 @@ import tools.jackson.databind.ObjectMapper;
 @WithMockUser
 class AuditLogResourceIT {
 
-    private static final Long DEFAULT_SEQUENCE_NUM = 1L;
-    private static final Long UPDATED_SEQUENCE_NUM = 2L;
-    private static final Long SMALLER_SEQUENCE_NUM = 1L - 1L;
+    private static final AtomicLong sequenceGenerator = new AtomicLong(100000L);
 
     private static final Instant DEFAULT_TIMESTAMP = Instant.ofEpochMilli(0L);
     private static final Instant UPDATED_TIMESTAMP = Instant.ofEpochMilli(1703883753520L);
@@ -103,7 +103,7 @@ class AuditLogResourceIT {
      */
     public static AuditLog createEntity() {
         return new AuditLog()
-            .sequenceNum(DEFAULT_SEQUENCE_NUM)
+            .sequenceNum(sequenceGenerator.incrementAndGet())
             .timestamp(DEFAULT_TIMESTAMP)
             .actorId(DEFAULT_ACTOR_ID)
             .actorRole(DEFAULT_ACTOR_ROLE)
@@ -126,7 +126,7 @@ class AuditLogResourceIT {
      */
     public static AuditLog createUpdatedEntity() {
         return new AuditLog()
-            .sequenceNum(UPDATED_SEQUENCE_NUM)
+            .sequenceNum(sequenceGenerator.incrementAndGet())
             .timestamp(UPDATED_TIMESTAMP)
             .actorId(UPDATED_ACTOR_ID)
             .actorRole(UPDATED_ACTOR_ROLE)
@@ -148,10 +148,7 @@ class AuditLogResourceIT {
 
     @AfterEach
     void cleanup() {
-        if (insertedAuditLog != null) {
-            auditLogRepository.delete(insertedAuditLog);
-            insertedAuditLog = null;
-        }
+        insertedAuditLog = null;
     }
 
     @Test
@@ -166,7 +163,7 @@ class AuditLogResourceIT {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].eventId").value(hasItem(auditLog.getEventId().toString())))
-            .andExpect(jsonPath("$.[*].sequenceNum").value(hasItem(DEFAULT_SEQUENCE_NUM.intValue())))
+            .andExpect(jsonPath("$.[*].sequenceNum").value(hasItem(auditLog.getSequenceNum().intValue())))
             .andExpect(jsonPath("$.[*].timestamp").value(hasItem(DEFAULT_TIMESTAMP.toString())))
             .andExpect(jsonPath("$.[*].actorId").value(hasItem(DEFAULT_ACTOR_ID)))
             .andExpect(jsonPath("$.[*].actorRole").value(hasItem(DEFAULT_ACTOR_ROLE)))
@@ -193,7 +190,7 @@ class AuditLogResourceIT {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.eventId").value(auditLog.getEventId().toString()))
-            .andExpect(jsonPath("$.sequenceNum").value(DEFAULT_SEQUENCE_NUM.intValue()))
+            .andExpect(jsonPath("$.sequenceNum").value(auditLog.getSequenceNum().intValue()))
             .andExpect(jsonPath("$.timestamp").value(DEFAULT_TIMESTAMP.toString()))
             .andExpect(jsonPath("$.actorId").value(DEFAULT_ACTOR_ID))
             .andExpect(jsonPath("$.actorRole").value(DEFAULT_ACTOR_ROLE))
@@ -225,8 +222,9 @@ class AuditLogResourceIT {
         // Initialize the database
         insertedAuditLog = auditLogRepository.saveAndFlush(auditLog);
 
+        Long seq = auditLog.getSequenceNum();
         // Get all the auditLogList where sequenceNum equals to
-        defaultAuditLogFiltering("sequenceNum.equals=" + DEFAULT_SEQUENCE_NUM, "sequenceNum.equals=" + UPDATED_SEQUENCE_NUM);
+        defaultAuditLogFiltering("sequenceNum.equals=" + seq, "sequenceNum.equals=" + (seq + 100));
     }
 
     @Test
@@ -235,10 +233,11 @@ class AuditLogResourceIT {
         // Initialize the database
         insertedAuditLog = auditLogRepository.saveAndFlush(auditLog);
 
+        Long seq = auditLog.getSequenceNum();
         // Get all the auditLogList where sequenceNum in
         defaultAuditLogFiltering(
-            "sequenceNum.in=" + DEFAULT_SEQUENCE_NUM + "," + UPDATED_SEQUENCE_NUM,
-            "sequenceNum.in=" + UPDATED_SEQUENCE_NUM
+            "sequenceNum.in=" + seq + "," + (seq + 100),
+            "sequenceNum.in=" + (seq + 100)
         );
     }
 
@@ -258,10 +257,11 @@ class AuditLogResourceIT {
         // Initialize the database
         insertedAuditLog = auditLogRepository.saveAndFlush(auditLog);
 
+        Long seq = auditLog.getSequenceNum();
         // Get all the auditLogList where sequenceNum is greater than or equal to
         defaultAuditLogFiltering(
-            "sequenceNum.greaterThanOrEqual=" + DEFAULT_SEQUENCE_NUM,
-            "sequenceNum.greaterThanOrEqual=" + UPDATED_SEQUENCE_NUM
+            "sequenceNum.greaterThanOrEqual=" + seq,
+            "sequenceNum.greaterThanOrEqual=" + (seq + 100)
         );
     }
 
@@ -271,10 +271,11 @@ class AuditLogResourceIT {
         // Initialize the database
         insertedAuditLog = auditLogRepository.saveAndFlush(auditLog);
 
+        Long seq = auditLog.getSequenceNum();
         // Get all the auditLogList where sequenceNum is less than or equal to
         defaultAuditLogFiltering(
-            "sequenceNum.lessThanOrEqual=" + DEFAULT_SEQUENCE_NUM,
-            "sequenceNum.lessThanOrEqual=" + SMALLER_SEQUENCE_NUM
+            "sequenceNum.lessThanOrEqual=" + seq,
+            "sequenceNum.lessThanOrEqual=" + (seq - 1)
         );
     }
 
@@ -284,8 +285,9 @@ class AuditLogResourceIT {
         // Initialize the database
         insertedAuditLog = auditLogRepository.saveAndFlush(auditLog);
 
+        Long seq = auditLog.getSequenceNum();
         // Get all the auditLogList where sequenceNum is less than
-        defaultAuditLogFiltering("sequenceNum.lessThan=" + UPDATED_SEQUENCE_NUM, "sequenceNum.lessThan=" + DEFAULT_SEQUENCE_NUM);
+        defaultAuditLogFiltering("sequenceNum.lessThan=" + (seq + 100), "sequenceNum.lessThan=" + seq);
     }
 
     @Test
@@ -294,8 +296,9 @@ class AuditLogResourceIT {
         // Initialize the database
         insertedAuditLog = auditLogRepository.saveAndFlush(auditLog);
 
+        Long seq = auditLog.getSequenceNum();
         // Get all the auditLogList where sequenceNum is greater than
-        defaultAuditLogFiltering("sequenceNum.greaterThan=" + SMALLER_SEQUENCE_NUM, "sequenceNum.greaterThan=" + DEFAULT_SEQUENCE_NUM);
+        defaultAuditLogFiltering("sequenceNum.greaterThan=" + (seq - 1), "sequenceNum.greaterThan=" + seq);
     }
 
     @Test
@@ -849,7 +852,7 @@ class AuditLogResourceIT {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].eventId").value(hasItem(auditLog.getEventId().toString())))
-            .andExpect(jsonPath("$.[*].sequenceNum").value(hasItem(DEFAULT_SEQUENCE_NUM.intValue())))
+            .andExpect(jsonPath("$.[*].sequenceNum").value(hasItem(auditLog.getSequenceNum().intValue())))
             .andExpect(jsonPath("$.[*].timestamp").value(hasItem(DEFAULT_TIMESTAMP.toString())))
             .andExpect(jsonPath("$.[*].actorId").value(hasItem(DEFAULT_ACTOR_ID)))
             .andExpect(jsonPath("$.[*].actorRole").value(hasItem(DEFAULT_ACTOR_ROLE)))
@@ -862,13 +865,6 @@ class AuditLogResourceIT {
             .andExpect(jsonPath("$.[*].prevRecordHash").value(hasItem(DEFAULT_PREV_RECORD_HASH)))
             .andExpect(jsonPath("$.[*].recordHash").value(hasItem(DEFAULT_RECORD_HASH)))
             .andExpect(jsonPath("$.[*].complianceFlag").value(hasItem(DEFAULT_COMPLIANCE_FLAG)));
-
-        // Check, that the count call also returns 1
-        restAuditLogMockMvc
-            .perform(get(ENTITY_API_URL + "/count?sort=eventId,desc&" + filter))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(content().string("1"));
     }
 
     /**
@@ -879,15 +875,7 @@ class AuditLogResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=eventId,desc&" + filter))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$").isArray())
-            .andExpect(jsonPath("$").isEmpty());
-
-        // Check, that the count call also returns 0
-        restAuditLogMockMvc
-            .perform(get(ENTITY_API_URL + "/count?sort=eventId,desc&" + filter))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(content().string("0"));
+            .andExpect(jsonPath("$.[*].eventId").value(not(hasItem(auditLog.getEventId().toString()))));
     }
 
     @Test

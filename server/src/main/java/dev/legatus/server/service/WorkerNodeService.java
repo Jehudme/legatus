@@ -49,7 +49,10 @@ public class WorkerNodeService {
      */
     public WorkerNodeDTO update(WorkerNodeDTO workerNodeDTO) {
         LOG.debug("Request to update WorkerNode : {}", workerNodeDTO);
-        WorkerNode workerNode = workerNodeMapper.toEntity(workerNodeDTO);
+        WorkerNode workerNode = workerNodeRepository
+            .findById(workerNodeDTO.getWorkerId())
+            .orElseGet(() -> workerNodeMapper.toEntity(workerNodeDTO));
+        workerNodeMapper.partialUpdate(workerNode, workerNodeDTO);
         workerNode.setIsPersisted();
         workerNode = workerNodeRepository.save(workerNode);
         return workerNodeMapper.toDto(workerNode);

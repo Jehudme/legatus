@@ -16,7 +16,6 @@ import java.util.UUID;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class AccountDTO implements Serializable {
 
-    @NotNull
     private UUID accountId;
 
     @NotNull

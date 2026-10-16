@@ -235,7 +235,7 @@ class ComputeTaskResourceIT {
     @AfterEach
     void cleanup() {
         if (insertedComputeTask != null) {
-            computeTaskRepository.delete(insertedComputeTask);
+            computeTaskRepository.deleteById(insertedComputeTask.getTaskId());
             insertedComputeTask = null;
         }
     }

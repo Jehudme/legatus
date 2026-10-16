@@ -51,7 +51,10 @@ public class ComputeTaskService {
      */
     public ComputeTaskDTO update(ComputeTaskDTO computeTaskDTO) {
         LOG.debug("Request to update ComputeTask : {}", computeTaskDTO);
-        ComputeTask computeTask = computeTaskMapper.toEntity(computeTaskDTO);
+        ComputeTask computeTask = computeTaskRepository
+            .findById(computeTaskDTO.getTaskId())
+            .orElseGet(() -> computeTaskMapper.toEntity(computeTaskDTO));
+        computeTaskMapper.partialUpdate(computeTask, computeTaskDTO);
         computeTask.setIsPersisted();
         computeTask = computeTaskRepository.save(computeTask);
         return computeTaskMapper.toDto(computeTask);
