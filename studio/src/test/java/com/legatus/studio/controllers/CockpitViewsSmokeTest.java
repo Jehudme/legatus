@@ -38,6 +38,7 @@ public class CockpitViewsSmokeTest {
         "fleet_topology",
         "quarantine_attestation",
         "functions_workbench",
+        "execute_workbench",
         "task_explorer",
         "secrets_vault",
         "admin_users",

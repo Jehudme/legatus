@@ -1,15 +1,18 @@
 package com.legatus.studio.controllers;
 
 import com.legatus.studio.model.BytecodeItem;
+import com.legatus.studio.service.FxAsync;
 import com.legatus.studio.service.StudioContext;
 import com.legatus.studio.viewmodel.FunctionsViewModel;
 import com.legatus.studio.viewmodel.MainViewModel;
-import javafx.beans.binding.Bindings;
-import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -28,12 +31,9 @@ public class FunctionsWorkbenchController {
     @FXML private TableColumn<BytecodeItem, String> tagsCol;
     @FXML private TableColumn<BytecodeItem, String> sha256Col;
     @FXML private TableColumn<BytecodeItem, String> createdAtCol;
+    @FXML private Button newFunctionButton;
 
-    @FXML private TabPane functionTabPane;
-    @FXML private Tab inspectTab;
-    @FXML private Tab createTab;
-
-    // Inspector
+    // Dedicated Inspector
     @FXML private VBox inspectorContainer;
     @FXML private Label inspectorFunctionName;
     @FXML private Label inspectorSha256;
@@ -45,11 +45,16 @@ public class FunctionsWorkbenchController {
     @FXML private Button openInWorkbenchButton;
     @FXML private Label metadataStatusLabel;
 
-    // Bytecode Uploader
+    // Modal Dialog: Register & Deploy New Function
+    @FXML private VBox newFunctionModal;
+    @FXML private VBox dropZoneBox;
+    @FXML private Button chooseFileButton;
     @FXML private Label filePathLabel;
     @FXML private Label sha256Label;
+    @FXML private Label magicValidationLabel;
     @FXML private TextField functionNameField;
     @FXML private TextField entrypointField;
+    @FXML private Button cancelModalButton;
     @FXML private Button uploadButton;
     @FXML private Label statusLabel;
 
@@ -72,16 +77,18 @@ public class FunctionsWorkbenchController {
         if (viewModel == null) return;
 
         filteredBytecodeItems = new FilteredList<>(viewModel.getBytecodeItems(), p -> true);
-        javafx.collections.transformation.SortedList<BytecodeItem> sorted = new javafx.collections.transformation.SortedList<>(filteredBytecodeItems);
-        sorted.comparatorProperty().bind(bytecodeTable.comparatorProperty());
-        bytecodeTable.setItems(sorted);
+        SortedList<BytecodeItem> sorted = new SortedList<>(filteredBytecodeItems);
+        if (bytecodeTable != null) {
+            sorted.comparatorProperty().bind(bytecodeTable.comparatorProperty());
+            bytecodeTable.setItems(sorted);
+        }
 
-        functionNameCol.setCellValueFactory(c -> c.getValue().functionNameProperty());
-        tagsCol.setCellValueFactory(c -> c.getValue().tagsProperty());
-        sha256Col.setCellValueFactory(c -> c.getValue().sha256Property());
-        createdAtCol.setCellValueFactory(c -> c.getValue().uploadedAtProperty());
+        if (functionNameCol != null) functionNameCol.setCellValueFactory(c -> c.getValue().functionNameProperty());
+        if (tagsCol != null) tagsCol.setCellValueFactory(c -> c.getValue().tagsProperty());
+        if (sha256Col != null) sha256Col.setCellValueFactory(c -> c.getValue().sha256Property());
+        if (createdAtCol != null) createdAtCol.setCellValueFactory(c -> c.getValue().uploadedAtProperty());
 
-        // Tag filter listener
+        // Tag / name / digest filter listener
         if (tagFilterField != null) {
             tagFilterField.textProperty().addListener((obs, oldV, filterText) -> {
                 if (filterText == null || filterText.isBlank()) {
@@ -99,53 +106,61 @@ public class FunctionsWorkbenchController {
         }
 
         // Selection binding
-        bytecodeTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, selected) -> {
-            viewModel.setSelectedBytecode(selected);
-            displaySelectedMetadata(selected);
-        });
+        if (bytecodeTable != null) {
+            bytecodeTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, selected) -> {
+                viewModel.setSelectedBytecode(selected);
+                displaySelectedMetadata(selected);
+            });
 
-        // Initialize with currently selected item if any
-        if (viewModel.getSelectedBytecode() != null) {
-            bytecodeTable.getSelectionModel().select(viewModel.getSelectedBytecode());
-            displaySelectedMetadata(viewModel.getSelectedBytecode());
+            // Initialize with currently selected item if any
+            if (viewModel.getSelectedBytecode() != null) {
+                bytecodeTable.getSelectionModel().select(viewModel.getSelectedBytecode());
+                displaySelectedMetadata(viewModel.getSelectedBytecode());
+            } else if (!viewModel.getBytecodeItems().isEmpty()) {
+                bytecodeTable.getSelectionModel().select(0);
+                displaySelectedMetadata(viewModel.getBytecodeItems().get(0));
+            }
         }
 
-        filePathLabel.textProperty().bind(viewModel.selectedFilePathProperty());
-        sha256Label.textProperty().bind(viewModel.calculatedSha256Property());
-        functionNameField.textProperty().bindBidirectional(viewModel.functionNameInputProperty());
-        entrypointField.textProperty().bindBidirectional(viewModel.entrypointInputProperty());
-        uploadButton.disableProperty().bind(viewModel.isUploadingProperty());
-        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
+        if (filePathLabel != null) filePathLabel.textProperty().bind(viewModel.selectedFilePathProperty());
+        if (sha256Label != null) sha256Label.textProperty().bind(viewModel.calculatedSha256Property());
+        if (functionNameField != null) functionNameField.textProperty().bindBidirectional(viewModel.functionNameInputProperty());
+        if (entrypointField != null) entrypointField.textProperty().bindBidirectional(viewModel.entrypointInputProperty());
+        if (uploadButton != null) {
+            uploadButton.disableProperty().bind(
+                    viewModel.isUploadingProperty()
+                            .or(viewModel.isValidMagicHeaderProperty().not())
+                            .or(viewModel.selectedFilePathProperty().isEmpty())
+            );
+        }
+        if (statusLabel != null) statusLabel.textProperty().bind(viewModel.statusMessageProperty());
     }
 
     private void displaySelectedMetadata(BytecodeItem item) {
         if (item == null) {
-            inspectorFunctionName.setText("Select a function from catalog");
-            inspectorSha256.setText("--");
-            inspectorCreatedAt.setText("--");
-            descriptionArea.setText("");
-            tagsChipPane.getChildren().clear();
-            openInWorkbenchButton.setDisable(true);
-            saveMetadataButton.setDisable(true);
+            if (inspectorFunctionName != null) inspectorFunctionName.setText("Select a function from catalog");
+            if (inspectorSha256 != null) inspectorSha256.setText("--");
+            if (inspectorCreatedAt != null) inspectorCreatedAt.setText("--");
+            if (descriptionArea != null) descriptionArea.setText("");
+            if (tagsChipPane != null) tagsChipPane.getChildren().clear();
+            if (openInWorkbenchButton != null) openInWorkbenchButton.setDisable(true);
+            if (saveMetadataButton != null) saveMetadataButton.setDisable(true);
             return;
         }
 
-        if (functionTabPane != null && inspectTab != null) {
-            functionTabPane.getSelectionModel().select(inspectTab);
-        }
+        if (openInWorkbenchButton != null) openInWorkbenchButton.setDisable(false);
+        if (saveMetadataButton != null) saveMetadataButton.setDisable(false);
 
-        openInWorkbenchButton.setDisable(false);
-        saveMetadataButton.setDisable(false);
-
-        inspectorFunctionName.setText(item.getFunctionName());
-        inspectorSha256.setText(item.getSha256());
-        inspectorCreatedAt.setText(item.getUploadedAt().isBlank() ? "N/A" : item.getUploadedAt());
-        descriptionArea.setText(item.getDescription());
+        if (inspectorFunctionName != null) inspectorFunctionName.setText(item.getFunctionName());
+        if (inspectorSha256 != null) inspectorSha256.setText(item.getSha256());
+        if (inspectorCreatedAt != null) inspectorCreatedAt.setText(item.getUploadedAt().isBlank() ? "N/A" : item.getUploadedAt());
+        if (descriptionArea != null) descriptionArea.setText(item.getDescription());
 
         renderTagChips(item.getTags());
     }
 
     private void renderTagChips(String tagsStr) {
+        if (tagsChipPane == null) return;
         tagsChipPane.getChildren().clear();
         if (tagsStr == null || tagsStr.isBlank()) {
             return;
@@ -173,6 +188,7 @@ public class FunctionsWorkbenchController {
     }
 
     private void removeTag(String tagToRemove) {
+        if (bytecodeTable == null) return;
         BytecodeItem current = bytecodeTable.getSelectionModel().getSelectedItem();
         if (current == null) return;
 
@@ -191,6 +207,7 @@ public class FunctionsWorkbenchController {
 
     @FXML
     private void onAddTagClicked() {
+        if (bytecodeTable == null) return;
         BytecodeItem current = bytecodeTable.getSelectionModel().getSelectedItem();
         if (current == null || newTagField == null || newTagField.getText().isBlank()) return;
 
@@ -210,28 +227,32 @@ public class FunctionsWorkbenchController {
 
     @FXML
     private void onSaveMetadataClicked() {
+        if (bytecodeTable == null) return;
         BytecodeItem current = bytecodeTable.getSelectionModel().getSelectedItem();
         if (current == null || viewModel == null) return;
 
-        String desc = descriptionArea.getText();
+        String desc = descriptionArea != null ? descriptionArea.getText() : "";
         String tags = current.getTags();
         current.setDescription(desc);
 
         if (current.getFunctionId() != null) {
-            metadataStatusLabel.setText("Saving metadata...");
+            if (metadataStatusLabel != null) metadataStatusLabel.setText("Saving metadata...");
             viewModel.updateFunctionMetadata(current.getFunctionId(), desc, tags)
-                    .thenRun(() -> metadataStatusLabel.setText("Metadata saved successfully!"))
+                    .thenRun(() -> {
+                        if (metadataStatusLabel != null) metadataStatusLabel.setText("Metadata saved successfully!");
+                    })
                     .exceptionally(ex -> {
-                        metadataStatusLabel.setText("Failed to save: " + ex.getMessage());
+                        if (metadataStatusLabel != null) metadataStatusLabel.setText("Failed to save: " + ex.getMessage());
                         return null;
                     });
         } else {
-            metadataStatusLabel.setText("Local metadata updated.");
+            if (metadataStatusLabel != null) metadataStatusLabel.setText("Local metadata updated.");
         }
     }
 
     @FXML
     private void onOpenInWorkbenchClicked() {
+        if (bytecodeTable == null) return;
         BytecodeItem current = bytecodeTable.getSelectionModel().getSelectedItem();
         if (current == null) return;
 
@@ -247,29 +268,122 @@ public class FunctionsWorkbenchController {
         }
     }
 
+    // Modal Lifecycle
     @FXML
-    private void onRefreshCatalogClicked() {
-        if (viewModel != null) viewModel.loadCatalogedFunctions();
-    }
-
-    @FXML
-    private void onChooseFileClicked() {
-        if (viewModel == null) return;
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select Solix Bytecode (.slxb)");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Solix Bytecode (*.slxb)", "*.slxb", "*.*"));
-        File file = chooser.showOpenDialog(null);
-        if (file != null) {
-            try {
-                viewModel.inspectLocalFile(file.toPath());
-            } catch (Exception e) {
-                statusLabel.setText("Failed to inspect file: " + e.getMessage());
-            }
+    public void onOpenNewFunctionModal() {
+        if (viewModel != null) {
+            viewModel.selectedFilePathProperty().set("");
+            viewModel.calculatedSha256Property().set("");
+            viewModel.functionNameInputProperty().set("");
+            viewModel.entrypointInputProperty().set("main");
+            viewModel.statusMessageProperty().set("");
+        }
+        if (magicValidationLabel != null) {
+            magicValidationLabel.setText("");
+        }
+        if (newFunctionModal != null) {
+            newFunctionModal.setVisible(true);
+            newFunctionModal.setManaged(true);
         }
     }
 
     @FXML
-    private void onUploadClicked() {
-        if (viewModel != null) viewModel.executeUpload();
+    public void onCloseNewFunctionModal() {
+        if (newFunctionModal != null) {
+            newFunctionModal.setVisible(false);
+            newFunctionModal.setManaged(false);
+        }
     }
+
+    @FXML
+    public void onFileDragOver(DragEvent event) {
+        if (event.getDragboard().hasFiles()) {
+            event.acceptTransferModes(TransferMode.COPY);
+        }
+        event.consume();
+    }
+
+    @FXML
+    public void onFileDragDropped(DragEvent event) {
+        Dragboard db = event.getDragboard();
+        boolean success = false;
+        if (db.hasFiles() && !db.getFiles().isEmpty()) {
+            File file = db.getFiles().get(0);
+            inspectAndValidateFile(file);
+            success = true;
+        }
+        event.setDropCompleted(success);
+        event.consume();
+    }
+
+    @FXML
+    public void onChooseFileClicked() {
+        if (viewModel == null) return;
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Select Solix Bytecode (.slxb)");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Solix Bytecode (*.slxb, *.solx)", "*.slxb", "*.solx", "*.*"));
+        File file = chooser.showOpenDialog(null);
+        if (file != null) {
+            inspectAndValidateFile(file);
+        }
+    }
+
+    public void inspectAndValidateFile(File file) {
+        if (viewModel == null || file == null) return;
+        try {
+            viewModel.inspectLocalFile(file.toPath());
+            updateMagicValidationLabel();
+        } catch (Exception e) {
+            viewModel.statusMessageProperty().set("Failed to inspect file: " + e.getMessage());
+            if (magicValidationLabel != null) {
+                magicValidationLabel.setText("Selected file is not valid compiled Solix bytecode.");
+                magicValidationLabel.setStyle("-fx-text-fill: #ef4444;");
+            }
+        }
+    }
+
+    private void updateMagicValidationLabel() {
+        if (magicValidationLabel == null || viewModel == null) return;
+        if (viewModel.isValidMagicHeader()) {
+            magicValidationLabel.setText("✓ Valid Solix Bytecode Header (SOLX)");
+            magicValidationLabel.setStyle("-fx-text-fill: #34d399;");
+        } else {
+            magicValidationLabel.setText("Selected file is not valid compiled Solix bytecode.");
+            magicValidationLabel.setStyle("-fx-text-fill: #ef4444;");
+        }
+    }
+
+    @FXML
+    public void onUploadClicked() {
+        if (viewModel == null) return;
+        if (!viewModel.isValidMagicHeader()) {
+            if (magicValidationLabel != null) {
+                magicValidationLabel.setText("Selected file is not valid compiled Solix bytecode.");
+                magicValidationLabel.setStyle("-fx-text-fill: #ef4444;");
+            }
+            return;
+        }
+        viewModel.executeUpload().thenAccept(success -> {
+            if (Boolean.TRUE.equals(success)) {
+                FxAsync.runOnFxThread(() -> {
+                    onCloseNewFunctionModal();
+                    if (bytecodeTable != null && !viewModel.getBytecodeItems().isEmpty()) {
+                        bytecodeTable.getSelectionModel().select(0);
+                    }
+                });
+            }
+        });
+    }
+
+    // Getters for UI assertions and test automation
+    public TableView<BytecodeItem> getBytecodeTable() { return bytecodeTable; }
+    public VBox getNewFunctionModal() { return newFunctionModal; }
+    public Button getNewFunctionButton() { return newFunctionButton; }
+    public TextField getFunctionNameField() { return functionNameField; }
+    public TextField getEntrypointField() { return entrypointField; }
+    public Button getUploadButton() { return uploadButton; }
+    public Button getCancelModalButton() { return cancelModalButton; }
+    public Label getMagicValidationLabel() { return magicValidationLabel; }
+    public VBox getInspectorContainer() { return inspectorContainer; }
+    public FunctionsViewModel getViewModel() { return viewModel; }
 }

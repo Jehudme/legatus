@@ -4,241 +4,235 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.38" stylesheets="@styles.css"
+<StackPane stylesheets="@styles.css"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.legatus.studio.controllers.ExecuteWorkbenchController">
 
-    <!-- Left Side: Available Profiles Master List -->
-    <VBox spacing="12.0" style="-fx-background-color: #0b1120;">
-        <padding>
-            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
-        </padding>
+    <!-- Main 2-Column SplitPane Layout -->
+    <SplitPane fx:id="mainExecutePane" dividerPositions="0.38">
+        <!-- Left Side: Available Profiles Master List -->
+        <VBox spacing="12.0" style="-fx-background-color: #0b1120;">
+            <padding>
+                <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+            </padding>
 
-        <HBox spacing="10.0" alignment="CENTER_LEFT">
-            <Label text="Execution Profiles" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" HBox.hgrow="ALWAYS" />
-            <Region HBox.hgrow="ALWAYS" />
-            <Button text="+ New Profile" onAction="#onSwitchToCreateTab" style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;" />
-        </HBox>
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <Label text="Execution Profiles" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" HBox.hgrow="ALWAYS" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Button fx:id="newProfileButton" text="+ New Profile" onAction="#onOpenNewProfileModal"
+                        style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;" />
+            </HBox>
 
-        <TextField fx:id="profileSearchField" promptText="Filter profiles..." />
+            <TextField fx:id="profileSearchField" promptText="Filter profiles..." />
 
-        <TableView fx:id="profilesTable" VBox.vgrow="ALWAYS">
-            <columns>
-                <TableColumn fx:id="profileNameCol" text="Profile Name" prefWidth="130.0" />
-                <TableColumn fx:id="functionNameCol" text="Function" prefWidth="120.0" />
-                <TableColumn fx:id="priorityCol" text="Priority" prefWidth="75.0" />
-                <TableColumn fx:id="budgetCol" text="Budget" prefWidth="95.0" />
-            </columns>
-        </TableView>
-    </VBox>
+            <TableView fx:id="profilesTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="profileNameCol" text="Profile Name" prefWidth="130.0" />
+                    <TableColumn fx:id="functionNameCol" text="Function" prefWidth="120.0" />
+                    <TableColumn fx:id="priorityCol" text="Priority" prefWidth="75.0" />
+                    <TableColumn fx:id="budgetCol" text="Budget" prefWidth="95.0" />
+                </columns>
+            </TableView>
+        </VBox>
 
-    <!-- Right Side: Dual Panels (Inspect & Execute Profile vs Create New Profile) -->
-    <TabPane fx:id="profileTabs" tabClosingPolicy="UNAVAILABLE" style="-fx-background-color: #090d16;">
-        <!-- Tab 1: Inspect & Execute Profile -->
-        <Tab fx:id="inspectTab" text="Inspect &amp; Execute Profile">
-            <ScrollPane fitToWidth="true" style="-fx-background-color: #090d16; -fx-background: #090d16;">
-                <VBox spacing="14.0" style="-fx-background-color: #090d16;">
-                    <padding>
-                        <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
-                    </padding>
+        <!-- Right Side: Dedicated Inspect & Execute Workbench -->
+        <ScrollPane fitToWidth="true" style="-fx-background-color: #090d16; -fx-background: #090d16;">
+            <VBox spacing="14.0" style="-fx-background-color: #090d16;">
+                <padding>
+                    <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+                </padding>
 
-                    <Label fx:id="inspectHeaderLabel" text="Profile Details" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+                <Label fx:id="inspectHeaderLabel" text="Profile Details" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
 
-                    <!-- Card 1: Bound Target Function & Profile Identity -->
-                    <VBox spacing="10.0" styleClass="attestation-card">
-                        <HBox spacing="12.0">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="TARGET FUNCTION" styleClass="gauge-title" />
-                                <ComboBox fx:id="inspectFunctionSelector" maxWidth="Infinity" promptText="Select a registered function..." />
-                            </VBox>
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="PROFILE NAME" styleClass="gauge-title" />
-                                <TextField fx:id="inspectProfileNameField" promptText="Profile Name" />
-                            </VBox>
-                        </HBox>
-                    </VBox>
-
-                    <!-- Card 2: JSON Arguments Editor -->
-                    <VBox spacing="8.0" styleClass="attestation-card">
-                        <HBox alignment="CENTER_LEFT" spacing="10.0">
-                            <Label text="FUNCTION ARGUMENTS (JSON)" styleClass="gauge-title" HBox.hgrow="ALWAYS" />
-                            <Label fx:id="inspectJsonValidationLabel" text="✓ Valid JSON" style="-fx-font-size: 11px; -fx-text-fill: #34d399; -fx-font-weight: bold;" />
-                            <Button text="Format JSON" onAction="#onFormatJsonClicked" style="-fx-background-color: #334155; -fx-text-fill: white; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <TextArea fx:id="inspectArgumentsArea" prefRowCount="5" text="{}" promptText="{&quot;key&quot;: &quot;value&quot;}"
-                                  style="-fx-font-family: monospace; -fx-font-size: 12px;" wrapText="true" />
-                    </VBox>
-
-                    <!-- Card 3: Execution Quotas, Constraints & Alerts -->
-                    <VBox spacing="10.0" styleClass="attestation-card">
-                        <Label text="QUOTA LIMITS &amp; ALERTS" styleClass="gauge-title" />
-
-                        <HBox spacing="12.0" alignment="CENTER_LEFT">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Instruction Budget" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="inspectInstructionBudgetField" text="10000000" promptText="e.g. 10000000" />
-                            </VBox>
-                            <CheckBox fx:id="inspectUnlimitedInstructionsCheck" text="Unlimited Instructions (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <HBox spacing="12.0" alignment="CENTER_LEFT">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Time Limit (ms)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="inspectTimeLimitField" text="60000" promptText="e.g. 60000" />
-                            </VBox>
-                            <CheckBox fx:id="inspectUnlimitedTimeCheck" text="Unlimited Time (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <HBox spacing="12.0" alignment="CENTER_LEFT">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Memory Limit (MB)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="inspectMemoryField" text="64" />
-                            </VBox>
-                            <VBox spacing="4.0" prefWidth="140.0">
-                                <Label text="Priority" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <ComboBox fx:id="inspectPriorityCombo" maxWidth="Infinity" />
-                            </VBox>
-                        </HBox>
-
-                        <CheckBox fx:id="inspectNotifyOnFailureCheck" text="Notify if Function Failed (Chime &amp; Desktop Banner)"
-                                  style="-fx-text-fill: #f59e0b; -fx-font-size: 12px; -fx-font-weight: bold;" />
-                    </VBox>
-
-                    <!-- Profile Actions & Execution Trigger -->
-                    <VBox spacing="10.0">
-                        <HBox spacing="10.0" alignment="CENTER_LEFT">
-                            <Button fx:id="executeButton" text="▶ Execute Profile" onAction="#onExecuteClicked"
-                                    style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 9 22 9 22;" />
-                            <Button fx:id="saveProfileBtn" text="Save Changes" onAction="#onSaveProfileClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
-                            <Button fx:id="exportProfileBtn" text="Export JSON..." onAction="#onExportProfileClicked" style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-border-color: #334155;" />
-                            <Button fx:id="deleteProfileBtn" text="Delete" onAction="#onDeleteProfileClicked" style="-fx-background-color: #dc2626; -fx-text-fill: white;" />
-                        </HBox>
-                        <Label fx:id="dispatchStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
-                    </VBox>
-
-                    <!-- Card 4: Live Execution Monitor & Telemetry Card -->
-                    <VBox spacing="10.0" styleClass="attestation-card">
-                        <Label text="LIVE EXECUTION MONITOR" styleClass="gauge-title" />
-
-                        <HBox alignment="CENTER_LEFT" spacing="12.0">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <HBox spacing="8.0" alignment="CENTER_LEFT">
-                                    <Label text="TASK:" styleClass="gauge-title" />
-                                    <Label fx:id="activeTaskIdLabel" text="No task running" style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #f8fafc;" />
-                                </HBox>
-                                <HBox spacing="8.0" alignment="CENTER_LEFT">
-                                    <Label text="WORKER:" styleClass="gauge-title" />
-                                    <Label fx:id="activeWorkerIdLabel" text="--" style="-fx-font-family: monospace; -fx-font-size: 11px; -fx-text-fill: #94a3b8;" />
-                                </HBox>
-                            </VBox>
-                            <Label fx:id="taskStatusBadge" text="IDLE" styleClass="badge-inactive" />
-                        </HBox>
-
-                        <VBox spacing="6.0">
-                            <HBox alignment="CENTER_LEFT">
-                                <Label text="INSTRUCTION PROGRESS" styleClass="gauge-title" />
-                                <Region HBox.hgrow="ALWAYS" />
-                                <Label fx:id="progressMetricsLabel" text="0 / 0 instructions" style="-fx-font-family: monospace; -fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                            </HBox>
-                            <ProgressBar fx:id="executionProgressBar" progress="0.0" maxWidth="Infinity" prefHeight="8.0" />
+                <!-- Card 1: Bound Target Function & Profile Identity -->
+                <VBox spacing="10.0" styleClass="attestation-card">
+                    <HBox spacing="12.0">
+                        <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                            <Label text="TARGET FUNCTION" styleClass="gauge-title" />
+                            <ComboBox fx:id="inspectFunctionSelector" maxWidth="Infinity" promptText="Select a registered function..." />
                         </VBox>
-
-                        <HBox alignment="CENTER_LEFT">
-                            <Label text="EXECUTION STDOUT / STDERR STREAM" styleClass="gauge-title" />
-                            <Region HBox.hgrow="ALWAYS" />
-                            <Button text="Clear Terminal" onAction="#onClearTerminalClicked" style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <TextArea fx:id="terminalArea" editable="false" prefRowCount="6" wrapText="true"
-                                  style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-control-inner-background: #050811; -fx-text-fill: #34d399; -fx-border-color: #334155; -fx-border-radius: 4;" />
-                    </VBox>
-                </VBox>
-            </ScrollPane>
-        </Tab>
-
-        <!-- Tab 2: Create New Profile -->
-        <Tab fx:id="createTab" text="Create New Profile">
-            <ScrollPane fitToWidth="true" style="-fx-background-color: #090d16; -fx-background: #090d16;">
-                <VBox spacing="14.0" style="-fx-background-color: #090d16;">
-                    <padding>
-                        <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
-                    </padding>
-
-                    <Label text="Create New Execution Profile" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
-
-                    <!-- Card 1: Target Function & Profile Identity -->
-                    <VBox spacing="10.0" styleClass="attestation-card">
-                        <Label text="TARGET FUNCTION &amp; PROFILE NAME" styleClass="gauge-title" />
-                        <HBox spacing="12.0">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Target Function" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <ComboBox fx:id="createFunctionSelector" maxWidth="Infinity" promptText="Select a registered function..." />
-                            </VBox>
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Profile Name" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="createProfileNameField" promptText="e.g. Production High-Load" />
-                            </VBox>
-                        </HBox>
-                    </VBox>
-
-                    <!-- Card 2: Arguments Editor -->
-                    <VBox spacing="8.0" styleClass="attestation-card">
-                        <HBox alignment="CENTER_LEFT" spacing="10.0">
-                            <Label text="ARGUMENTS (JSON)" styleClass="gauge-title" HBox.hgrow="ALWAYS" />
-                            <Label fx:id="createJsonValidationLabel" text="✓ Valid JSON" style="-fx-font-size: 11px; -fx-text-fill: #34d399; -fx-font-weight: bold;" />
-                            <Button text="Format JSON" onAction="#onCreateFormatJsonClicked" style="-fx-background-color: #334155; -fx-text-fill: white; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <TextArea fx:id="createArgumentsArea" prefRowCount="5" text="{}" promptText="{&quot;key&quot;: &quot;value&quot;}"
-                                  style="-fx-font-family: monospace; -fx-font-size: 12px;" wrapText="true" />
-                    </VBox>
-
-                    <!-- Card 3: Quotas & Constraints -->
-                    <VBox spacing="10.0" styleClass="attestation-card">
-                        <Label text="QUOTA LIMITS &amp; ALERTS" styleClass="gauge-title" />
-
-                        <HBox spacing="12.0" alignment="CENTER_LEFT">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Instruction Budget" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="createInstructionBudgetField" text="10000000" promptText="e.g. 10000000" />
-                            </VBox>
-                            <CheckBox fx:id="createUnlimitedInstructionsCheck" text="Unlimited Instructions (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <HBox spacing="12.0" alignment="CENTER_LEFT">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Time Limit (ms)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="createTimeLimitField" text="60000" promptText="e.g. 60000" />
-                            </VBox>
-                            <CheckBox fx:id="createUnlimitedTimeCheck" text="Unlimited Time (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
-                        </HBox>
-
-                        <HBox spacing="12.0" alignment="CENTER_LEFT">
-                            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                                <Label text="Memory Limit (MB)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <TextField fx:id="createMemoryField" text="64" />
-                            </VBox>
-                            <VBox spacing="4.0" prefWidth="140.0">
-                                <Label text="Priority" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
-                                <ComboBox fx:id="createPriorityCombo" maxWidth="Infinity" />
-                            </VBox>
-                        </HBox>
-
-                        <CheckBox fx:id="createNotifyOnFailureCheck" text="Notify if Function Failed (Chime &amp; Desktop Banner)"
-                                  style="-fx-text-fill: #f59e0b; -fx-font-size: 12px; -fx-font-weight: bold;" />
-                    </VBox>
-
-                    <!-- Create Action Bar -->
-                    <HBox spacing="12.0" alignment="CENTER_LEFT">
-                        <Button fx:id="createProfileBtn" text="+ Create Execution Profile" onAction="#onCreateProfileClicked"
-                                style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 9 20 9 20;" />
-                        <Button fx:id="createImportProfileBtn" text="Import Profile (JSON)..." onAction="#onImportProfileClicked"
-                                style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-border-color: #334155;" />
-                        <Label fx:id="createStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" HBox.hgrow="ALWAYS" />
+                        <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                            <Label text="PROFILE NAME" styleClass="gauge-title" />
+                            <TextField fx:id="inspectProfileNameField" promptText="Profile Name" />
+                        </VBox>
                     </HBox>
                 </VBox>
-            </ScrollPane>
-        </Tab>
-    </TabPane>
-</SplitPane>
+
+                <!-- Card 2: JSON Arguments Editor -->
+                <VBox spacing="8.0" styleClass="attestation-card">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label text="FUNCTION ARGUMENTS (JSON)" styleClass="gauge-title" HBox.hgrow="ALWAYS" />
+                        <Label fx:id="inspectJsonValidationLabel" text="✓ Valid JSON" style="-fx-font-size: 11px; -fx-text-fill: #34d399; -fx-font-weight: bold;" />
+                        <Button text="Format JSON" onAction="#onFormatJsonClicked" style="-fx-background-color: #334155; -fx-text-fill: white; -fx-font-size: 11px;" />
+                    </HBox>
+
+                    <TextArea fx:id="inspectArgumentsArea" prefRowCount="5" text="{}" promptText="{&quot;key&quot;: &quot;value&quot;}"
+                              style="-fx-font-family: monospace; -fx-font-size: 12px;" wrapText="true" />
+                </VBox>
+
+                <!-- Card 3: Execution Quotas, Constraints & Alerts -->
+                <VBox spacing="10.0" styleClass="attestation-card">
+                    <Label text="QUOTA LIMITS &amp; ALERTS" styleClass="gauge-title" />
+
+                    <HBox spacing="12.0" alignment="CENTER_LEFT">
+                        <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                            <Label text="Instruction Budget" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                            <TextField fx:id="inspectInstructionBudgetField" text="10000000" promptText="e.g. 10000000" />
+                        </VBox>
+                        <CheckBox fx:id="inspectUnlimitedInstructionsCheck" text="Unlimited Instructions (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
+                    </HBox>
+
+                    <HBox spacing="12.0" alignment="CENTER_LEFT">
+                        <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                            <Label text="Time Limit (ms)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                            <TextField fx:id="inspectTimeLimitField" text="60000" promptText="e.g. 60000" />
+                        </VBox>
+                        <CheckBox fx:id="inspectUnlimitedTimeCheck" text="Unlimited Time (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
+                    </HBox>
+
+                    <HBox spacing="12.0" alignment="CENTER_LEFT">
+                        <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                            <Label text="Memory Limit (MB)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                            <TextField fx:id="inspectMemoryField" text="64" />
+                        </VBox>
+                        <VBox spacing="4.0" prefWidth="140.0">
+                            <Label text="Priority" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                            <ComboBox fx:id="inspectPriorityCombo" maxWidth="Infinity" />
+                        </VBox>
+                    </HBox>
+
+                    <CheckBox fx:id="inspectNotifyOnFailureCheck" text="Notify if Function Failed (Chime &amp; Desktop Banner)"
+                              style="-fx-text-fill: #f59e0b; -fx-font-size: 12px; -fx-font-weight: bold;" />
+                </VBox>
+
+                <!-- Profile Actions & Execution Trigger -->
+                <VBox spacing="10.0">
+                    <HBox spacing="10.0" alignment="CENTER_LEFT">
+                        <Button fx:id="executeButton" text="▶ Execute Profile" onAction="#onExecuteClicked"
+                                style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 9 22 9 22;" />
+                        <Button fx:id="saveProfileBtn" text="Save Changes" onAction="#onSaveProfileClicked" style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                        <Button fx:id="exportProfileBtn" text="Export JSON..." onAction="#onExportProfileClicked" style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-border-color: #334155;" />
+                        <Button fx:id="deleteProfileBtn" text="Delete" onAction="#onDeleteProfileClicked" style="-fx-background-color: #dc2626; -fx-text-fill: white;" />
+                    </HBox>
+                    <Label fx:id="dispatchStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #34d399;" wrapText="true" />
+                </VBox>
+
+                <!-- Card 4: Live Execution Monitor & Telemetry Card -->
+                <VBox spacing="10.0" styleClass="attestation-card">
+                    <Label text="LIVE EXECUTION MONITOR" styleClass="gauge-title" />
+
+                    <HBox alignment="CENTER_LEFT" spacing="12.0">
+                        <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                            <HBox spacing="8.0" alignment="CENTER_LEFT">
+                                <Label text="TASK:" styleClass="gauge-title" />
+                                <Label fx:id="activeTaskIdLabel" text="No task running" style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-text-fill: #f8fafc;" />
+                            </HBox>
+                            <HBox spacing="8.0" alignment="CENTER_LEFT">
+                                <Label text="WORKER:" styleClass="gauge-title" />
+                                <Label fx:id="activeWorkerIdLabel" text="--" style="-fx-font-family: monospace; -fx-font-size: 11px; -fx-text-fill: #94a3b8;" />
+                            </HBox>
+                        </VBox>
+                        <Label fx:id="taskStatusBadge" text="IDLE" styleClass="badge-inactive" />
+                    </HBox>
+
+                    <VBox spacing="6.0">
+                        <HBox alignment="CENTER_LEFT">
+                            <Label text="INSTRUCTION PROGRESS" styleClass="gauge-title" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Label fx:id="progressMetricsLabel" text="0 / 0 instructions" style="-fx-font-family: monospace; -fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                        </HBox>
+                        <ProgressBar fx:id="executionProgressBar" progress="0.0" maxWidth="Infinity" prefHeight="8.0" />
+                    </VBox>
+
+                    <HBox alignment="CENTER_LEFT">
+                        <Label text="EXECUTION STDOUT / STDERR STREAM" styleClass="gauge-title" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Button text="Clear Terminal" onAction="#onClearTerminalClicked" style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+                    </HBox>
+
+                    <TextArea fx:id="terminalArea" editable="false" prefRowCount="6" wrapText="true"
+                              style="-fx-font-family: monospace; -fx-font-size: 12px; -fx-control-inner-background: #050811; -fx-text-fill: #34d399; -fx-border-color: #334155; -fx-border-radius: 4;" />
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </SplitPane>
+
+    <!-- Modal Dialog: Create New Profile Overlay -->
+    <VBox fx:id="newProfileModal" alignment="CENTER" style="-fx-background-color: rgba(0, 0, 0, 0.75);" visible="false" managed="false">
+        <VBox spacing="16.0" styleClass="attestation-card" maxWidth="500.0"
+              style="-fx-background-color: #1e293b; -fx-padding: 24; -fx-border-color: #38bdf8; -fx-border-radius: 8; -fx-background-radius: 8;">
+            <Label text="Create New Execution Profile" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+
+            <!-- Target Function & Profile Identity -->
+            <VBox spacing="10.0">
+                <HBox spacing="12.0">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Target Function" styleClass="gauge-title" />
+                        <ComboBox fx:id="createFunctionSelector" maxWidth="Infinity" promptText="Select a registered function..." />
+                    </VBox>
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Profile Name" styleClass="gauge-title" />
+                        <TextField fx:id="createProfileNameField" promptText="e.g. Production High-Load" />
+                    </VBox>
+                </HBox>
+            </VBox>
+
+            <!-- Arguments Editor -->
+            <VBox spacing="6.0">
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <Label text="ARGUMENTS (JSON)" styleClass="gauge-title" HBox.hgrow="ALWAYS" />
+                    <Label fx:id="createJsonValidationLabel" text="✓ Valid JSON" style="-fx-font-size: 11px; -fx-text-fill: #34d399; -fx-font-weight: bold;" />
+                    <Button text="Format JSON" onAction="#onCreateFormatJsonClicked" style="-fx-background-color: #334155; -fx-text-fill: white; -fx-font-size: 11px;" />
+                </HBox>
+                <TextArea fx:id="createArgumentsArea" prefRowCount="4" text="{}" promptText="{&quot;key&quot;: &quot;value&quot;}"
+                          style="-fx-font-family: monospace; -fx-font-size: 12px;" wrapText="true" />
+            </VBox>
+
+            <!-- Quotas & Constraints -->
+            <VBox spacing="8.0">
+                <HBox spacing="12.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Instruction Budget" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                        <TextField fx:id="createInstructionBudgetField" text="10000000" promptText="e.g. 10000000" />
+                    </VBox>
+                    <CheckBox fx:id="createUnlimitedInstructionsCheck" text="Unlimited (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
+                </HBox>
+
+                <HBox spacing="12.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Time Limit (ms)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                        <TextField fx:id="createTimeLimitField" text="60000" promptText="e.g. 60000" />
+                    </VBox>
+                    <CheckBox fx:id="createUnlimitedTimeCheck" text="Unlimited (∞)" style="-fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
+                </HBox>
+
+                <HBox spacing="12.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Memory Limit (MB)" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                        <TextField fx:id="createMemoryField" text="64" />
+                    </VBox>
+                    <VBox spacing="4.0" prefWidth="130.0">
+                        <Label text="Priority" style="-fx-font-size: 11px; -fx-text-fill: #cbd5e1;" />
+                        <ComboBox fx:id="createPriorityCombo" maxWidth="Infinity" />
+                    </VBox>
+                </HBox>
+
+                <CheckBox fx:id="createNotifyOnFailureCheck" text="Notify if Function Failed (Chime &amp; Banner)"
+                          style="-fx-text-fill: #f59e0b; -fx-font-size: 11px; -fx-font-weight: bold;" />
+            </VBox>
+
+            <Label fx:id="createStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: #ef4444;" wrapText="true" />
+
+            <!-- Action Bar -->
+            <HBox spacing="12.0" alignment="CENTER_RIGHT">
+                <Button fx:id="cancelCreateProfileBtn" text="Cancel" onAction="#onCloseNewProfileModal"
+                        style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                <Button fx:id="createImportProfileBtn" text="Import Profile (JSON)..." onAction="#onImportProfileClicked"
+                        style="-fx-background-color: #1e293b; -fx-text-fill: #94a3b8; -fx-border-color: #334155;" />
+                <Button fx:id="createProfileBtn" text="+ Create Profile" onAction="#onCreateProfileClicked"
+                        style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 18 8 18;" />
+            </HBox>
+        </VBox>
+    </VBox>
+
+</StackPane>

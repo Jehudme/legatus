@@ -26,6 +26,7 @@ public class FunctionsViewModel {
     private final StringProperty functionNameInput = new SimpleStringProperty("");
     private final StringProperty entrypointInput = new SimpleStringProperty("main");
     private final BooleanProperty isUploading = new SimpleBooleanProperty(false);
+    private final BooleanProperty isValidMagicHeader = new SimpleBooleanProperty(true);
     private final StringProperty statusMessage = new SimpleStringProperty("");
 
     private final BytecodeService bytecodeService;
@@ -128,6 +129,14 @@ public class FunctionsViewModel {
         String sha256 = BytecodeService.computeFileSha256(file);
         calculatedSha256.set(sha256);
 
+        boolean validMagic = BytecodeService.hasSolixMagicHeader(file);
+        isValidMagicHeader.set(validMagic);
+        if (!validMagic) {
+            statusMessage.set("Selected file is not valid compiled Solix bytecode.");
+        } else {
+            statusMessage.set("Valid Solix bytecode selected.");
+        }
+
         String fileName = file.getFileName().toString();
         if (fileName.contains(".")) {
             fileName = fileName.substring(0, fileName.lastIndexOf('.'));
@@ -191,6 +200,14 @@ public class FunctionsViewModel {
         isUploading.set(true);
         try {
             byte[] bytes = Files.readAllBytes(path);
+            if (!BytecodeService.hasSolixMagicHeader(bytes)) {
+                isUploading.set(false);
+                isValidMagicHeader.set(false);
+                statusMessage.set("Selected file is not valid compiled Solix bytecode.");
+                return CompletableFuture.completedFuture(false);
+            }
+            isValidMagicHeader.set(true);
+
             String name = functionNameInput.get().isBlank() ? "function" : functionNameInput.get();
             String entry = entrypointInput.get().isBlank() ? "main" : entrypointInput.get();
 
@@ -200,7 +217,7 @@ public class FunctionsViewModel {
                             BytecodeItem item = new BytecodeItem(sha, name, entry, bytes.length, java.time.Instant.now().toString());
                             boolean exists = bytecodeItems.stream().anyMatch(b -> b.getSha256().equalsIgnoreCase(sha));
                             if (!exists) {
-                                bytecodeItems.add(item);
+                                bytecodeItems.add(0, item);
                             }
                             selectedBytecode.set(item);
                             isUploading.set(false);
@@ -335,6 +352,8 @@ public class FunctionsViewModel {
     public StringProperty functionNameInputProperty() { return functionNameInput; }
     public StringProperty entrypointInputProperty() { return entrypointInput; }
     public BooleanProperty isUploadingProperty() { return isUploading; }
+    public BooleanProperty isValidMagicHeaderProperty() { return isValidMagicHeader; }
+    public boolean isValidMagicHeader() { return isValidMagicHeader.get(); }
     public StringProperty statusMessageProperty() { return statusMessage; }
 
     public StringProperty argumentsJsonInputProperty() { return argumentsJsonInput; }

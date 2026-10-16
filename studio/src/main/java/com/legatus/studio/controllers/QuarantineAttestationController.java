@@ -187,4 +187,14 @@ public class QuarantineAttestationController {
     public HBox getAutoAcceptBanner() {
         return autoAcceptBanner;
     }
+
+    public TextField getFriendlyNameField() { return friendlyNameField; }
+    public TextField getLeaseDurationField() { return leaseDurationField; }
+    public Button getApproveButton() { return approveButton; }
+    public Button getRejectButton() { return rejectButton; }
+    public Label getWorkerIdLabel() { return workerIdLabel; }
+    public Label getHostnameLabel() { return hostnameLabel; }
+    public Label getFingerprintLabel() { return fingerprintLabel; }
+    public Label getVisualCodeLabel() { return visualCodeLabel; }
+    public QuarantineViewModel getViewModel() { return viewModel; }
 }

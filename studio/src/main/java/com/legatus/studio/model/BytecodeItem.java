@@ -31,6 +31,11 @@ public class BytecodeItem {
         this.uploadedAt.set(uploadedAt);
     }
 
+    public BytecodeItem(UUID functionId, String sha256, String functionName, String entryPoint, long sizeBytes, String uploadedAt) {
+        this(sha256, functionName, entryPoint, sizeBytes, uploadedAt);
+        this.functionId.set(functionId);
+    }
+
     public BytecodeItem(UUID functionId, String sha256, String functionName, String entryPoint, long sizeBytes,
                         String uploadedAt, String description, String tags, long invocationsLastHour,
                         RestDto.SolixFunctionDto rawDto) {

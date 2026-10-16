@@ -30,6 +30,7 @@ public class StudioContext {
     private TelemetryService telemetryService;
     private com.legatus.studio.viewmodel.FunctionsViewModel functionsViewModel;
     private com.legatus.studio.viewmodel.UserManagementViewModel userManagementViewModel;
+    private com.legatus.studio.viewmodel.ExecutionProfileViewModel executionProfileViewModel;
     private final MainViewModel mainViewModel = new MainViewModel();
 
     private StudioContext() {
@@ -52,6 +53,7 @@ public class StudioContext {
         this.executionProfileService = new ExecutionProfileService(restClient);
 
         this.functionsViewModel = new com.legatus.studio.viewmodel.FunctionsViewModel(this.bytecodeService, this.taskService);
+        this.executionProfileViewModel = new com.legatus.studio.viewmodel.ExecutionProfileViewModel(this.executionProfileService, this.functionsViewModel);
 
         // Derive ws/wss URL
         String trimmed = serverUrl.trim();
@@ -119,6 +121,9 @@ public class StudioContext {
     public void refreshInitialData() {
         if (functionsViewModel != null) {
             functionsViewModel.loadCatalogedFunctions();
+        }
+        if (executionProfileViewModel != null) {
+            executionProfileViewModel.loadProfiles();
         }
         if (workerService == null || telemetryService == null) return;
 
@@ -247,5 +252,14 @@ public class StudioContext {
     public MainViewModel getMainViewModel() { return mainViewModel; }
     public com.legatus.studio.viewmodel.FunctionsViewModel getFunctionsViewModel() { return functionsViewModel; }
     public com.legatus.studio.viewmodel.UserManagementViewModel getUserManagementViewModel() { return userManagementViewModel; }
+    public com.legatus.studio.viewmodel.ExecutionProfileViewModel getExecutionProfileViewModel() { return executionProfileViewModel; }
     public OperatorSession getOperatorSession() { return OperatorSession.getInstance(); }
+
+    public void setRestClient(RestClient restClient) { this.restClient = restClient; }
+    public void setTaskService(TaskService taskService) { this.taskService = taskService; }
+    public void setBytecodeService(BytecodeService bytecodeService) { this.bytecodeService = bytecodeService; }
+    public void setFunctionsViewModel(com.legatus.studio.viewmodel.FunctionsViewModel functionsViewModel) { this.functionsViewModel = functionsViewModel; }
+    public void setExecutionProfileService(ExecutionProfileService executionProfileService) { this.executionProfileService = executionProfileService; }
+    public void setExecutionProfileViewModel(com.legatus.studio.viewmodel.ExecutionProfileViewModel executionProfileViewModel) { this.executionProfileViewModel = executionProfileViewModel; }
+    public void setLstcpClient(LstcpClient lstcpClient) { this.lstcpClient = lstcpClient; }
 }

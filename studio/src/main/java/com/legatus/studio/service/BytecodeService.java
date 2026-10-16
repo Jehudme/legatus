@@ -21,8 +21,28 @@ public class BytecodeService {
 
     private final RestClient restClient;
 
+    public static final byte[] SOLIX_MAGIC = new byte[] { 0x53, 0x4F, 0x4C, 0x58 };
+
     public BytecodeService(RestClient restClient) {
         this.restClient = Objects.requireNonNull(restClient, "restClient must not be null");
+    }
+
+    public static boolean hasSolixMagicHeader(byte[] data) {
+        return data != null && data.length >= 4
+                && data[0] == 0x53
+                && data[1] == 0x4F
+                && data[2] == 0x4C
+                && data[3] == 0x58;
+    }
+
+    public static boolean hasSolixMagicHeader(Path path) throws IOException {
+        if (path == null || !Files.exists(path) || Files.size(path) < 4) {
+            return false;
+        }
+        try (InputStream is = Files.newInputStream(path)) {
+            byte[] header = is.readNBytes(4);
+            return hasSolixMagicHeader(header);
+        }
     }
 
     public static String computeSha256(byte[] data) {
