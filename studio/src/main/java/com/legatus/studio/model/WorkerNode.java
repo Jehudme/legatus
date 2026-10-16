@@ -22,6 +22,16 @@ public class WorkerNode {
     private final IntegerProperty activeTasksCount = new SimpleIntegerProperty(0);
     private final StringProperty lastHeartbeat = new SimpleStringProperty("");
 
+    private final StringProperty friendlyName = new SimpleStringProperty("");
+    private final BooleanProperty active = new SimpleBooleanProperty(true);
+    private final DoubleProperty targetCpuPct = new SimpleDoubleProperty(75.0);
+    private final DoubleProperty targetRamPct = new SimpleDoubleProperty(80.0);
+    private final IntegerProperty maxConcurrentTasks = new SimpleIntegerProperty(16);
+    private final BooleanProperty autoRenewLease = new SimpleBooleanProperty(true);
+    private final LongProperty remainingLeaseSec = new SimpleLongProperty(86400L);
+    private final LongProperty uptimeSeconds = new SimpleLongProperty(0L);
+    private final StringProperty createdAt = new SimpleStringProperty("");
+
     // Rolling 60-point history for live CPU sparkline chart
     private final ObservableList<Double> cpuHistory = FXCollections.observableArrayList();
 
@@ -30,18 +40,38 @@ public class WorkerNode {
     public WorkerNode(String workerId, String hostname, String sourceIp, String os, String architecture,
                       String state, int allocatableCores, long maxMemoryBytes, double cpuLoadPct,
                       long memoryUsedBytes, int activeTasksCount, String lastHeartbeat) {
-        this.workerId.set(workerId);
-        this.hostname.set(hostname);
-        this.sourceIp.set(sourceIp);
-        this.os.set(os);
-        this.architecture.set(architecture);
-        this.state.set(state);
+        this(workerId, "", hostname, sourceIp, os, architecture, state, true,
+                allocatableCores, maxMemoryBytes, 75.0, 80.0, 16, true, 86400L, 0L,
+                cpuLoadPct, memoryUsedBytes, activeTasksCount, lastHeartbeat, "");
+    }
+
+    public WorkerNode(String workerId, String friendlyName, String hostname, String sourceIp, String os,
+                      String architecture, String state, boolean active, int allocatableCores,
+                      long maxMemoryBytes, double targetCpuPct, double targetRamPct,
+                      int maxConcurrentTasks, boolean autoRenewLease, long remainingLeaseSec,
+                      long uptimeSeconds, double cpuLoadPct, long memoryUsedBytes,
+                      int activeTasksCount, String lastHeartbeat, String createdAt) {
+        this.workerId.set(workerId != null ? workerId : "");
+        this.friendlyName.set(friendlyName != null ? friendlyName : "");
+        this.hostname.set(hostname != null ? hostname : "");
+        this.sourceIp.set(sourceIp != null ? sourceIp : "");
+        this.os.set(os != null ? os : "");
+        this.architecture.set(architecture != null ? architecture : "");
+        this.state.set(state != null ? state : "ONLINE");
+        this.active.set(active);
         this.allocatableCores.set(allocatableCores);
         this.maxMemoryBytes.set(maxMemoryBytes);
+        this.targetCpuPct.set(targetCpuPct);
+        this.targetRamPct.set(targetRamPct);
+        this.maxConcurrentTasks.set(maxConcurrentTasks);
+        this.autoRenewLease.set(autoRenewLease);
+        this.remainingLeaseSec.set(remainingLeaseSec);
+        this.uptimeSeconds.set(uptimeSeconds);
         this.cpuLoadPct.set(cpuLoadPct);
         this.memoryUsedBytes.set(memoryUsedBytes);
         this.activeTasksCount.set(activeTasksCount);
-        this.lastHeartbeat.set(lastHeartbeat);
+        this.lastHeartbeat.set(lastHeartbeat != null ? lastHeartbeat : "");
+        this.createdAt.set(createdAt != null ? createdAt : "");
         recordCpuPoint(cpuLoadPct);
     }
 
@@ -102,6 +132,78 @@ public class WorkerNode {
     public StringProperty lastHeartbeatProperty() { return lastHeartbeat; }
     public String getLastHeartbeat() { return lastHeartbeat.get(); }
     public void setLastHeartbeat(String value) { this.lastHeartbeat.set(value); }
+
+    public StringProperty friendlyNameProperty() { return friendlyName; }
+    public String getFriendlyName() { return friendlyName.get(); }
+    public void setFriendlyName(String value) { this.friendlyName.set(value); }
+
+    public BooleanProperty activeProperty() { return active; }
+    public boolean isActive() { return active.get(); }
+    public void setActive(boolean value) { this.active.set(value); }
+
+    public DoubleProperty targetCpuPctProperty() { return targetCpuPct; }
+    public double getTargetCpuPct() { return targetCpuPct.get(); }
+    public void setTargetCpuPct(double value) { this.targetCpuPct.set(value); }
+
+    public DoubleProperty targetRamPctProperty() { return targetRamPct; }
+    public double getTargetRamPct() { return targetRamPct.get(); }
+    public void setTargetRamPct(double value) { this.targetRamPct.set(value); }
+
+    public IntegerProperty maxConcurrentTasksProperty() { return maxConcurrentTasks; }
+    public int getMaxConcurrentTasks() { return maxConcurrentTasks.get(); }
+    public void setMaxConcurrentTasks(int value) { this.maxConcurrentTasks.set(value); }
+
+    public BooleanProperty autoRenewLeaseProperty() { return autoRenewLease; }
+    public boolean isAutoRenewLease() { return autoRenewLease.get(); }
+    public void setAutoRenewLease(boolean value) { this.autoRenewLease.set(value); }
+
+    public LongProperty remainingLeaseSecProperty() { return remainingLeaseSec; }
+    public long getRemainingLeaseSec() { return remainingLeaseSec.get(); }
+    public void setRemainingLeaseSec(long value) { this.remainingLeaseSec.set(value); }
+
+    public LongProperty uptimeSecondsProperty() { return uptimeSeconds; }
+    public long getUptimeSeconds() { return uptimeSeconds.get(); }
+    public void setUptimeSeconds(long value) { this.uptimeSeconds.set(value); }
+
+    public StringProperty createdAtProperty() { return createdAt; }
+    public String getCreatedAt() { return createdAt.get(); }
+    public void setCreatedAt(String value) { this.createdAt.set(value); }
+
+    public String getDisplayName() {
+        String fn = friendlyName.get();
+        if (fn != null && !fn.isBlank()) return fn;
+        String hn = hostname.get();
+        if (hn != null && !hn.isBlank()) return hn;
+        return workerId.get();
+    }
+
+    public String getFormattedUptime() {
+        long sec = uptimeSeconds.get();
+        if (sec <= 0) return "< 1m";
+        long days = sec / 86400;
+        long hours = (sec % 86400) / 3600;
+        long mins = (sec % 3600) / 60;
+        if (days > 0) {
+            return String.format("%dd %dh %dm", days, hours, mins);
+        } else if (hours > 0) {
+            return String.format("%dh %dm", hours, mins);
+        } else {
+            return String.format("%dm %ds", mins, sec % 60);
+        }
+    }
+
+    public String getFormattedLeaseRemaining() {
+        long sec = remainingLeaseSec.get();
+        if (sec <= 0) return "Expired";
+        long hours = sec / 3600;
+        long mins = (sec % 3600) / 60;
+        long s = sec % 60;
+        if (hours > 0) {
+            return String.format("%dh %dm", hours, mins);
+        } else {
+            return String.format("%dm %ds", mins, s);
+        }
+    }
 
     public ObservableList<Double> getCpuHistory() { return cpuHistory; }
 }

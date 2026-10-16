@@ -5,31 +5,50 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.shape.Polyline?>
 
-<HBox alignment="CENTER_LEFT" spacing="16.0" styleClass="gauge-card" stylesheets="@styles.css"
-      prefHeight="50.0" maxWidth="Infinity"
+<VBox spacing="8.0" styleClass="worker-overview-card" stylesheets="@styles.css"
+      prefWidth="270.0" minWidth="260.0"
       xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.legatus.studio.controllers.WorkerCardCellController">
     <padding>
-        <Insets top="8.0" right="16.0" bottom="8.0" left="16.0" />
+        <Insets top="12.0" right="14.0" bottom="12.0" left="14.0" />
     </padding>
 
-    <VBox spacing="2.0" prefWidth="180.0">
-        <Label fx:id="workerIdLabel" text="compute-node" style="-fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
-        <Label fx:id="hostnameLabel" text="hostname.internal" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+    <!-- Header: Worker Name, Hostname, and State Badge -->
+    <HBox alignment="CENTER_LEFT" spacing="8.0">
+        <VBox spacing="2.0" HBox.hgrow="ALWAYS">
+            <Label fx:id="workerIdLabel" text="compute-node" style="-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #f8fafc;" />
+            <Label fx:id="hostnameLabel" text="hostname.internal" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+            <Label fx:id="ipLabel" text="127.0.0.1" style="-fx-text-fill: #64748b; -fx-font-size: 10px;" />
+        </VBox>
+        <Label fx:id="stateBadge" text="ONLINE" styleClass="badge-online" alignment="CENTER" />
+    </HBox>
+
+    <Separator />
+
+    <!-- CPU Load -->
+    <VBox spacing="3.0">
+        <HBox alignment="CENTER_LEFT">
+            <Label text="CPU" styleClass="gauge-title" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="cpuLabel" text="0.0%" style="-fx-font-weight: bold; -fx-text-fill: #38bdf8; -fx-font-size: 11px;" />
+        </HBox>
+        <ProgressBar fx:id="cpuProgressBar" progress="0.0" maxWidth="Infinity" prefHeight="6.0" style="-fx-accent: #38bdf8;" />
     </VBox>
 
-    <Label fx:id="stateBadge" text="ONLINE" styleClass="badge-online" prefWidth="80.0" alignment="CENTER" />
-
-    <VBox spacing="2.0" prefWidth="90.0">
-        <Label text="CPU" styleClass="gauge-title" />
-        <Label fx:id="cpuLabel" text="0.0%" style="-fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+    <!-- RAM Usage -->
+    <VBox spacing="3.0">
+        <HBox alignment="CENTER_LEFT">
+            <Label text="RAM" styleClass="gauge-title" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="memoryLabel" text="0.0 / 0.0 GB" style="-fx-font-weight: bold; -fx-text-fill: #c084fc; -fx-font-size: 11px;" />
+        </HBox>
+        <ProgressBar fx:id="memoryProgressBar" progress="0.0" maxWidth="Infinity" prefHeight="6.0" style="-fx-accent: #a855f7;" />
     </VBox>
 
-    <Region HBox.hgrow="ALWAYS" />
-
-    <!-- Dynamic CPU utilization sparkline graph -->
-    <VBox alignment="CENTER" spacing="2.0">
-        <Label text="60s CPU TREND" style="-fx-font-size: 9px; -fx-text-fill: #64748b;" />
-        <Polyline fx:id="sparklinePolyline" stroke="#38bdf8" strokeWidth="2.0" fill="transparent" />
-    </VBox>
-</HBox>
+    <!-- Footer: Active Tasks & Sparkline -->
+    <HBox alignment="CENTER_LEFT" spacing="8.0">
+        <Label fx:id="tasksBadge" text="0 running" styleClass="badge-online" style="-fx-font-size: 10px;" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Polyline fx:id="sparklinePolyline" stroke="#38bdf8" strokeWidth="1.5" fill="transparent" />
+    </HBox>
+</VBox>

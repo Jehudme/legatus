@@ -32,6 +32,16 @@
         <Label fx:id="tasksLabel" text="0 active | 0 queued" styleClass="gauge-value" />
     </HBox>
 
+    <HBox fx:id="breachWarningBadge" spacing="6.0" styleClass="badge-warning-amber" alignment="CENTER_LEFT" visible="false" managed="false">
+        <Label text="⚠️" style="-fx-font-size: 12px;" />
+        <Label fx:id="breachWarningLabel" text="THRESHOLD BREACH" style="-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #fbbf24;" />
+    </HBox>
+
+    <HBox fx:id="queueErrorBadge" spacing="6.0" styleClass="badge-error-red" alignment="CENTER_LEFT" visible="false" managed="false">
+        <Label text="⛔" style="-fx-font-size: 12px;" />
+        <Label text="QUEUE SATURATED" style="-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #f87171;" />
+    </HBox>
+
     <Region HBox.hgrow="ALWAYS" />
 
     <HBox spacing="6.0" styleClass="gauge-card" alignment="CENTER_RIGHT">

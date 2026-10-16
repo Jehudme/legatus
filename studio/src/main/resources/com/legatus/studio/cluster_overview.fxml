@@ -13,6 +13,20 @@
 
     <Label text="Cluster Overview" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
 
+    <!-- Telemetry Alert Banners -->
+    <VBox spacing="8.0">
+        <HBox fx:id="thresholdBreachBox" spacing="10.0" alignment="CENTER_LEFT" styleClass="badge-warning-amber" visible="false" managed="false">
+            <Label text="⚠️" style="-fx-font-size: 14px;" />
+            <Label fx:id="thresholdBreachLabel" text="Auto-Balancer Alert: Worker thresholds breached to satisfy task demand." style="-fx-text-fill: #fbbf24; -fx-font-weight: bold;" />
+        </HBox>
+
+        <HBox fx:id="queueSaturatedBox" spacing="10.0" alignment="CENTER_LEFT" styleClass="badge-error-red" visible="false" managed="false">
+            <Label text="⛔" style="-fx-font-size: 14px;" />
+            <Label fx:id="queueSaturatedLabel" text="Cluster Queue Saturated: Compute capacity exhausted; tasks are queued (absolute last resort)." style="-fx-text-fill: #f87171; -fx-font-weight: bold;" />
+        </HBox>
+    </VBox>
+
+    <!-- Cluster Telemetry Summary Gauges -->
     <HBox spacing="16.0">
         <VBox spacing="6.0" styleClass="gauge-card" prefWidth="220.0">
             <Label text="ONLINE WORKERS" styleClass="gauge-title" />
@@ -34,4 +48,16 @@
             <Label fx:id="activeTasksLabel" text="0" styleClass="gauge-value" />
         </VBox>
     </HBox>
+
+    <Separator />
+
+    <!-- Worker Overview Section -->
+    <HBox alignment="CENTER_LEFT" spacing="12.0">
+        <Label text="Worker Nodes Overview" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+        <Label fx:id="workerCountBadge" text="0 nodes" styleClass="badge-online" />
+    </HBox>
+
+    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background: transparent; -fx-background-color: transparent;">
+        <FlowPane fx:id="workerCardsPane" hgap="16.0" vgap="16.0" prefWrapLength="900.0" />
+    </ScrollPane>
 </VBox>

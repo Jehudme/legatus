@@ -56,4 +56,8 @@ public class RibbonViewModel {
     public StringBinding workersFormattedProperty() { return workersFormatted; }
     public StringBinding tasksThroughputFormattedProperty() { return tasksThroughputFormatted; }
     public StringBinding rttFormattedProperty() { return rttFormatted; }
+
+    public BooleanProperty thresholdBreachWarningProperty() { return clusterMetrics.thresholdBreachWarningProperty(); }
+    public BooleanProperty queueSaturatedErrorProperty() { return clusterMetrics.queueSaturatedErrorProperty(); }
+    public javafx.collections.ObservableList<String> getBreachedWorkerIds() { return clusterMetrics.getBreachedWorkerIds(); }
 }

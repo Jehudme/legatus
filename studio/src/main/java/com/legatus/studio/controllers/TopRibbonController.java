@@ -12,6 +12,9 @@ public class TopRibbonController {
     @FXML private Label workersLabel;
     @FXML private Label tasksLabel;
     @FXML private Label rttLabel;
+    @FXML private javafx.scene.layout.HBox breachWarningBadge;
+    @FXML private Label breachWarningLabel;
+    @FXML private javafx.scene.layout.HBox queueErrorBadge;
 
     private RibbonViewModel viewModel;
 
@@ -34,6 +37,16 @@ public class TopRibbonController {
         workersLabel.textProperty().bind(viewModel.workersFormattedProperty());
         tasksLabel.textProperty().bind(viewModel.tasksThroughputFormattedProperty());
         rttLabel.textProperty().bind(viewModel.rttFormattedProperty());
+
+        if (breachWarningBadge != null) {
+            breachWarningBadge.visibleProperty().bind(viewModel.thresholdBreachWarningProperty());
+            breachWarningBadge.managedProperty().bind(breachWarningBadge.visibleProperty());
+        }
+
+        if (queueErrorBadge != null) {
+            queueErrorBadge.visibleProperty().bind(viewModel.queueSaturatedErrorProperty());
+            queueErrorBadge.managedProperty().bind(queueErrorBadge.visibleProperty());
+        }
 
         com.legatus.studio.service.StudioContext ctx = com.legatus.studio.service.StudioContext.getInstance();
         if (ctx.getMainViewModel() != null && statusPill != null) {

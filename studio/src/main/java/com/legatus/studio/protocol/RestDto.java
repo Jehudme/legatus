@@ -55,22 +55,55 @@ public final class RestDto {
     public record TicketResponse(String ticket, long expires_in_seconds) {}
 
     // Workers & Enrollments
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record WorkerDto(
             String worker_id,
+            String friendly_name,
             String hostname,
             String source_ip,
             String os,
             String architecture,
             String state,
+            Boolean active,
             int allocatable_cores,
             long max_memory_bytes,
+            Double target_cpu_pct,
+            Double target_ram_pct,
+            Integer max_concurrent_tasks,
+            Boolean auto_renew_lease,
+            Long remaining_lease_sec,
+            String lease_expires_at,
+            Long uptime_seconds,
             double cpu_load_pct,
             long memory_used_bytes,
             int active_tasks_count,
-            String last_heartbeat
-    ) {}
+            Long config_version,
+            String last_heartbeat,
+            String last_seen_at,
+            String created_at
+    ) {
+        public WorkerDto(
+                String worker_id,
+                String hostname,
+                String source_ip,
+                String os,
+                String architecture,
+                String state,
+                int allocatable_cores,
+                long max_memory_bytes,
+                double cpu_load_pct,
+                long memory_used_bytes,
+                int active_tasks_count,
+                String last_heartbeat
+        ) {
+            this(worker_id, hostname, hostname, source_ip, os, architecture, state, true,
+                    allocatable_cores, max_memory_bytes, 75.0, 80.0, 16, true,
+                    86400L, "", 0L, cpu_load_pct, memory_used_bytes, active_tasks_count, 1L, last_heartbeat, "", "");
+        }
+    }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record EnrollmentDto(
             String enrollment_id,
@@ -86,11 +119,52 @@ public final class RestDto {
             String submitted_at
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record ApproveEnrollmentRequest(String lease_duration) {}
+    public record ApproveEnrollmentRequest(
+            @JsonProperty("lease_duration") String lease_duration,
+            @JsonProperty("friendly_name") String friendly_name
+    ) {
+        public ApproveEnrollmentRequest(String lease_duration) {
+            this(lease_duration, null);
+        }
+    }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record RejectEnrollmentRequest(String reason, boolean blacklist_ip) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record RenameWorkerRequest(
+            @JsonProperty("friendly_name") String friendly_name
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record UpdateThresholdsRequest(
+            @JsonProperty("target_cpu_pct") Double target_cpu_pct,
+            @JsonProperty("target_ram_pct") Double target_ram_pct,
+            @JsonProperty("max_concurrent_tasks") Integer max_concurrent_tasks
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record AutoRenewLeaseRequest(
+            @JsonProperty("auto_renew") Boolean auto_renew
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record AutoAcceptRequest(
+            @JsonProperty("auto_accept") Boolean auto_accept
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record AutoAcceptResponse(
+            @JsonProperty("auto_accept") Boolean auto_accept
+    ) {}
 
     // Tasks & Bytecode
     @JsonIgnoreProperties(ignoreUnknown = true)

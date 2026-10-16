@@ -64,10 +64,11 @@ public class FleetViewModel {
 
         String query = filterQuery.get().toLowerCase().trim();
         if (!query.isEmpty()) {
-            boolean matchesId = worker.getWorkerId().toLowerCase().contains(query);
-            boolean matchesHost = worker.getHostname().toLowerCase().contains(query);
-            boolean matchesIp = worker.getSourceIp().toLowerCase().contains(query);
-            if (!matchesId && !matchesHost && !matchesIp) {
+            boolean matchesId = worker.getWorkerId() != null && worker.getWorkerId().toLowerCase().contains(query);
+            boolean matchesName = worker.getFriendlyName() != null && worker.getFriendlyName().toLowerCase().contains(query);
+            boolean matchesHost = worker.getHostname() != null && worker.getHostname().toLowerCase().contains(query);
+            boolean matchesIp = worker.getSourceIp() != null && worker.getSourceIp().toLowerCase().contains(query);
+            if (!matchesId && !matchesName && !matchesHost && !matchesIp) {
                 return false;
             }
         }
@@ -78,6 +79,102 @@ public class FleetViewModel {
         }
 
         return true;
+    }
+
+    public CompletableFuture<Void> renameSelectedWorker(String newName) {
+        WorkerNode worker = selectedWorker.get();
+        if (worker == null || newName == null || newName.isBlank()) return CompletableFuture.completedFuture(null);
+
+        isLoading.set(true);
+        return workerService.renameWorker(worker.getWorkerId(), newName.trim())
+                .thenAccept(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        worker.setFriendlyName(newName.trim());
+                        isLoading.set(false);
+                        statusMessage.set("Worker renamed to: " + newName.trim());
+                    });
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to rename worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return null;
+                });
+    }
+
+    public CompletableFuture<Void> toggleActiveSelectedWorker() {
+        WorkerNode worker = selectedWorker.get();
+        if (worker == null) return CompletableFuture.completedFuture(null);
+
+        isLoading.set(true);
+        boolean newActive = !worker.isActive();
+        return workerService.toggleActive(worker.getWorkerId())
+                .thenAccept(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        worker.setActive(newActive);
+                        if (!newActive && "ONLINE".equalsIgnoreCase(worker.getState())) {
+                            worker.setState("INACTIVE");
+                        } else if (newActive && "INACTIVE".equalsIgnoreCase(worker.getState())) {
+                            worker.setState("ONLINE");
+                        }
+                        isLoading.set(false);
+                        statusMessage.set("Worker active state toggled to: " + newActive);
+                    });
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to toggle active state: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return null;
+                });
+    }
+
+    public CompletableFuture<Void> toggleAutoRenewSelectedWorker(boolean autoRenew) {
+        WorkerNode worker = selectedWorker.get();
+        if (worker == null) return CompletableFuture.completedFuture(null);
+
+        isLoading.set(true);
+        return workerService.toggleAutoRenew(worker.getWorkerId(), autoRenew)
+                .thenAccept(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        worker.setAutoRenewLease(autoRenew);
+                        isLoading.set(false);
+                        statusMessage.set("Auto lease renewal set to: " + autoRenew);
+                    });
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to set auto renew: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return null;
+                });
+    }
+
+    public CompletableFuture<Void> updateThresholdsSelectedWorker(double targetCpuPct, double targetRamPct, int maxConcurrentTasks) {
+        WorkerNode worker = selectedWorker.get();
+        if (worker == null) return CompletableFuture.completedFuture(null);
+
+        isLoading.set(true);
+        return workerService.updateThresholds(worker.getWorkerId(), targetCpuPct, targetRamPct, maxConcurrentTasks)
+                .thenAccept(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        worker.setTargetCpuPct(targetCpuPct);
+                        worker.setTargetRamPct(targetRamPct);
+                        worker.setMaxConcurrentTasks(maxConcurrentTasks);
+                        isLoading.set(false);
+                        statusMessage.set("Thresholds updated successfully.");
+                    });
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isLoading.set(false);
+                        statusMessage.set("Failed to update thresholds: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return null;
+                });
     }
 
     public CompletableFuture<Void> drainSelectedWorker() {

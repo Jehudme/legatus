@@ -111,17 +111,26 @@ public class StudioContext {
                 for (var w : workers) {
                     WorkerNode node = new WorkerNode(
                         w.worker_id(),
+                        w.friendly_name(),
                         w.hostname(),
                         w.source_ip(),
                         w.os(),
                         w.architecture(),
                         w.state(),
+                        w.active() != null ? w.active() : true,
                         w.allocatable_cores(),
                         w.max_memory_bytes(),
+                        w.target_cpu_pct() != null ? w.target_cpu_pct() : 75.0,
+                        w.target_ram_pct() != null ? w.target_ram_pct() : 80.0,
+                        w.max_concurrent_tasks() != null ? w.max_concurrent_tasks() : 16,
+                        w.auto_renew_lease() != null ? w.auto_renew_lease() : true,
+                        w.remaining_lease_sec() != null ? w.remaining_lease_sec() : 86400L,
+                        w.uptime_seconds() != null ? w.uptime_seconds() : 0L,
                         w.cpu_load_pct(),
                         w.memory_used_bytes(),
                         w.active_tasks_count(),
-                        w.last_heartbeat()
+                        w.last_heartbeat(),
+                        w.created_at()
                     );
                     telemetryService.getWorkersMap().put(node.getWorkerId(), node);
                     if (telemetryService.getWorkersList().stream().noneMatch(x -> x.getWorkerId().equals(node.getWorkerId()))) {
@@ -208,4 +217,5 @@ public class StudioContext {
     public TelemetryService getTelemetryService() { return telemetryService; }
     public MainViewModel getMainViewModel() { return mainViewModel; }
     public com.legatus.studio.viewmodel.FunctionsViewModel getFunctionsViewModel() { return functionsViewModel; }
+    public OperatorSession getOperatorSession() { return OperatorSession.getInstance(); }
 }

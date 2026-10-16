@@ -73,6 +73,15 @@ public class TelemetryService implements AutoCloseable {
             clusterMetrics.setExecutingTasksCount(tick.tasks_executing());
             clusterMetrics.setTasksCompletedLast60s(tick.tasks_completed_last_60s());
             clusterMetrics.setTasksFailedLast60s(tick.tasks_failed_last_60s());
+            if (tick.threshold_breach_warning() != null) {
+                clusterMetrics.setThresholdBreachWarning(tick.threshold_breach_warning());
+            }
+            if (tick.queue_saturated_error() != null) {
+                clusterMetrics.setQueueSaturatedError(tick.queue_saturated_error());
+            }
+            if (tick.breached_worker_ids() != null) {
+                clusterMetrics.setBreachedWorkerIds(tick.breached_worker_ids());
+            }
         }
 
         // 2. Worker updates

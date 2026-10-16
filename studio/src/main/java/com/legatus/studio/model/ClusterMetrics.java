@@ -18,6 +18,25 @@ public class ClusterMetrics {
     private final IntegerProperty tasksCompletedLast60s = new SimpleIntegerProperty(0);
     private final IntegerProperty tasksFailedLast60s = new SimpleIntegerProperty(0);
     private final DoubleProperty rttLatencyMs = new SimpleDoubleProperty(0.0);
+    private final BooleanProperty thresholdBreachWarning = new SimpleBooleanProperty(false);
+    private final BooleanProperty queueSaturatedError = new SimpleBooleanProperty(false);
+    private final javafx.collections.ObservableList<String> breachedWorkerIds = javafx.collections.FXCollections.observableArrayList();
+
+    public BooleanProperty thresholdBreachWarningProperty() { return thresholdBreachWarning; }
+    public boolean isThresholdBreachWarning() { return thresholdBreachWarning.get(); }
+    public void setThresholdBreachWarning(boolean value) { this.thresholdBreachWarning.set(value); }
+
+    public BooleanProperty queueSaturatedErrorProperty() { return queueSaturatedError; }
+    public boolean isQueueSaturatedError() { return queueSaturatedError.get(); }
+    public void setQueueSaturatedError(boolean value) { this.queueSaturatedError.set(value); }
+
+    public javafx.collections.ObservableList<String> getBreachedWorkerIds() { return breachedWorkerIds; }
+    public void setBreachedWorkerIds(java.util.List<String> ids) {
+        this.breachedWorkerIds.clear();
+        if (ids != null) {
+            this.breachedWorkerIds.addAll(ids);
+        }
+    }
 
     public DoubleProperty clusterCpuPercentProperty() { return clusterCpuPercent; }
     public double getClusterCpuPercent() { return clusterCpuPercent.get(); }

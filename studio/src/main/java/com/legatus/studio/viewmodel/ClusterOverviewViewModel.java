@@ -25,4 +25,7 @@ public class ClusterOverviewViewModel {
     public ClusterMetrics getClusterMetrics() { return clusterMetrics; }
     public ObservableList<WorkerNode> getWorkers() { return workers; }
     public ObservableList<TaskRecord> getTasks() { return tasks; }
+    public javafx.beans.property.BooleanProperty thresholdBreachWarningProperty() { return clusterMetrics.thresholdBreachWarningProperty(); }
+    public javafx.beans.property.BooleanProperty queueSaturatedErrorProperty() { return clusterMetrics.queueSaturatedErrorProperty(); }
+    public ObservableList<String> getBreachedWorkerIds() { return clusterMetrics.getBreachedWorkerIds(); }
 }

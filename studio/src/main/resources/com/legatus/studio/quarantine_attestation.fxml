@@ -4,81 +4,113 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.4" stylesheets="@styles.css"
-           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-           fx:controller="com.legatus.studio.controllers.QuarantineAttestationController">
+<VBox spacing="12.0" stylesheets="@styles.css"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.legatus.studio.controllers.QuarantineAttestationController">
+    <padding>
+        <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+    </padding>
 
-    <!-- Left side: Pending Enrollments list -->
-    <VBox spacing="12.0">
-        <padding>
-            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
-        </padding>
+    <!-- Top Action Bar with Auto-Accept Switch -->
+    <HBox spacing="16.0" alignment="CENTER_LEFT">
+        <VBox spacing="2.0">
+            <Label text="Quarantine Attestation Queue" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Label text="Cryptographic verification and enrollment governance for incoming worker compute nodes." style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
+        </VBox>
+        <Region HBox.hgrow="ALWAYS" />
 
-        <Label text="Quarantine Queue" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
-        <ListView fx:id="enrollmentsListView" VBox.vgrow="ALWAYS" />
-    </VBox>
+        <HBox fx:id="autoAcceptBox" spacing="8.0" alignment="CENTER_RIGHT" styleClass="gauge-card">
+            <Label text="Auto-Accept Workers:" style="-fx-text-fill: #e2e8f0; -fx-font-size: 12px; -fx-font-weight: bold;" />
+            <CheckBox fx:id="autoAcceptCheckBox" text="Enable (Admin)" onAction="#onAutoAcceptToggled" style="-fx-text-fill: #38bdf8;" />
+        </HBox>
+    </HBox>
 
-    <!-- Right side: Attestation Card -->
-    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
-        <padding>
-            <Insets top="20.0" right="24.0" bottom="20.0" left="24.0" />
-        </padding>
+    <!-- Auto-Accept Persistent Banner -->
+    <HBox fx:id="autoAcceptBanner" spacing="10.0" alignment="CENTER_LEFT" styleClass="banner-auto-accept" visible="false" managed="false">
+        <Label text="⚡" style="-fx-font-size: 14px;" />
+        <Label text="Auto-Accept Active: Incoming compute nodes are automatically approved and attested using their node UUID as the initial name."
+               style="-fx-text-fill: #38bdf8; -fx-font-weight: bold;" />
+    </HBox>
 
-        <Label text="Node Cryptographic Attestation" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
-
-        <VBox spacing="12.0" styleClass="attestation-card">
-            <GridPane hgap="12.0" vgap="8.0">
-                <columnConstraints>
-                    <ColumnConstraints prefWidth="140.0" />
-                    <ColumnConstraints hgrow="ALWAYS" />
-                </columnConstraints>
-
-                <Label text="WORKER ID:" styleClass="gauge-title" GridPane.rowIndex="0" GridPane.columnIndex="0" />
-                <Label fx:id="workerIdLabel" text="--" style="-fx-font-weight: bold; -fx-text-fill: #f8fafc;" GridPane.rowIndex="0" GridPane.columnIndex="1" />
-
-                <Label text="HOSTNAME:" styleClass="gauge-title" GridPane.rowIndex="1" GridPane.columnIndex="0" />
-                <Label fx:id="hostnameLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="1" GridPane.columnIndex="1" />
-
-                <Label text="SOURCE IP:" styleClass="gauge-title" GridPane.rowIndex="2" GridPane.columnIndex="0" />
-                <Label fx:id="ipLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="2" GridPane.columnIndex="1" />
-
-                <Label text="OS / ARCH:" styleClass="gauge-title" GridPane.rowIndex="3" GridPane.columnIndex="0" />
-                <Label fx:id="osArchLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="3" GridPane.columnIndex="1" />
-
-                <Label text="CORES &amp; RAM:" styleClass="gauge-title" GridPane.rowIndex="4" GridPane.columnIndex="0" />
-                <Label fx:id="coresMemLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="4" GridPane.columnIndex="1" />
-            </GridPane>
-
-            <Separator />
-
-            <VBox spacing="6.0">
-                <Label text="Ed25519 HOST KEY FINGERPRINT:" styleClass="gauge-title" />
-                <Label fx:id="fingerprintLabel" text="--:--:--:--:--:--:--:--" style="-fx-font-family: monospace; -fx-font-size: 13px; -fx-text-fill: #38bdf8;" />
-            </VBox>
-
-            <VBox spacing="6.0" alignment="CENTER">
-                <Label text="3-WORD VISUAL CONFIRMATION CODE" styleClass="gauge-title" />
-                <Label fx:id="visualCodeLabel" text="[WAITING FOR SELECTION]" styleClass="visual-code-highlight" />
-            </VBox>
+    <!-- Master-Detail Split: Enrollments list vs Attestation Card -->
+    <SplitPane dividerPositions="0.45" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent;">
+        <!-- Left side: Pending Enrollments list -->
+        <VBox spacing="10.0">
+            <HBox alignment="CENTER_LEFT" spacing="8.0">
+                <Label text="Pending Attestation Requests" style="-fx-font-weight: bold; -fx-text-fill: #cbd5e1;" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Label fx:id="pendingCountBadge" text="0 pending" styleClass="badge-quarantined" />
+            </HBox>
+            <ListView fx:id="enrollmentsListView" VBox.vgrow="ALWAYS" />
         </VBox>
 
-        <HBox spacing="16.0" alignment="CENTER_LEFT">
-            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                <Label text="Lease Duration" styleClass="gauge-title" />
-                <TextField fx:id="leaseDurationField" text="24h" />
-            </VBox>
-            <Button fx:id="approveButton" text="Approve &amp; Issue Lease" onAction="#onApproveClicked"
-                    style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
-        </HBox>
+        <!-- Right side: Attestation Card (visible ONLY when an item is selected) -->
+        <ScrollPane fitToWidth="true" style="-fx-background: #0b1120; -fx-background-color: #0b1120;">
+            <VBox fx:id="attestationPane" spacing="16.0" style="-fx-background-color: #0b1120;" visible="false" managed="false">
+                <padding>
+                    <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+                </padding>
 
-        <HBox spacing="16.0" alignment="CENTER_LEFT">
-            <VBox spacing="4.0" HBox.hgrow="ALWAYS">
-                <Label text="Rejection Reason" styleClass="gauge-title" />
-                <TextField fx:id="rejectReasonField" text="Unauthorized connection" />
+                <Label text="Cryptographic Node Attestation" style="-fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+
+                <VBox spacing="12.0" styleClass="attestation-card">
+                    <GridPane hgap="12.0" vgap="8.0">
+                        <columnConstraints>
+                            <ColumnConstraints prefWidth="140.0" />
+                            <ColumnConstraints hgrow="ALWAYS" />
+                        </columnConstraints>
+
+                        <Label text="WORKER ID:" styleClass="gauge-title" GridPane.rowIndex="0" GridPane.columnIndex="0" />
+                        <Label fx:id="workerIdLabel" text="--" style="-fx-font-weight: bold; -fx-text-fill: #f8fafc;" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+
+                        <Label text="HOSTNAME:" styleClass="gauge-title" GridPane.rowIndex="1" GridPane.columnIndex="0" />
+                        <Label fx:id="hostnameLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+
+                        <Label text="SOURCE IP:" styleClass="gauge-title" GridPane.rowIndex="2" GridPane.columnIndex="0" />
+                        <Label fx:id="ipLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="2" GridPane.columnIndex="1" />
+
+                        <Label text="OS / ARCH:" styleClass="gauge-title" GridPane.rowIndex="3" GridPane.columnIndex="0" />
+                        <Label fx:id="osArchLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="3" GridPane.columnIndex="1" />
+
+                        <Label text="CORES &amp; RAM:" styleClass="gauge-title" GridPane.rowIndex="4" GridPane.columnIndex="0" />
+                        <Label fx:id="coresMemLabel" text="--" style="-fx-text-fill: #cbd5e1;" GridPane.rowIndex="4" GridPane.columnIndex="1" />
+
+                        <Label text="ATTEMPT TIME:" styleClass="gauge-title" GridPane.rowIndex="5" GridPane.columnIndex="0" />
+                        <Label fx:id="submittedAtLabel" text="--" style="-fx-text-fill: #94a3b8;" GridPane.rowIndex="5" GridPane.columnIndex="1" />
+                    </GridPane>
+
+                    <Separator />
+
+                    <VBox spacing="6.0">
+                        <Label text="Ed25519 HOST KEY FINGERPRINT:" styleClass="gauge-title" />
+                        <Label fx:id="fingerprintLabel" text="--:--:--:--:--:--:--:--" style="-fx-font-family: monospace; -fx-font-size: 13px; -fx-text-fill: #38bdf8;" />
+                    </VBox>
+
+                    <VBox spacing="6.0" alignment="CENTER">
+                        <Label text="3-WORD VISUAL CONFIRMATION CODE" styleClass="gauge-title" />
+                        <Label fx:id="visualCodeLabel" text="[WAITING FOR SELECTION]" styleClass="visual-code-highlight" />
+                    </VBox>
+                </VBox>
+
+                <HBox spacing="16.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Initial Lease Duration" styleClass="gauge-title" />
+                        <TextField fx:id="leaseDurationField" text="24h" />
+                    </VBox>
+                    <Button fx:id="approveButton" text="Approve &amp; Issue Lease" onAction="#onApproveClicked"
+                            style="-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+                </HBox>
+
+                <HBox spacing="16.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" HBox.hgrow="ALWAYS">
+                        <Label text="Rejection Reason" styleClass="gauge-title" />
+                        <TextField fx:id="rejectReasonField" text="Unauthorized connection" />
+                    </VBox>
+                    <CheckBox fx:id="blacklistIpCheckBox" text="Blacklist IP" style="-fx-text-fill: #f87171;" />
+                    <Button fx:id="rejectButton" text="Reject &amp; Block" onAction="#onRejectClicked"
+                            style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
+                </HBox>
             </VBox>
-            <CheckBox fx:id="blacklistIpCheckBox" text="Blacklist IP" style="-fx-text-fill: #f87171;" />
-            <Button fx:id="rejectButton" text="Reject &amp; Block" onAction="#onRejectClicked"
-                    style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
-        </HBox>
-    </VBox>
-</SplitPane>
+        </ScrollPane>
+    </SplitPane>
+</VBox>
