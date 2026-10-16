@@ -1,5 +1,6 @@
 package dev.legatus.server.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -17,5 +18,8 @@ public record CreateAccountRequest(
     @NotBlank @JsonProperty("username") String username,
     @NotBlank @Email @JsonProperty("email") String email,
     @NotNull @JsonProperty("role") OperatorRole role,
-    @NotBlank @Size(min = 12, message = "Password must be at least 12 characters long") @JsonProperty("initial_password") String initialPassword
+    @NotBlank @Size(min = 12, message = "Password must be at least 12 characters long")
+    @JsonProperty("initial_password")
+    @JsonAlias({ "password", "initial_password", "initialPassword" })
+    String initialPassword
 ) {}

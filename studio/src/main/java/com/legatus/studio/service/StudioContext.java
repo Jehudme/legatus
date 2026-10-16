@@ -29,6 +29,7 @@ public class StudioContext {
     private LstcpClient lstcpClient;
     private TelemetryService telemetryService;
     private com.legatus.studio.viewmodel.FunctionsViewModel functionsViewModel;
+    private com.legatus.studio.viewmodel.UserManagementViewModel userManagementViewModel;
     private final MainViewModel mainViewModel = new MainViewModel();
 
     private StudioContext() {
@@ -88,6 +89,20 @@ public class StudioContext {
         this.lstcpClient.setTaskLogChunkListener(chunk -> {
             if (chunk != null && chunk.log_chunk() != null) {
                 logStreamBuffer.appendChunk(chunk.log_chunk());
+            }
+        });
+
+        this.userManagementViewModel = new com.legatus.studio.viewmodel.UserManagementViewModel(this.userManagementService);
+
+        this.lstcpClient.setUserStateListener(payload -> {
+            if (userManagementViewModel != null) {
+                userManagementViewModel.refreshAccounts();
+            }
+            if (logStreamBuffer != null && payload != null) {
+                logStreamBuffer.appendLine(String.format("[%s] [SECURITY] User account '%s' state updated (%s)",
+                        java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
+                        payload.username() != null ? payload.username() : payload.account_id(),
+                        payload.action() != null ? payload.action() : "MODIFIED"));
             }
         });
 
@@ -177,15 +192,23 @@ public class StudioContext {
                         for (var existing : telemetryService.getTasksList()) {
                             if (existing.getTaskId().equals(t.task_id())) {
                                 existing.setStatus(t.status());
+                                if (t.name() != null) existing.setName(t.name());
                                 if (t.exit_code() != null) existing.setExitCode(t.exit_code());
+                                if (t.assigned_worker_id() != null) existing.setAssignedWorkerId(t.assigned_worker_id());
+                                if (t.worker_friendly_name() != null) existing.setWorkerFriendlyName(t.worker_friendly_name());
+                                if (t.profile_name() != null) existing.setProfileName(t.profile_name());
                                 existing.setInstructionsConsumed(t.effectiveInstructions());
                                 existing.setPeakMemoryBytes(t.effectiveMemory());
                                 existing.setExecutionWallTimeMs(t.effectiveWallTime());
+                                if (t.started_at() != null) existing.setStartedAt(t.started_at().toString());
+                                String finished = t.finished_at() != null ? t.finished_at().toString() : (t.completed_at() != null ? t.completed_at().toString() : "");
+                                if (!finished.isBlank()) existing.setFinishedAt(finished);
                                 exists = true;
                                 break;
                             }
                         }
                         if (!exists) {
+                            String finished = t.finished_at() != null ? t.finished_at().toString() : (t.completed_at() != null ? t.completed_at().toString() : "");
                             var record = new com.legatus.studio.model.TaskRecord(
                                 t.task_id(),
                                 t.name(),
@@ -196,7 +219,10 @@ public class StudioContext {
                                 t.effectiveMemory(),
                                 t.effectiveWallTime(),
                                 t.created_at() != null ? t.created_at().toString() : "",
-                                t.finished_at() != null ? t.finished_at().toString() : ""
+                                t.started_at() != null ? t.started_at().toString() : "",
+                                finished,
+                                t.worker_friendly_name() != null ? t.worker_friendly_name() : "",
+                                t.profile_name() != null ? t.profile_name() : ""
                             );
                             telemetryService.getTasksList().add(record);
                         }
@@ -220,5 +246,6 @@ public class StudioContext {
     public TelemetryService getTelemetryService() { return telemetryService; }
     public MainViewModel getMainViewModel() { return mainViewModel; }
     public com.legatus.studio.viewmodel.FunctionsViewModel getFunctionsViewModel() { return functionsViewModel; }
+    public com.legatus.studio.viewmodel.UserManagementViewModel getUserManagementViewModel() { return userManagementViewModel; }
     public OperatorSession getOperatorSession() { return OperatorSession.getInstance(); }
 }

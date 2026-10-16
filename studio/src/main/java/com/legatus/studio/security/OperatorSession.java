@@ -120,6 +120,10 @@ public class OperatorSession {
             return true;
         }
         // Admin has all permissions
-        return "CLUSTER_ADMIN".equalsIgnoreCase(this.role);
+        return "CLUSTER_ADMIN".equalsIgnoreCase(this.role) || "ADMIN".equalsIgnoreCase(this.role);
+    }
+
+    public synchronized boolean isAdmin() {
+        return "CLUSTER_ADMIN".equalsIgnoreCase(this.role) || "ADMIN".equalsIgnoreCase(this.role) || "ROLE_ADMIN".equalsIgnoreCase(this.role);
     }
 }

@@ -38,6 +38,12 @@ public class NavigationRailController {
         if (viewModel == null) return;
         quarantineBadge.textProperty().bind(viewModel.quarantineBadgeCountProperty().asString());
         quarantineBadge.visibleProperty().bind(viewModel.quarantineBadgeCountProperty().greaterThan(0));
+
+        if (usersBtn != null) {
+            boolean isAdmin = com.legatus.studio.security.OperatorSession.getInstance().isAdmin();
+            usersBtn.setVisible(isAdmin);
+            usersBtn.setManaged(isAdmin);
+        }
     }
 
     @FXML private void onOverviewClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.OVERVIEW); }

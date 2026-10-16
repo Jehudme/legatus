@@ -133,8 +133,12 @@ public class MainCockpitController {
                 }
                 case USERS -> {
                     AdminUsersController c = ViewLoaderService.switchView(contentContainer, module.getFxmlName());
-                    if (c != null && ctx.getUserManagementService() != null) {
-                        c.setViewModel(new com.legatus.studio.viewmodel.UserManagementViewModel(ctx.getUserManagementService()));
+                    if (c != null) {
+                        if (ctx.getUserManagementViewModel() != null) {
+                            c.setViewModel(ctx.getUserManagementViewModel());
+                        } else if (ctx.getUserManagementService() != null) {
+                            c.setViewModel(new com.legatus.studio.viewmodel.UserManagementViewModel(ctx.getUserManagementService()));
+                        }
                     }
                 }
                 case AUDIT -> {

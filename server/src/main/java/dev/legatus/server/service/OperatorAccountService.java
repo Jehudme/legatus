@@ -9,6 +9,8 @@ import dev.legatus.server.security.Argon2idService;
 import dev.legatus.server.security.SecurityUtils;
 import dev.legatus.server.security.TicketBrokerService;
 import dev.legatus.server.service.dto.*;
+import dev.legatus.server.service.dto.lstcp.EventUserStateChangedFrame;
+import dev.legatus.server.service.studio.StudioEventPublisher;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -59,6 +61,7 @@ public class OperatorAccountService {
     private final WormAuditService wormAuditService;
     private final TicketBrokerService ticketBrokerService;
     private final JwtEncoder jwtEncoder;
+    private final StudioEventPublisher studioEventPublisher;
 
     @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds:3600}")
     private long tokenValidityInSeconds;
@@ -70,11 +73,24 @@ public class OperatorAccountService {
         TicketBrokerService ticketBrokerService,
         JwtEncoder jwtEncoder
     ) {
+        this(accountRepository, argon2idService, wormAuditService, ticketBrokerService, jwtEncoder, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OperatorAccountService(
+        AccountRepository accountRepository,
+        Argon2idService argon2idService,
+        WormAuditService wormAuditService,
+        TicketBrokerService ticketBrokerService,
+        JwtEncoder jwtEncoder,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) StudioEventPublisher studioEventPublisher
+    ) {
         this.accountRepository = accountRepository;
         this.argon2idService = argon2idService;
         this.wormAuditService = wormAuditService;
         this.ticketBrokerService = ticketBrokerService;
         this.jwtEncoder = jwtEncoder;
+        this.studioEventPublisher = studioEventPublisher;
     }
 
     /**
@@ -399,17 +415,38 @@ public class OperatorAccountService {
             "SOC2_CC6.1"
         );
 
+        broadcastUserEvent(saved, "CREATED");
+
         return toResponse(saved);
     }
 
     /**
-     * Updates profile email and assigned RBAC role.
+     * Updates profile username, email, and assigned RBAC role.
      */
     @Transactional
     public AccountResponse updateAccount(UUID accountId, UpdateAccountRequest request, String adminActorId, String clientIp) {
         Account account = accountRepository
             .findById(accountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ERR_ACCOUNT_NOT_FOUND: Operator account not found"));
+
+        boolean isSelf = (adminActorId != null && (account.getUsername().equalsIgnoreCase(adminActorId) || account.getAccountId().toString().equalsIgnoreCase(adminActorId)));
+
+        if (isSelf && request.role() != null && request.role() != OperatorRole.CLUSTER_ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot modify status or demote the currently logged-in administrator account.");
+        }
+
+        if (account.getRole() == OperatorRole.CLUSTER_ADMIN && request.role() != null && request.role() != OperatorRole.CLUSTER_ADMIN) {
+            if (accountRepository.countByRoleAndStatus(OperatorRole.CLUSTER_ADMIN, AccountStatus.ACTIVE) <= 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot deactivate or demote the last remaining administrator account.");
+            }
+        }
+
+        if (request.username() != null && !request.username().isBlank() && !request.username().equalsIgnoreCase(account.getUsername())) {
+            if (accountRepository.existsByUsernameIgnoreCase(request.username())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "ERR_USERNAME_TAKEN: Username already in use");
+            }
+            account.setUsername(request.username().trim());
+        }
 
         if (request.email() != null && !request.email().equalsIgnoreCase(account.getEmail())) {
             if (accountRepository.existsByEmailIgnoreCase(request.email())) {
@@ -437,6 +474,8 @@ public class OperatorAccountService {
             "SOC2_CC6.1"
         );
 
+        broadcastUserEvent(saved, "UPDATED");
+
         return toResponse(saved);
     }
 
@@ -448,6 +487,18 @@ public class OperatorAccountService {
         Account account = accountRepository
             .findById(accountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ERR_ACCOUNT_NOT_FOUND: Operator account not found"));
+
+        boolean isSelf = (adminActorId != null && (account.getUsername().equalsIgnoreCase(adminActorId) || account.getAccountId().toString().equalsIgnoreCase(adminActorId)));
+
+        if (isSelf && request.status() != AccountStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot modify status or demote the currently logged-in administrator account.");
+        }
+
+        if (account.getRole() == OperatorRole.CLUSTER_ADMIN && request.status() != AccountStatus.ACTIVE) {
+            if (accountRepository.countByRoleAndStatus(OperatorRole.CLUSTER_ADMIN, AccountStatus.ACTIVE) <= 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot deactivate or demote the last remaining administrator account.");
+            }
+        }
 
         account.setStatus(request.status());
         if (request.status() == AccountStatus.ACTIVE) {
@@ -470,7 +521,47 @@ public class OperatorAccountService {
             "SOC2_CC6.1"
         );
 
+        broadcastUserEvent(saved, "STATUS_MUTATED");
+
         return toResponse(saved);
+    }
+
+    /**
+     * Resets account password (write-only administrator operation).
+     */
+    @Transactional
+    public void resetPassword(UUID accountId, String newPassword, String adminActorId, String clientIp) {
+        if (newPassword == null || newPassword.length() < MIN_PASSWORD_LENGTH) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "ERR_PASSWORD_POLICY: Password must be at least " + MIN_PASSWORD_LENGTH + " characters long"
+            );
+        }
+
+        Account account = accountRepository
+            .findById(accountId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ERR_ACCOUNT_NOT_FOUND: Operator account not found"));
+
+        String newPasswordHash = argon2idService.hash(newPassword);
+        account.setPasswordHash(newPasswordHash);
+        account.setFailedLoginAttempts(0);
+        account.setLockoutUntil(null);
+        account.setUpdatedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+        Account saved = accountRepository.save(account);
+
+        wormAuditService.recordEvent(
+            adminActorId,
+            "CLUSTER_ADMIN",
+            "ACCOUNT_PASSWORD_RESET",
+            "ACCOUNT",
+            saved.getAccountId().toString(),
+            AuditActionStatus.SUCCESS,
+            "{}",
+            clientIp,
+            "SOC2_CC6.1"
+        );
+
+        broadcastUserEvent(saved, "PASSWORD_RESET");
     }
 
     /**
@@ -482,27 +573,58 @@ public class OperatorAccountService {
             .findById(accountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ERR_ACCOUNT_NOT_FOUND: Operator account not found"));
 
+        boolean isSelf = (adminActorId != null && (account.getUsername().equalsIgnoreCase(adminActorId) || account.getAccountId().toString().equalsIgnoreCase(adminActorId)));
+
+        if (isSelf) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot modify status or demote the currently logged-in administrator account.");
+        }
+
+        if (account.getRole() == OperatorRole.CLUSTER_ADMIN) {
+            if (accountRepository.countByRoleAndStatus(OperatorRole.CLUSTER_ADMIN, AccountStatus.ACTIVE) <= 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot deactivate or demote the last remaining administrator account.");
+            }
+        }
+
         account.setStatus(AccountStatus.DEACTIVATED);
         account.setUpdatedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
-        accountRepository.save(account);
+        Account saved = accountRepository.save(account);
 
         wormAuditService.recordEvent(
             adminActorId,
             "CLUSTER_ADMIN",
             "ACCOUNT_DEACTIVATED",
             "ACCOUNT",
-            account.getAccountId().toString(),
+            saved.getAccountId().toString(),
             AuditActionStatus.SUCCESS,
             "{\"reason\":\"SOFT_DELETE\"}",
             clientIp,
             "SOC2_CC6.1"
         );
 
+        broadcastUserEvent(saved, "DELETED");
+
         return new DeactivateAccountResponse(
-            account.getAccountId(),
+            saved.getAccountId(),
             "DEACTIVATED",
             "Account successfully deactivated. Historical audit records preserved."
         );
+    }
+
+    private void broadcastUserEvent(Account account, String action) {
+        if (studioEventPublisher != null && account != null) {
+            try {
+                studioEventPublisher.publishUserStateChanged(new EventUserStateChangedFrame.Payload(
+                    account.getAccountId().toString(),
+                    account.getUsername(),
+                    account.getEmail(),
+                    account.getRole().name(),
+                    account.getStatus().name(),
+                    action
+                ));
+            } catch (Exception e) {
+                LOG.warn("Failed to publish user state changed event: {}", e.getMessage());
+            }
+        }
     }
 
     public AccountResponse toResponse(Account a) {

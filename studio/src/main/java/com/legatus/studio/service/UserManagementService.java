@@ -46,7 +46,11 @@ public class UserManagementService {
     }
 
     public CompletableFuture<Void> updateAccount(String accountId, String email, String role) {
-        RestDto.UpdateAccountRequest request = new RestDto.UpdateAccountRequest(email, role);
+        return updateAccount(accountId, null, email, role);
+    }
+
+    public CompletableFuture<Void> updateAccount(String accountId, String username, String email, String role) {
+        RestDto.UpdateAccountRequest request = new RestDto.UpdateAccountRequest(username, email, role);
         return restClient.put("/api/v1/admin/accounts/" + accountId, request, Void.class);
     }
 

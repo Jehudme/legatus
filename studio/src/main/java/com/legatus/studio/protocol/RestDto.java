@@ -300,14 +300,18 @@ public final class RestDto {
             @JsonProperty("peak_memory_bytes") Long peak_memory_bytes,
             @JsonProperty("execution_wall_time_ms") Long execution_wall_time_ms,
             @JsonProperty("created_at") Object created_at,
+            @JsonProperty("started_at") Object started_at,
             @JsonProperty("completed_at") Object completed_at,
             @JsonProperty("finished_at") Object finished_at,
+            @JsonProperty("worker_friendly_name") String worker_friendly_name,
+            @JsonProperty("function_name") String function_name,
+            @JsonProperty("profile_name") String profile_name,
             @JsonProperty("metrics") TaskMetricsDto metrics
     ) {
         public TaskStatusResponse(String task_id, String name, String status, Integer exit_code, String assigned_worker_id,
                                   Long instructions_consumed, Long peak_memory_bytes, Long execution_wall_time_ms,
                                   String created_at, String finished_at) {
-            this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, created_at, null, finished_at, null);
+            this(task_id, name, status, exit_code, assigned_worker_id, instructions_consumed, peak_memory_bytes, execution_wall_time_ms, created_at, null, null, finished_at, null, null, null, null);
         }
 
         public long effectiveInstructions() {
@@ -344,22 +348,49 @@ public final class RestDto {
             String last_login_at
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CreateAccountRequest(
-            String username,
-            String email,
-            String password,
-            String role
+            @JsonProperty("username") String username,
+            @JsonProperty("email") String email,
+            @JsonProperty("initial_password") @JsonAlias({ "initial_password", "password", "initialPassword" }) String password,
+            @JsonProperty("role") String role
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record UpdateAccountRequest(String email, String role) {}
+    public record UpdateAccountRequest(
+            @JsonProperty("username") String username,
+            @JsonProperty("email") String email,
+            @JsonProperty("role") String role
+    ) {
+        public UpdateAccountRequest(String email, String role) {
+            this(null, email, role);
+        }
+    }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record UpdateAccountStatusRequest(String status) {}
+    public record UpdateAccountStatusRequest(
+            @JsonProperty("status") String status
+    ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record ResetPasswordRequest(String new_password) {}
+    public record ResetPasswordRequest(
+            @JsonProperty("new_password") @JsonAlias({ "new_password", "newPassword", "password" }) String new_password
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record UserStateChangedPayload(
+            @JsonProperty("account_id") String account_id,
+            @JsonProperty("username") String username,
+            @JsonProperty("email") String email,
+            @JsonProperty("role") String role,
+            @JsonProperty("status") String status,
+            @JsonProperty("action") String action
+    ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record UpdatePasswordRequest(String old_password, String new_password) {}

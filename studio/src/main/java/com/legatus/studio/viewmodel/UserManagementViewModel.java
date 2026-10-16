@@ -84,6 +84,107 @@ public class UserManagementViewModel {
                 });
     }
 
+    public CompletableFuture<Boolean> updateUsername(String newUsername) {
+        OperatorAccount current = selectedAccount.get();
+        if (current == null) return CompletableFuture.completedFuture(false);
+        if (newUsername == null || newUsername.trim().isBlank()) {
+            statusMessage.set("Username cannot be empty.");
+            return CompletableFuture.completedFuture(false);
+        }
+        String trimmed = newUsername.trim();
+        isBusy.set(true);
+        return userService.updateAccount(current.getAccountId(), trimmed, current.getEmail(), current.getRole())
+                .thenApply(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        current.setUsername(trimmed);
+                        isBusy.set(false);
+                        statusMessage.set("Username updated to '" + trimmed + "'.");
+                    });
+                    return true;
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to update username: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return false;
+                });
+    }
+
+    public CompletableFuture<Boolean> updateEmail(String newEmail) {
+        OperatorAccount current = selectedAccount.get();
+        if (current == null) return CompletableFuture.completedFuture(false);
+        if (newEmail == null || newEmail.trim().isBlank() || !newEmail.contains("@")) {
+            statusMessage.set("Valid email address is required.");
+            return CompletableFuture.completedFuture(false);
+        }
+        String trimmed = newEmail.trim();
+        isBusy.set(true);
+        return userService.updateAccount(current.getAccountId(), current.getUsername(), trimmed, current.getRole())
+                .thenApply(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        current.setEmail(trimmed);
+                        isBusy.set(false);
+                        statusMessage.set("Email updated to '" + trimmed + "'.");
+                    });
+                    return true;
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to update email: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return false;
+                });
+    }
+
+    public CompletableFuture<Boolean> updateRole(String newRole) {
+        OperatorAccount current = selectedAccount.get();
+        if (current == null) return CompletableFuture.completedFuture(false);
+        isBusy.set(true);
+        return userService.updateAccount(current.getAccountId(), current.getUsername(), current.getEmail(), newRole)
+                .thenApply(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        current.setRole(newRole);
+                        isBusy.set(false);
+                        statusMessage.set("Role updated to " + newRole);
+                    });
+                    return true;
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Failed to update role: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return false;
+                });
+    }
+
+    public CompletableFuture<Boolean> resetPassword(String newPassword) {
+        OperatorAccount current = selectedAccount.get();
+        if (current == null) return CompletableFuture.completedFuture(false);
+        if (newPassword == null || newPassword.length() < 12) {
+            statusMessage.set("Password must be at least 12 characters.");
+            return CompletableFuture.completedFuture(false);
+        }
+        isBusy.set(true);
+        return userService.resetPassword(current.getAccountId(), newPassword)
+                .thenApply(v -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Password reset successfully for user '" + current.getUsername() + "'.");
+                    });
+                    return true;
+                })
+                .exceptionally(ex -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        isBusy.set(false);
+                        statusMessage.set("Password reset failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                    });
+                    return false;
+                });
+    }
+
     public CompletableFuture<Boolean> toggleStatus() {
         OperatorAccount current = selectedAccount.get();
         if (current == null) return CompletableFuture.completedFuture(false);

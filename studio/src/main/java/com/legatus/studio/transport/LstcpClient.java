@@ -69,6 +69,7 @@ public class LstcpClient implements WebSocket.Listener {
     private Consumer<TaskLifecyclePayload> taskLifecycleListener;
     private Consumer<TaskLogChunkPayload> taskLogChunkListener;
     private Consumer<TaskFailedAlertPayload> taskFailedAlertListener;
+    private Consumer<RestDto.UserStateChangedPayload> userStateListener;
 
     public LstcpClient(String serverUrl, boolean trustAllCerts) {
         this.wsBaseUrl = normalizeWsUrl(serverUrl);
@@ -289,6 +290,10 @@ public class LstcpClient implements WebSocket.Listener {
                     TaskFailedAlertPayload alert = MAPPER.treeToValue(payload, TaskFailedAlertPayload.class);
                     if (taskFailedAlertListener != null) taskFailedAlertListener.accept(alert);
                 }
+                case "EVENT_USER_STATE_CHANGED" -> {
+                    RestDto.UserStateChangedPayload user = MAPPER.treeToValue(payload, RestDto.UserStateChangedPayload.class);
+                    if (userStateListener != null) userStateListener.accept(user);
+                }
             }
         } catch (Exception ignored) {
             // Ignore malformed frames
@@ -336,6 +341,7 @@ public class LstcpClient implements WebSocket.Listener {
     public void setTaskLifecycleListener(Consumer<TaskLifecyclePayload> listener) { this.taskLifecycleListener = listener; }
     public void setTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) { this.taskLogChunkListener = listener; }
     public void setTaskFailedAlertListener(Consumer<TaskFailedAlertPayload> listener) { this.taskFailedAlertListener = listener; }
+    public void setUserStateListener(Consumer<RestDto.UserStateChangedPayload> listener) { this.userStateListener = listener; }
 
     private static class InsecureTrustManager implements X509TrustManager {
         public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }

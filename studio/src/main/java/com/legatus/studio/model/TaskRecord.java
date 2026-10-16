@@ -21,13 +21,24 @@ public class TaskRecord {
     private final IntegerProperty abortCountdownSeconds = new SimpleIntegerProperty(10);
     private final BooleanProperty isAborting = new SimpleBooleanProperty(false);
     private final StringProperty createdAt = new SimpleStringProperty("");
+    private final StringProperty startedAt = new SimpleStringProperty("");
     private final StringProperty finishedAt = new SimpleStringProperty("");
+    private final StringProperty workerFriendlyName = new SimpleStringProperty("");
+    private final StringProperty profileName = new SimpleStringProperty("");
 
     public TaskRecord() {}
 
     public TaskRecord(String taskId, String name, String status, Integer exitCode, String assignedWorkerId,
                       Long instructionsConsumed, Long peakMemoryBytes, Long executionWallTimeMs,
                       String createdAt, String finishedAt) {
+        this(taskId, name, status, exitCode, assignedWorkerId, instructionsConsumed, peakMemoryBytes,
+             executionWallTimeMs, createdAt, "", finishedAt, "", "");
+    }
+
+    public TaskRecord(String taskId, String name, String status, Integer exitCode, String assignedWorkerId,
+                      Long instructionsConsumed, Long peakMemoryBytes, Long executionWallTimeMs,
+                      String createdAt, String startedAt, String finishedAt,
+                      String workerFriendlyName, String profileName) {
         this.taskId.set(taskId);
         this.name.set(name);
         this.status.set(status != null ? status : "QUEUED");
@@ -37,7 +48,10 @@ public class TaskRecord {
         if (peakMemoryBytes != null) this.peakMemoryBytes.set(peakMemoryBytes);
         if (executionWallTimeMs != null) this.executionWallTimeMs.set(executionWallTimeMs);
         if (createdAt != null) this.createdAt.set(createdAt);
+        if (startedAt != null) this.startedAt.set(startedAt);
         if (finishedAt != null) this.finishedAt.set(finishedAt);
+        if (workerFriendlyName != null) this.workerFriendlyName.set(workerFriendlyName);
+        if (profileName != null) this.profileName.set(profileName);
     }
 
     public StringProperty taskIdProperty() { return taskId; }
@@ -96,7 +110,38 @@ public class TaskRecord {
     public String getCreatedAt() { return createdAt.get(); }
     public void setCreatedAt(String value) { this.createdAt.set(value); }
 
+    public StringProperty startedAtProperty() { return startedAt; }
+    public String getStartedAt() { return startedAt.get(); }
+    public void setStartedAt(String value) { this.startedAt.set(value); }
+
     public StringProperty finishedAtProperty() { return finishedAt; }
     public String getFinishedAt() { return finishedAt.get(); }
     public void setFinishedAt(String value) { this.finishedAt.set(value); }
+
+    public StringProperty workerFriendlyNameProperty() { return workerFriendlyName; }
+    public String getWorkerFriendlyName() { return workerFriendlyName.get(); }
+    public void setWorkerFriendlyName(String value) { this.workerFriendlyName.set(value); }
+
+    public StringProperty profileNameProperty() { return profileName; }
+    public String getProfileName() { return profileName.get(); }
+    public void setProfileName(String value) { this.profileName.set(value); }
+
+    public StringProperty functionNameProperty() { return name; }
+    public String getFunctionName() { return getName(); }
+    public void setFunctionName(String value) { setName(value); }
+
+    public String getFormattedDuration() {
+        return com.legatus.studio.service.TimeFormatUtils.formatDuration(getExecutionWallTimeMs());
+    }
+
+    public String getFormattedStartTime() {
+        return com.legatus.studio.service.TimeFormatUtils.formatTimestamp(getStartedAt());
+    }
+
+    public String getFormattedEndTime() {
+        if ("EXECUTING".equalsIgnoreCase(getStatus()) || "QUEUED".equalsIgnoreCase(getStatus())) {
+            return "--";
+        }
+        return com.legatus.studio.service.TimeFormatUtils.formatTimestamp(getFinishedAt());
+    }
 }

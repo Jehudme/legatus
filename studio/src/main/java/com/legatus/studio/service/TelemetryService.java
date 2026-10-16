@@ -115,10 +115,16 @@ public class TelemetryService implements AutoCloseable {
             for (TaskRecord existing : tasksList) {
                 if (existing.getTaskId().equals(taskEvent.task_id())) {
                     existing.setStatus(taskEvent.status());
+                    if (taskEvent.name() != null) existing.setName(taskEvent.name());
                     if (taskEvent.exit_code() != null) existing.setExitCode(taskEvent.exit_code());
+                    if (taskEvent.assigned_worker_id() != null) existing.setAssignedWorkerId(taskEvent.assigned_worker_id());
+                    if (taskEvent.worker_friendly_name() != null) existing.setWorkerFriendlyName(taskEvent.worker_friendly_name());
+                    if (taskEvent.profile_name() != null) existing.setProfileName(taskEvent.profile_name());
                     if (taskEvent.instructions_consumed() != null) existing.setInstructionsConsumed(taskEvent.instructions_consumed());
                     if (taskEvent.peak_memory_bytes() != null) existing.setPeakMemoryBytes(taskEvent.peak_memory_bytes());
                     if (taskEvent.execution_wall_time_ms() != null) existing.setExecutionWallTimeMs(taskEvent.execution_wall_time_ms());
+                    if (taskEvent.started_at() != null) existing.setStartedAt(taskEvent.started_at().toString());
+                    if (taskEvent.ended_at() != null) existing.setFinishedAt(taskEvent.ended_at().toString());
                     found = true;
                     break;
                 }
@@ -128,7 +134,11 @@ public class TelemetryService implements AutoCloseable {
                         taskEvent.task_id(), taskEvent.name(), taskEvent.status(), taskEvent.exit_code(),
                         taskEvent.assigned_worker_id(), taskEvent.instructions_consumed(),
                         taskEvent.peak_memory_bytes(), taskEvent.execution_wall_time_ms(),
-                        "", ""
+                        "",
+                        taskEvent.started_at() != null ? taskEvent.started_at().toString() : "",
+                        taskEvent.ended_at() != null ? taskEvent.ended_at().toString() : "",
+                        taskEvent.worker_friendly_name() != null ? taskEvent.worker_friendly_name() : "",
+                        taskEvent.profile_name() != null ? taskEvent.profile_name() : ""
                 );
                 tasksList.add(newRecord);
             }
@@ -137,6 +147,13 @@ public class TelemetryService implements AutoCloseable {
                         java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
                         taskEvent.task_id(), taskEvent.status(),
                         taskEvent.assigned_worker_id() != null ? taskEvent.assigned_worker_id() : "unassigned"));
+            }
+        }
+
+        // Live task duration streaming for executing tasks
+        for (TaskRecord task : tasksList) {
+            if ("EXECUTING".equalsIgnoreCase(task.getStatus())) {
+                task.setExecutionWallTimeMs(task.getExecutionWallTimeMs() + TelemetryCoalescer.COALESCE_INTERVAL_MS);
             }
         }
 

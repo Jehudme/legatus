@@ -155,14 +155,20 @@ public class TasksViewModel implements AutoCloseable {
                                     existing.setStatus(t.status());
                                     if (t.exit_code() != null) existing.setExitCode(t.exit_code());
                                     if (t.assigned_worker_id() != null) existing.setAssignedWorkerId(t.assigned_worker_id());
+                                    if (t.worker_friendly_name() != null) existing.setWorkerFriendlyName(t.worker_friendly_name());
+                                    if (t.profile_name() != null) existing.setProfileName(t.profile_name());
                                     existing.setInstructionsConsumed(t.effectiveInstructions());
                                     existing.setPeakMemoryBytes(t.effectiveMemory());
                                     existing.setExecutionWallTimeMs(t.effectiveWallTime());
+                                    if (t.started_at() != null) existing.setStartedAt(t.started_at().toString());
+                                    String finished = t.finished_at() != null ? t.finished_at().toString() : (t.completed_at() != null ? t.completed_at().toString() : "");
+                                    if (!finished.isBlank()) existing.setFinishedAt(finished);
                                     found = true;
                                     break;
                                 }
                             }
                             if (!found) {
+                                String finished = t.finished_at() != null ? t.finished_at().toString() : (t.completed_at() != null ? t.completed_at().toString() : "");
                                 allTasks.add(new TaskRecord(
                                         t.task_id(),
                                         t.name() != null ? t.name() : "",
@@ -173,7 +179,10 @@ public class TasksViewModel implements AutoCloseable {
                                         t.effectiveMemory(),
                                         t.effectiveWallTime(),
                                         t.created_at() != null ? t.created_at().toString() : "",
-                                        t.finished_at() != null ? t.finished_at().toString() : ""
+                                        t.started_at() != null ? t.started_at().toString() : "",
+                                        finished,
+                                        t.worker_friendly_name() != null ? t.worker_friendly_name() : "",
+                                        t.profile_name() != null ? t.profile_name() : ""
                                 ));
                             }
                         }

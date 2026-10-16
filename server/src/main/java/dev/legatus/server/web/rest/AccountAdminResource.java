@@ -13,23 +13,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * REST controller for operator account management and RBAC administration.
- * <p>
- * Complies with {@code api-endpoint.md} Section 6:
- * <ul>
- *   <li>{@code GET /api/v1/admin/accounts} (List operator accounts with filters)</li>
- *   <li>{@code POST /api/v1/admin/accounts} (Create operator account, min 12 char password)</li>
- *   <li>{@code PUT /api/v1/admin/accounts/{accountId}} (Update account profile &amp; role)</li>
- *   <li>{@code PATCH /api/v1/admin/accounts/{accountId}/status} (Mutate account lifecycle state)</li>
- *   <li>{@code DELETE /api/v1/admin/accounts/{accountId}} (Compliance soft-deletion to DEACTIVATED)</li>
- * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/admin/accounts")
+@PreAuthorize("hasAnyAuthority('ROLE_CLUSTER_ADMIN', 'ROLE_ADMIN', 'CLUSTER_ADMIN', 'ADMIN')")
 public class AccountAdminResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountAdminResource.class);
@@ -125,6 +118,23 @@ public class AccountAdminResource {
         LOG.debug("REST request by {} to soft-delete account {} from IP {}", actorId, accountId, clientIp);
         DeactivateAccountResponse response = operatorAccountService.softDelete(accountId, actorId, clientIp);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * {@code POST /api/v1/admin/accounts/{accountId}/reset-password} : Resets password for specified account (write-only).
+     */
+    @PostMapping("/{accountId}/reset-password")
+    public ResponseEntity<Void> resetPassword(
+        @PathVariable("accountId") UUID accountId,
+        @Valid @RequestBody ResetPasswordRequest request,
+        Authentication authentication,
+        HttpServletRequest httpRequest
+    ) {
+        String actorId = resolveActorId(authentication);
+        String clientIp = resolveClientIp(httpRequest);
+        LOG.debug("REST request by {} to reset password for account {} from IP {}", actorId, accountId, clientIp);
+        operatorAccountService.resetPassword(accountId, request.newPassword(), actorId, clientIp);
+        return ResponseEntity.ok().build();
     }
 
     private String resolveActorId(Authentication authentication) {

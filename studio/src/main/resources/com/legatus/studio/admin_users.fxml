@@ -4,42 +4,132 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<SplitPane dividerPositions="0.6" stylesheets="@styles.css"
+<StackPane stylesheets="@styles.css"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.legatus.studio.controllers.AdminUsersController">
 
-    <!-- Left side: Operator Accounts Table -->
-    <VBox spacing="12.0">
+    <!-- Unprivileged Lock-Screen / Access Denied Banner -->
+    <VBox fx:id="accessDeniedPane" alignment="CENTER" spacing="16.0" style="-fx-background-color: #0b1120;" visible="false" managed="false">
         <padding>
-            <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+            <Insets top="40.0" right="40.0" bottom="40.0" left="40.0" />
         </padding>
-
-        <HBox spacing="12.0" alignment="CENTER_LEFT">
-            <Label text="Operator Accounts" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
-            <Region HBox.hgrow="ALWAYS" />
-            <Button fx:id="toggleStatusButton" text="Toggle Status" disable="true" onAction="#onToggleStatusClicked" style="-fx-background-color: #d97706; -fx-text-fill: white;" />
-            <Button fx:id="deleteAccountButton" text="Delete Account" disable="true" onAction="#onDeleteClicked" style="-fx-background-color: #dc2626; -fx-text-fill: white;" />
-        </HBox>
-
-        <TableView fx:id="accountsTable" VBox.vgrow="ALWAYS">
-            <columns>
-                <TableColumn fx:id="usernameCol" text="Username" prefWidth="160.0" />
-                <TableColumn fx:id="emailCol" text="Email Address" prefWidth="200.0" />
-                <TableColumn fx:id="roleCol" text="Role" prefWidth="120.0" />
-                <TableColumn fx:id="statusCol" text="Status" prefWidth="100.0" />
-            </columns>
-        </TableView>
+        <Label text="🔒" style="-fx-font-size: 54px;" />
+        <Label text="Access Denied" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #ef4444;" />
+        <Label text="Administrator Role Required (ROLE_ADMIN / CLUSTER_ADMIN). You do not have permission to inspect or manage cluster accounts."
+               style="-fx-font-size: 14px; -fx-text-fill: #94a3b8;" wrapText="true" textAlignment="CENTER" />
     </VBox>
 
-    <!-- Right side: Provision Account Form -->
-    <VBox spacing="16.0" style="-fx-background-color: #0b1120;">
-        <padding>
-            <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
-        </padding>
+    <!-- Main Admin View SplitPane -->
+    <SplitPane fx:id="mainAdminPane" dividerPositions="0.55">
+        <!-- Left side: Operator Accounts Table -->
+        <VBox spacing="12.0">
+            <padding>
+                <Insets top="16.0" right="16.0" bottom="16.0" left="16.0" />
+            </padding>
 
-        <Label text="Provision Operator Account" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+            <HBox spacing="12.0" alignment="CENTER_LEFT">
+                <Label text="Operator Accounts" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Button fx:id="provisionUserButton" text="+ New Account" onAction="#onOpenProvisionModal"
+                        style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold;" />
+                <Button fx:id="refreshButton" text="Refresh" onAction="#onRefreshClicked"
+                        style="-fx-background-color: #334155; -fx-text-fill: #f8fafc; -fx-font-weight: bold;" />
+            </HBox>
 
-        <VBox spacing="12.0" styleClass="attestation-card">
+            <TableView fx:id="accountsTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="usernameCol" text="Username" prefWidth="160.0" />
+                    <TableColumn fx:id="emailCol" text="Email Address" prefWidth="200.0" />
+                    <TableColumn fx:id="roleCol" text="Role" prefWidth="120.0" />
+                    <TableColumn fx:id="statusCol" text="Status" prefWidth="100.0" />
+                </columns>
+            </TableView>
+        </VBox>
+
+        <!-- Right side: Master-Detail User Inspector (Hidden when no selection) -->
+        <VBox fx:id="userInspectorPane" spacing="16.0" style="-fx-background-color: #0b1120;">
+            <padding>
+                <Insets top="16.0" right="20.0" bottom="16.0" left="20.0" />
+            </padding>
+
+            <Label text="Operator Account Inspector" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;" />
+
+            <VBox spacing="12.0" styleClass="attestation-card">
+                <!-- Username field + Save -->
+                <VBox spacing="4.0">
+                    <Label text="USERNAME" styleClass="gauge-title" />
+                    <HBox spacing="8.0" alignment="CENTER_LEFT">
+                        <TextField fx:id="editUsernameField" promptText="Username" HBox.hgrow="ALWAYS" />
+                        <Button fx:id="saveUsernameButton" text="Save" onAction="#onSaveUsernameClicked"
+                                style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                    </HBox>
+                </VBox>
+
+                <!-- Email field + Save -->
+                <VBox spacing="4.0">
+                    <Label text="EMAIL ADDRESS" styleClass="gauge-title" />
+                    <HBox spacing="8.0" alignment="CENTER_LEFT">
+                        <TextField fx:id="editEmailField" promptText="Email address" HBox.hgrow="ALWAYS" />
+                        <Button fx:id="saveEmailButton" text="Save" onAction="#onSaveEmailClicked"
+                                style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                    </HBox>
+                </VBox>
+
+                <!-- Status Toggle -->
+                <VBox spacing="4.0">
+                    <Label text="ACCOUNT STATUS" styleClass="gauge-title" />
+                    <HBox spacing="12.0" alignment="CENTER_LEFT">
+                        <Label fx:id="statusBadgeLabel" text="ACTIVE" styleClass="badge-online" />
+                        <Button fx:id="toggleStatusButton" text="Toggle Status" onAction="#onToggleStatusClicked"
+                                style="-fx-background-color: #d97706; -fx-text-fill: white;" />
+                    </HBox>
+                </VBox>
+
+                <!-- Role Toggle -->
+                <VBox spacing="4.0">
+                    <Label text="ASSIGNED ROLE" styleClass="gauge-title" />
+                    <HBox spacing="12.0" alignment="CENTER_LEFT">
+                        <Label fx:id="roleBadgeLabel" text="OPERATOR" styleClass="badge-quarantined" />
+                        <Button fx:id="toggleRoleButton" text="Switch Role" onAction="#onToggleRoleClicked"
+                                style="-fx-background-color: #475569; -fx-text-fill: white;" />
+                    </HBox>
+                </VBox>
+
+                <!-- Self-lockout warning banner -->
+                <VBox fx:id="selfLockoutBanner" spacing="4.0" style="-fx-background-color: rgba(245, 158, 11, 0.15); -fx-padding: 8; -fx-background-radius: 6;" visible="false" managed="false">
+                    <Label text="⚠️ Self-Modification Protection Active" style="-fx-text-fill: #fbbf24; -fx-font-weight: bold; -fx-font-size: 11px;" />
+                    <Label text="You are currently signed in with this account. Status deactivation and role demotion are blocked to prevent accidental lockout."
+                           style="-fx-text-fill: #fde68a; -fx-font-size: 11px;" wrapText="true" />
+                </VBox>
+
+                <Separator />
+
+                <!-- Write-Only Password Reset -->
+                <VBox spacing="6.0">
+                    <Label text="WRITE-ONLY CREDENTIALS" styleClass="gauge-title" />
+                    <Button fx:id="resetPasswordButton" text="Reset Password..." onAction="#onOpenResetPasswordModal"
+                            style="-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold;" />
+                </VBox>
+
+                <Separator />
+
+                <!-- Danger Zone: Delete -->
+                <VBox spacing="6.0">
+                    <Label text="DANGER ZONE" styleClass="gauge-title" />
+                    <Button fx:id="deleteAccountButton" text="Delete Account" onAction="#onDeleteClicked"
+                            style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold;" />
+                </VBox>
+            </VBox>
+
+            <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
+        </VBox>
+    </SplitPane>
+
+    <!-- Modal 1: Provision Operator Account Overlay -->
+    <VBox fx:id="provisionModal" alignment="CENTER" style="-fx-background-color: rgba(0, 0, 0, 0.75);" visible="false" managed="false">
+        <VBox spacing="16.0" styleClass="attestation-card" maxWidth="420.0" style="-fx-background-color: #1e293b; -fx-padding: 24; -fx-border-color: #38bdf8; -fx-border-radius: 8; -fx-background-radius: 8;">
+            <Label text="Provision Operator Account" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+
             <VBox spacing="4.0">
                 <Label text="Username" styleClass="gauge-title" />
                 <TextField fx:id="newUsernameField" promptText="e.g. jdoe_ops" />
@@ -51,14 +141,61 @@
             </VBox>
 
             <VBox spacing="4.0">
-                <Label text="Temporary Password" styleClass="gauge-title" />
-                <PasswordField fx:id="newPasswordField" promptText="••••••••" />
+                <Label text="Initial Password" styleClass="gauge-title" />
+                <PasswordField fx:id="newPasswordField" promptText="Min 12 characters" />
             </VBox>
 
-            <Button fx:id="createAccountButton" text="Create Account" onAction="#onCreateClicked"
-                    style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20 8 20;" />
-        </VBox>
+            <VBox spacing="4.0">
+                <Label text="Role" styleClass="gauge-title" />
+                <ComboBox fx:id="newRoleCombo" maxWidth="Infinity" />
+            </VBox>
 
-        <Label fx:id="statusLabel" style="-fx-text-fill: #38bdf8; -fx-font-size: 12px;" wrapText="true" />
+            <Label fx:id="provisionStatusLabel" style="-fx-text-fill: #ef4444; -fx-font-size: 11px;" wrapText="true" />
+
+            <HBox spacing="12.0" alignment="CENTER_RIGHT">
+                <Button fx:id="cancelProvisionButton" text="Cancel" onAction="#onCloseProvisionModal"
+                        style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                <Button fx:id="createAccountButton" text="Create Account" onAction="#onCreateClicked"
+                        style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold;" />
+            </HBox>
+        </VBox>
     </VBox>
-</SplitPane>
+
+    <!-- Modal 2: Write-Only Password Reset Dialog Overlay -->
+    <VBox fx:id="resetPasswordModal" alignment="CENTER" style="-fx-background-color: rgba(0, 0, 0, 0.75);" visible="false" managed="false">
+        <VBox spacing="16.0" styleClass="attestation-card" maxWidth="440.0" style="-fx-background-color: #1e293b; -fx-padding: 24; -fx-border-color: #2563eb; -fx-border-radius: 8; -fx-background-radius: 8;">
+            <Label text="Reset Operator Password (Write-Only)" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;" />
+            <Label fx:id="resetTargetUserLabel" text="Setting new credentials..." style="-fx-text-fill: #94a3b8; -fx-font-size: 12px;" />
+
+            <VBox spacing="4.0">
+                <Label text="New Password" styleClass="gauge-title" />
+                <PasswordField fx:id="resetPasswordField" promptText="Enter new password (min 12 chars)" />
+            </VBox>
+
+            <VBox spacing="4.0">
+                <Label text="Confirm Password" styleClass="gauge-title" />
+                <PasswordField fx:id="resetConfirmPasswordField" promptText="Re-enter password" />
+            </VBox>
+
+            <!-- Password Strength Bar (P2) -->
+            <VBox spacing="4.0">
+                <HBox alignment="CENTER_LEFT">
+                    <Label text="PASSWORD STRENGTH" styleClass="gauge-title" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Label fx:id="passwordStrengthLabel" text="Too Short" style="-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #ef4444;" />
+                </HBox>
+                <ProgressBar fx:id="passwordStrengthBar" progress="0.0" maxWidth="Infinity" />
+            </VBox>
+
+            <Label fx:id="resetStatusLabel" style="-fx-text-fill: #ef4444; -fx-font-size: 11px;" wrapText="true" />
+
+            <HBox spacing="12.0" alignment="CENTER_RIGHT">
+                <Button fx:id="cancelResetPasswordButton" text="Cancel" onAction="#onCloseResetPasswordModal"
+                        style="-fx-background-color: #334155; -fx-text-fill: white;" />
+                <Button fx:id="confirmResetPasswordButton" text="Update Password" onAction="#onConfirmResetPasswordClicked"
+                        style="-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold;" />
+            </HBox>
+        </VBox>
+    </VBox>
+
+</StackPane>

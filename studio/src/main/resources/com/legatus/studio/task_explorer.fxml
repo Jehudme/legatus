@@ -23,10 +23,13 @@
 
         <TableView fx:id="tasksTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="taskIdCol" text="Task ID" prefWidth="180.0" />
-                <TableColumn fx:id="nameCol" text="Function Name" prefWidth="200.0" />
-                <TableColumn fx:id="statusCol" text="Status" prefWidth="120.0" />
-                <TableColumn fx:id="instructionsCol" text="Instructions" prefWidth="120.0" />
+                <TableColumn fx:id="taskIdCol" text="Task ID" prefWidth="160.0" />
+                <TableColumn fx:id="nameCol" text="Function / Profile" prefWidth="180.0" />
+                <TableColumn fx:id="statusCol" text="Status" prefWidth="110.0" />
+                <TableColumn fx:id="durationCol" text="Duration" prefWidth="110.0" />
+                <TableColumn fx:id="startTimeCol" text="Start Time" prefWidth="120.0" />
+                <TableColumn fx:id="endTimeCol" text="End Time" prefWidth="120.0" />
+                <TableColumn fx:id="workerCol" text="Worker Node" prefWidth="140.0" />
             </columns>
         </TableView>
     </VBox>
@@ -43,14 +46,20 @@
             <Label text="TASK ID" styleClass="gauge-title" />
             <Label fx:id="selectedTaskIdLabel" text="Select a task..." styleClass="gauge-value" />
 
-            <Label text="FUNCTION NAME" styleClass="gauge-title" />
+            <Label text="FUNCTION &amp; PROFILE" styleClass="gauge-title" />
             <Label fx:id="selectedNameLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
 
             <Label text="LIFECYCLE STATUS" styleClass="gauge-title" />
             <Label fx:id="selectedStatusLabel" text="--" styleClass="badge-online" />
 
-            <Label text="ASSIGNED COMPUTE WORKER" styleClass="gauge-title" />
+            <Label text="ASSIGNED WORKER NODE" styleClass="gauge-title" />
             <Label fx:id="selectedWorkerLabel" text="--" style="-fx-text-fill: #cbd5e1;" />
+
+            <Label text="EXECUTION DURATION" styleClass="gauge-title" />
+            <Label fx:id="selectedDurationLabel" text="--" style="-fx-text-fill: #38bdf8; -fx-font-weight: bold;" />
+
+            <Label text="START &amp; END TIMESTAMPS" styleClass="gauge-title" />
+            <Label fx:id="selectedTimingLabel" text="-- / --" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;" />
 
             <Label text="INSTRUCTION BUDGET PROGRESS" styleClass="gauge-title" />
             <ProgressBar fx:id="instructionProgressBar" progress="0.0" maxWidth="Infinity" />

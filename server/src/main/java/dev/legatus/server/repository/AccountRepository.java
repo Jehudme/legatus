@@ -32,4 +32,6 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     Page<Account> findAllByStatus(AccountStatus status, Pageable pageable);
 
     Page<Account> findAllByRoleAndStatus(OperatorRole role, AccountStatus status, Pageable pageable);
+
+    long countByRoleAndStatus(OperatorRole role, AccountStatus status);
 }
