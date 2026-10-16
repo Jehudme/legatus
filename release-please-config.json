@@ -8,18 +8,16 @@
       "changelog-path": "CHANGELOG.md"
     },
     "server": {
-      "release-type": "maven",
+      "release-type": "simple",
       "package-name": "server",
       "component": "server",
-      "changelog-path": "CHANGELOG.md",
-      "snapshot": false
+      "changelog-path": "CHANGELOG.md"
     },
     "studio": {
-      "release-type": "maven",
+      "release-type": "simple",
       "package-name": "studio",
       "component": "studio",
-      "changelog-path": "CHANGELOG.md",
-      "snapshot": false
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }
