@@ -1,24 +1,24 @@
 package legatus.storage.kv;
 
 public class EphemeralKV {
-    private static native int64 native_set(string key, string val, int64 ttlSecs);
-    private static native string native_get(string key);
-    private static native int64 native_has(string key);
-    private static native int64 native_delete(string key);
+    private static native int64 native_set(char[] key, char[] val, int64 ttlSecs);
+    private static native char[] native_get(char[] key);
+    private static native int64 native_has(char[] key);
+    private static native int64 native_delete(char[] key);
 
-    public static bool set(string key, string val, int64 ttlSecs) {
+    public static bool set(char[] key, char[] val, int64 ttlSecs) {
         return native_set(key, val, ttlSecs) != 0;
     }
 
-    public static string get(string key) {
+    public static char[] get(char[] key) {
         return native_get(key);
     }
 
-    public static bool has(string key) {
+    public static bool has(char[] key) {
         return native_has(key) != 0;
     }
 
-    public static bool delete(string key) {
+    public static bool delete(char[] key) {
         return native_delete(key) != 0;
     }
 }

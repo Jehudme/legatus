@@ -1,18 +1,18 @@
 package legatus.runtime;
 
 public class TaskContext {
-    private static native string native_task_id();
-    private static native string native_function_name();
+    private static native char[] native_task_id();
+    private static native char[] native_function_name();
     private static native int64 native_instruction_budget();
     private static native int64 native_instructions_consumed();
-    private static native string native_get_secret(string key);
-    private static native int64 native_emit_progress(string checkpoint);
+    private static native char[] native_get_secret(char[] key);
+    private static native int64 native_emit_progress(char[] checkpoint);
 
-    public static string taskId() {
+    public static char[] taskId() {
         return native_task_id();
     }
 
-    public static string functionName() {
+    public static char[] functionName() {
         return native_function_name();
     }
 
@@ -24,11 +24,11 @@ public class TaskContext {
         return native_instructions_consumed();
     }
 
-    public static string getSecret(string key) {
+    public static char[] getSecret(char[] key) {
         return native_get_secret(key);
     }
 
-    public static bool emitProgress(string checkpoint) {
+    public static bool emitProgress(char[] checkpoint) {
         return native_emit_progress(checkpoint) != 0;
     }
 }

@@ -1,14 +1,14 @@
 package legatus.crypto.extended;
 
 public class AesGcm {
-    private static native byte[] native_encrypt(byte[] key, byte[] iv, byte[] plaintext);
-    private static native byte[] native_decrypt(byte[] key, byte[] iv, byte[] ciphertextAndTag);
+    private static native int8[] native_encrypt(int8[] key, int8[] iv, int8[] plaintext);
+    private static native int8[] native_decrypt(int8[] key, int8[] iv, int8[] ciphertextAndTag);
 
-    public static byte[] encrypt(byte[] key, byte[] iv, byte[] plaintext) {
+    public static int8[] encrypt(int8[] key, int8[] iv, int8[] plaintext) {
         return native_encrypt(key, iv, plaintext);
     }
 
-    public static byte[] decrypt(byte[] key, byte[] iv, byte[] ciphertextAndTag) {
+    public static int8[] decrypt(int8[] key, int8[] iv, int8[] ciphertextAndTag) {
         return native_decrypt(key, iv, ciphertextAndTag);
     }
 }

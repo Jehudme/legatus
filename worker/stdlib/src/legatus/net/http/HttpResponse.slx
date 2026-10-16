@@ -2,16 +2,16 @@ package legatus.net.http;
 
 public class HttpResponse {
     public int32 status;
-    public string body;
-    public string error;
+    public char[] body;
+    public char[] error;
 
-    public HttpResponse(int32 status, string body, string error) {
+    public HttpResponse(int32 status, char[] body, char[] error) {
         this.status = status;
         this.body = body;
         this.error = error;
     }
 
-    public bool isSuccess() {
+    public bool is_success() {
         return this.status >= 200 && this.status < 300;
     }
 }

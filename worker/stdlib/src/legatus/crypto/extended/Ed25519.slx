@@ -1,9 +1,9 @@
 package legatus.crypto.extended;
 
 public class Ed25519 {
-    private static native int64 native_verify(byte[] publicKey, byte[] message, byte[] signature);
+    private static native int64 native_verify(int8[] publicKey, int8[] message, int8[] signature);
 
-    public static bool verify(byte[] publicKey, byte[] message, byte[] signature) {
+    public static bool verify(int8[] publicKey, int8[] message, int8[] signature) {
         return native_verify(publicKey, message, signature) != 0;
     }
 }

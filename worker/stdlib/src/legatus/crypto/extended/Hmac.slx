@@ -1,14 +1,14 @@
 package legatus.crypto.extended;
 
 public class Hmac {
-    private static native string native_sha256(string key, string data);
-    private static native string native_sha512(string key, string data);
+    private static native char[] native_sha256(char[] key, char[] data);
+    private static native char[] native_sha512(char[] key, char[] data);
 
-    public static string sha256(string key, string data) {
+    public static char[] sha256(char[] key, char[] data) {
         return native_sha256(key, data);
     }
 
-    public static string sha512(string key, string data) {
+    public static char[] sha512(char[] key, char[] data) {
         return native_sha512(key, data);
     }
 }

@@ -3,20 +3,20 @@ package legatus.json;
 public class JsonDocument {
     private int64 handle;
 
-    private static native int64 native_parse(string jsonStr);
-    private static native string native_stringify(int64 handle);
-    private static native string native_get_string(int64 handle, string path);
-    private static native int64 native_get_int(int64 handle, string path);
-    private static native float64 native_get_double(int64 handle, string path);
-    private static native int64 native_get_bool(int64 handle, string path);
-    private static native int64 native_contains(int64 handle, string path);
+    private static native int64 native_parse(char[] jsonStr);
+    private static native char[] native_stringify(int64 handle);
+    private static native char[] native_get_string(int64 handle, char[] path);
+    private static native int64 native_get_int(int64 handle, char[] path);
+    private static native float64 native_get_double(int64 handle, char[] path);
+    private static native int64 native_get_bool(int64 handle, char[] path);
+    private static native int64 native_contains(int64 handle, char[] path);
     private static native int64 native_free(int64 handle);
 
     public JsonDocument(int64 handle) {
         this.handle = handle;
     }
 
-    public static JsonDocument parse(string jsonStr) {
+    public static JsonDocument parse(char[] jsonStr) {
         int64 h = native_parse(jsonStr);
         if (h == 0) {
             return null;
@@ -24,32 +24,32 @@ public class JsonDocument {
         return new JsonDocument(h);
     }
 
-    public string stringify() {
+    public char[] stringify() {
         if (this.handle == 0) return "null";
         return native_stringify(this.handle);
     }
 
-    public string getString(string path) {
+    public char[] getString(char[] path) {
         if (this.handle == 0) return null;
         return native_get_string(this.handle, path);
     }
 
-    public int64 getInt(string path) {
+    public int64 getInt(char[] path) {
         if (this.handle == 0) return 0;
         return native_get_int(this.handle, path);
     }
 
-    public float64 getDouble(string path) {
+    public float64 getDouble(char[] path) {
         if (this.handle == 0) return 0.0;
         return native_get_double(this.handle, path);
     }
 
-    public bool getBool(string path) {
+    public bool getBool(char[] path) {
         if (this.handle == 0) return false;
         return native_get_bool(this.handle, path) != 0;
     }
 
-    public bool contains(string path) {
+    public bool contains(char[] path) {
         if (this.handle == 0) return false;
         return native_contains(this.handle, path) != 0;
     }

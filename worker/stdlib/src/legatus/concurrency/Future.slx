@@ -9,7 +9,7 @@ public class Future<T> {
     private T _value;
     private bool _is_completed;
     private bool _has_failed;
-    private string _error_message;
+    private char[] _error_message;
 
     public Future() {
         this._is_completed = false;
@@ -17,14 +17,14 @@ public class Future<T> {
         this._error_message = "";
     }
 
-    public static <U> Future<U> completed(U value) {
+    public static Future<U> completed<U>(U value) {
         Future<U> f = new Future<U>();
         f._value = value;
         f._is_completed = true;
         return f;
     }
 
-    public static <U> Future<U> failed(string error) {
+    public static Future<U> failed<U>(char[] error) {
         Future<U> f = new Future<U>();
         f._has_failed = true;
         f._error_message = error;
@@ -40,7 +40,7 @@ public class Future<T> {
         return this._has_failed;
     }
 
-    public string error_message() {
+    public char[] error_message() {
         return this._error_message;
     }
 
@@ -49,7 +49,7 @@ public class Future<T> {
             throw new InvalidOperationException("Future has not completed yet");
         }
         if (this._has_failed) {
-            throw new InvalidOperationException("Future failed with error: " + this._error_message);
+            throw new InvalidOperationException("Future failed with error");
         }
         return this._value;
     }
@@ -62,7 +62,7 @@ public class Future<T> {
         this._is_completed = true;
     }
 
-    public void fail(string error) {
+    public void fail(char[] error) {
         if (this._is_completed) {
             throw new InvalidOperationException("Future is already completed");
         }
