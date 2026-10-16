@@ -136,4 +136,20 @@ public class ClusterOverviewController {
             workerCardsPane.getChildren().remove(card);
         }
     }
+
+    public javafx.scene.layout.HBox getThresholdBreachBox() {
+        return thresholdBreachBox;
+    }
+
+    public javafx.scene.layout.HBox getQueueSaturatedBox() {
+        return queueSaturatedBox;
+    }
+
+    public Label getThresholdBreachLabel() {
+        return thresholdBreachLabel;
+    }
+
+    public javafx.scene.layout.FlowPane getWorkerCardsPane() {
+        return workerCardsPane;
+    }
 }

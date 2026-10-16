@@ -48,8 +48,8 @@ public class QuarantineViewModel {
         loadAutoAcceptState();
     }
 
-    public void loadAutoAcceptState() {
-        workerService.getAutoAccept()
+    public CompletableFuture<Void> loadAutoAcceptState() {
+        return workerService.getAutoAccept()
                 .thenAccept(enabled -> com.legatus.studio.service.FxAsync.runOnFxThread(() -> autoAccept.set(enabled)))
                 .exceptionally(ex -> null);
     }

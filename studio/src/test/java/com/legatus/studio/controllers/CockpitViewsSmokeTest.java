@@ -155,4 +155,106 @@ public class CockpitViewsSmokeTest {
         ViewLoaderService.switchView(content, "fleet_topology");
         assertEquals(1, content.getChildren().size());
     }
+
+    @Test
+    void testFleetTopologyInspectorMasterDetail() throws IOException {
+        var view = ViewLoaderService.load("fleet_topology");
+        FleetTopologyController controller = (FleetTopologyController) view.controller();
+        assertNotNull(controller);
+
+        assertNotNull(controller.getWorkersTable());
+        assertNotNull(controller.getInspectorPane());
+
+        javafx.collections.ObservableList<WorkerNode> workersList = javafx.collections.FXCollections.observableArrayList();
+        WorkerNode testWorker = new WorkerNode(
+                "wrk-insp-1", "host-insp-1", "192.168.1.50", "linux", "x86_64",
+                "ONLINE", 8, 16L * 1024 * 1024 * 1024, 25.0, 4L * 1024 * 1024 * 1024, 2, "2026-10-15T12:00:00Z"
+        );
+        workersList.add(testWorker);
+        var workerService = new com.legatus.studio.service.WorkerService(new com.legatus.studio.transport.RestClient("http://127.0.0.1:9999"));
+        var fleetVm = new com.legatus.studio.viewmodel.FleetViewModel(workersList, workerService);
+        controller.setViewModel(fleetVm);
+
+        // Initially no row is selected -> inspector hidden
+        controller.getWorkersTable().getSelectionModel().clearSelection();
+        assertFalse(controller.getInspectorPane().isVisible());
+
+        // Select worker
+        controller.getWorkersTable().getSelectionModel().select(0);
+        assertTrue(controller.getInspectorPane().isVisible());
+        assertTrue(controller.getInspectorPane().isManaged());
+
+        // Deselect -> hidden again
+        controller.getWorkersTable().getSelectionModel().clearSelection();
+        assertFalse(controller.getInspectorPane().isVisible());
+        assertFalse(controller.getInspectorPane().isManaged());
+    }
+
+    @Test
+    void testQuarantineAttestationMasterDetail() throws IOException {
+        var view = ViewLoaderService.load("quarantine_attestation");
+        QuarantineAttestationController controller = (QuarantineAttestationController) view.controller();
+        assertNotNull(controller);
+
+        assertNotNull(controller.getEnrollmentsListView());
+        assertNotNull(controller.getAttestationPane());
+
+        javafx.collections.ObservableList<QuarantineEnrollment> enrollmentsList = javafx.collections.FXCollections.observableArrayList();
+        QuarantineEnrollment enrollment = new QuarantineEnrollment(
+                "enr-insp-1", "wrk-q-01", "untrusted.host", "192.168.1.100",
+                "linux", "x86_64", "4E:8A:BC:31:09:FF:7D:12", "Tiger-Galaxy-77", 8, 16L * 1024 * 1024 * 1024, "2026-10-15T12:00:00Z"
+        );
+        enrollmentsList.add(enrollment);
+        var workerService = new com.legatus.studio.service.WorkerService(new com.legatus.studio.transport.RestClient("http://127.0.0.1:9999"));
+        var quarVm = new com.legatus.studio.viewmodel.QuarantineViewModel(enrollmentsList, workerService);
+        controller.setViewModel(quarVm);
+
+        // Initially no row selected -> attestation hidden
+        controller.getEnrollmentsListView().getSelectionModel().clearSelection();
+        assertFalse(controller.getAttestationPane().isVisible());
+
+        // Select enrollment
+        controller.getEnrollmentsListView().getSelectionModel().select(0);
+        assertTrue(controller.getAttestationPane().isVisible());
+        assertTrue(controller.getAttestationPane().isManaged());
+
+        // Deselect -> hidden again
+        controller.getEnrollmentsListView().getSelectionModel().clearSelection();
+        assertFalse(controller.getAttestationPane().isVisible());
+        assertFalse(controller.getAttestationPane().isManaged());
+    }
+
+    @Test
+    void testClusterOverviewAlertBanners() throws IOException {
+        var view = ViewLoaderService.load("cluster_overview");
+        ClusterOverviewController controller = (ClusterOverviewController) view.controller();
+        assertNotNull(controller);
+
+        var metrics = new com.legatus.studio.model.ClusterMetrics();
+        var vm = new com.legatus.studio.viewmodel.ClusterOverviewViewModel(
+                metrics,
+                javafx.collections.FXCollections.observableArrayList(),
+                javafx.collections.FXCollections.observableArrayList()
+        );
+        controller.setViewModel(vm);
+
+        assertNotNull(controller.getThresholdBreachBox());
+        assertNotNull(controller.getQueueSaturatedBox());
+
+        vm.thresholdBreachWarningProperty().set(false);
+        vm.queueSaturatedErrorProperty().set(false);
+        assertFalse(controller.getThresholdBreachBox().isVisible());
+        assertFalse(controller.getQueueSaturatedBox().isVisible());
+
+        // Trigger warnings
+        vm.thresholdBreachWarningProperty().set(true);
+        assertTrue(controller.getThresholdBreachBox().isVisible());
+
+        vm.queueSaturatedErrorProperty().set(true);
+        assertTrue(controller.getQueueSaturatedBox().isVisible());
+
+        // Clear warnings
+        vm.thresholdBreachWarningProperty().set(false);
+        assertFalse(controller.getThresholdBreachBox().isVisible());
+    }
 }

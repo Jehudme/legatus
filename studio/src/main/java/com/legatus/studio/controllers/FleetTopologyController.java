@@ -326,4 +326,36 @@ public class FleetTopologyController {
             }
         }
     }
+
+    public TableView<WorkerNode> getWorkersTable() {
+        return workersTable;
+    }
+
+    public VBox getInspectorPane() {
+        return inspectorPane;
+    }
+
+    public TextField getNameField() {
+        return nameField;
+    }
+
+    public CheckBox getActiveCheckBox() {
+        return activeCheckBox;
+    }
+
+    public CheckBox getAutoRenewCheckBox() {
+        return autoRenewCheckBox;
+    }
+
+    public Slider getTargetCpuSlider() {
+        return targetCpuSlider;
+    }
+
+    public Slider getTargetRamSlider() {
+        return targetRamSlider;
+    }
+
+    public Spinner<Integer> getMaxTasksSpinner() {
+        return maxTasksSpinner;
+    }
 }

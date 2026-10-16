@@ -18,7 +18,7 @@ class TechnicalStructureTest {
         .consideringAllDependencies()
         .layer("Config").definedBy("..config..")
         .layer("Web").definedBy("..web..")
-        .optionalLayer("Service").definedBy("..service..", "..storage..", "..features..")
+        .optionalLayer("Service").definedBy("..service..", "..storage..", "..features..", "..orchestration..")
         .layer("Security").definedBy("..security..")
         .optionalLayer("Persistence").definedBy("..repository..")
         .layer("Domain").definedBy("..domain..")
@@ -39,6 +39,9 @@ class TechnicalStructureTest {
             dev.legatus.server.config.LegatusProperties.Security.class,
             dev.legatus.server.config.LegatusProperties.Security.Argon2.class,
             dev.legatus.server.config.LegatusProperties.Security.RateLimit.class,
-            dev.legatus.server.config.LegatusProperties.Scheduler.class
+            dev.legatus.server.config.LegatusProperties.Scheduler.class,
+            dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry.class,
+            dev.legatus.server.web.websocket.lctp.LctpWorkerSession.class,
+            dev.legatus.server.web.rest.WorkerAdminResource.ClusterStatsDto.class
         ));
 }

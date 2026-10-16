@@ -4,6 +4,7 @@ import com.legatus.studio.model.QuarantineEnrollment;
 import com.legatus.studio.viewmodel.QuarantineViewModel;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.*;
 
 public class QuarantineAttestationController {
 
@@ -171,5 +172,21 @@ public class QuarantineAttestationController {
     @FXML
     public void onRejectClicked() {
         if (viewModel != null) viewModel.rejectSelected();
+    }
+
+    public ListView<QuarantineEnrollment> getEnrollmentsListView() {
+        return enrollmentsListView;
+    }
+
+    public VBox getAttestationPane() {
+        return attestationPane;
+    }
+
+    public CheckBox getAutoAcceptCheckBox() {
+        return autoAcceptCheckBox;
+    }
+
+    public HBox getAutoAcceptBanner() {
+        return autoAcceptBanner;
     }
 }
