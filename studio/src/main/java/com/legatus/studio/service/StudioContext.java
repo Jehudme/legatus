@@ -24,6 +24,7 @@ public class StudioContext {
     private SecretsService secretsService;
     private UserManagementService userManagementService;
     private AuditLogService auditLogService;
+    private ExecutionProfileService executionProfileService;
     private LogStreamBuffer logStreamBuffer;
     private LstcpClient lstcpClient;
     private TelemetryService telemetryService;
@@ -47,6 +48,7 @@ public class StudioContext {
         this.secretsService = new SecretsService(restClient);
         this.userManagementService = new UserManagementService(restClient);
         this.auditLogService = new AuditLogService(restClient);
+        this.executionProfileService = new ExecutionProfileService(restClient);
 
         this.functionsViewModel = new com.legatus.studio.viewmodel.FunctionsViewModel(this.bytecodeService, this.taskService);
 
@@ -212,6 +214,7 @@ public class StudioContext {
     public SecretsService getSecretsService() { return secretsService; }
     public UserManagementService getUserManagementService() { return userManagementService; }
     public AuditLogService getAuditLogService() { return auditLogService; }
+    public ExecutionProfileService getExecutionProfileService() { return executionProfileService; }
     public LogStreamBuffer getLogStreamBuffer() { return logStreamBuffer; }
     public LstcpClient getLstcpClient() { return lstcpClient; }
     public TelemetryService getTelemetryService() { return telemetryService; }

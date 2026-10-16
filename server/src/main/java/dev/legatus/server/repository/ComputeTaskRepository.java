@@ -55,4 +55,11 @@ public interface ComputeTaskRepository extends JpaRepository<ComputeTask, String
         @Param("terminalStatuses") java.util.Collection<dev.legatus.server.domain.enumeration.TaskStatus> terminalStatuses,
         @Param("cutoff") java.time.Instant cutoff
     );
+
+    @Query("SELECT COUNT(t) FROM ComputeTask t WHERE (t.function.functionId = :functionId OR t.bytecodeSha256 = :sha256) AND t.createdAt >= :since")
+    long countInvocationsSince(
+        @Param("functionId") java.util.UUID functionId,
+        @Param("sha256") String sha256,
+        @Param("since") java.time.Instant since
+    );
 }

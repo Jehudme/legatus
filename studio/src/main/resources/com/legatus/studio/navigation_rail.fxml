@@ -21,6 +21,7 @@
     </HBox>
 
     <Button fx:id="functionsBtn" text="Functions" onAction="#onFunctionsClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
+    <Button fx:id="executeBtn" text="Execute" onAction="#onExecuteClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
     <Button fx:id="tasksBtn" text="Tasks Explorer" onAction="#onTasksClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
     <Button fx:id="secretsBtn" text="Secrets Vault" onAction="#onSecretsClicked" maxWidth="Infinity" alignment="BASELINE_LEFT" />
 

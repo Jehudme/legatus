@@ -15,4 +15,6 @@ public interface SolixFunctionRepository extends JpaRepository<SolixFunction, UU
     Optional<SolixFunction> findFirstByNameOrderByCreatedAtDesc(String name);
 
     Optional<SolixFunction> findByNameAndSemver(String name, String semver);
+
+    Optional<SolixFunction> findFirstByBytecodeSha256(String bytecodeSha256);
 }

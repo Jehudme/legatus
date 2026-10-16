@@ -64,6 +64,14 @@ public class SolixFunctionDTO implements Serializable {
     @NotNull
     private Instant createdAt;
 
+    @Size(max = 1024)
+    private String tags;
+
+    @Size(max = 2048)
+    private String description;
+
+    private Long invocationsLastHour;
+
     public UUID getFunctionId() {
         return functionId;
     }
@@ -158,6 +166,30 @@ public class SolixFunctionDTO implements Serializable {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Long getInvocationsLastHour() {
+        return invocationsLastHour;
+    }
+
+    public void setInvocationsLastHour(Long invocationsLastHour) {
+        this.invocationsLastHour = invocationsLastHour;
     }
 
     @Override

@@ -25,15 +25,18 @@ public class SolixFunctionService {
     private final SolixFunctionRepository solixFunctionRepository;
     private final SolixFunctionMapper solixFunctionMapper;
     private final dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
+    private final dev.legatus.server.repository.ComputeTaskRepository computeTaskRepository;
 
     public SolixFunctionService(
         SolixFunctionRepository solixFunctionRepository,
         SolixFunctionMapper solixFunctionMapper,
-        dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator
+        dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator,
+        dev.legatus.server.repository.ComputeTaskRepository computeTaskRepository
     ) {
         this.solixFunctionRepository = solixFunctionRepository;
         this.solixFunctionMapper = solixFunctionMapper;
         this.bytecodeSecurityValidator = bytecodeSecurityValidator;
+        this.computeTaskRepository = computeTaskRepository;
     }
 
     /**
@@ -49,7 +52,7 @@ public class SolixFunctionService {
         }
         SolixFunction solixFunction = solixFunctionMapper.toEntity(solixFunctionDTO);
         solixFunction = solixFunctionRepository.save(solixFunction);
-        return solixFunctionMapper.toDto(solixFunction);
+        return enrich(solixFunctionMapper.toDto(solixFunction));
     }
 
     /**
@@ -65,7 +68,7 @@ public class SolixFunctionService {
         }
         SolixFunction solixFunction = solixFunctionMapper.toEntity(solixFunctionDTO);
         solixFunction = solixFunctionRepository.save(solixFunction);
-        return solixFunctionMapper.toDto(solixFunction);
+        return enrich(solixFunctionMapper.toDto(solixFunction));
     }
 
     /**
@@ -97,7 +100,9 @@ public class SolixFunctionService {
     @Transactional(readOnly = true)
     public Page<SolixFunctionDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all SolixFunctions");
-        return solixFunctionRepository.findAll(pageable).map(solixFunctionMapper::toDto);
+        return solixFunctionRepository.findAll(pageable)
+            .map(solixFunctionMapper::toDto)
+            .map(this::enrich);
     }
 
     /**
@@ -109,7 +114,35 @@ public class SolixFunctionService {
     @Transactional(readOnly = true)
     public Optional<SolixFunctionDTO> findOne(UUID id) {
         LOG.debug("Request to get SolixFunction : {}", id);
-        return solixFunctionRepository.findById(id).map(solixFunctionMapper::toDto);
+        return solixFunctionRepository.findById(id)
+            .map(solixFunctionMapper::toDto)
+            .map(this::enrich);
+    }
+
+    /**
+     * Update metadata (description and tags) of an existing function.
+     */
+    public Optional<SolixFunctionDTO> updateMetadata(UUID functionId, String description, String tags) {
+        LOG.debug("Request to update metadata for SolixFunction : {}", functionId);
+        return solixFunctionRepository.findById(functionId).map(func -> {
+            if (description != null) {
+                func.setDescription(description);
+            }
+            if (tags != null) {
+                func.setTags(tags);
+            }
+            SolixFunction saved = solixFunctionRepository.save(func);
+            return enrich(solixFunctionMapper.toDto(saved));
+        });
+    }
+
+    public SolixFunctionDTO enrich(SolixFunctionDTO dto) {
+        if (dto != null && dto.getFunctionId() != null && computeTaskRepository != null) {
+            java.time.Instant oneHourAgo = java.time.Instant.now().minus(1, java.time.temporal.ChronoUnit.HOURS);
+            long count = computeTaskRepository.countInvocationsSince(dto.getFunctionId(), dto.getBytecodeSha256(), oneHourAgo);
+            dto.setInvocationsLastHour(count);
+        }
+        return dto;
     }
 
     /**

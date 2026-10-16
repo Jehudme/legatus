@@ -488,6 +488,24 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                         logLine
                     ));
                 }
+
+                if (Boolean.TRUE.equals(task.getNotifyOnFailure()) &&
+                    (terminalStatus == TaskStatus.FAILED || (task.getExitCode() != null && task.getExitCode() != 0) || frame.payload().error() != null)) {
+                    String errMsg = "Task exited with status " + terminalStatus + " (exit_code=" + task.getExitCode() + ")";
+                    if (frame.payload().error() != null && frame.payload().error().message() != null) {
+                        errMsg = frame.payload().error().message();
+                    }
+                    String funcName = task.getFunction() != null ? task.getFunction().getName() : task.getName();
+                    studioEventPublisher.publishTaskFailedAlert(new dev.legatus.server.service.dto.lstcp.EventTaskFailedAlertFrame.Payload(
+                        task.getTaskId(),
+                        task.getName(),
+                        funcName,
+                        session.getWorkerId(),
+                        task.getExitCode(),
+                        errMsg,
+                        System.currentTimeMillis()
+                    ));
+                }
             }
         }
 

@@ -273,4 +273,23 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
             LOG.error("Failed to dispatch EVENT_TASK_LOG_CHUNK: {}", e.getMessage());
         }
     }
+
+    @Override
+    public void publishTaskFailedAlert(EventTaskFailedAlertFrame.Payload payload) {
+        try {
+            EventTaskFailedAlertFrame frame = new EventTaskFailedAlertFrame(
+                UUID.randomUUID(),
+                System.currentTimeMillis(),
+                payload
+            );
+            String json = objectMapper.writeValueAsString(frame);
+            for (LstcpStudioSession session : sessionRegistry.getAllSessions()) {
+                session.sendText(json);
+            }
+            LOG.warn("Broadcast EVENT_TASK_FAILED_ALERT for task {}: {}",
+                payload.taskId(), payload.errorMessage());
+        } catch (Exception e) {
+            LOG.error("Failed to broadcast EVENT_TASK_FAILED_ALERT: {}", e.getMessage());
+        }
+    }
 }

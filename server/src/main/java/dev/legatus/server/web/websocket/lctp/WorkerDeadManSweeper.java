@@ -44,6 +44,7 @@ public class WorkerDeadManSweeper {
     private final WorkerNodeRepository workerNodeRepository;
     private final ComputeTaskRepository computeTaskRepository;
     private final WormAuditService wormAuditService;
+    private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
 
     public WorkerDeadManSweeper(
         WorkerSessionRegistry sessionRegistry,
@@ -51,10 +52,22 @@ public class WorkerDeadManSweeper {
         ComputeTaskRepository computeTaskRepository,
         WormAuditService wormAuditService
     ) {
+        this(sessionRegistry, workerNodeRepository, computeTaskRepository, wormAuditService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public WorkerDeadManSweeper(
+        WorkerSessionRegistry sessionRegistry,
+        WorkerNodeRepository workerNodeRepository,
+        ComputeTaskRepository computeTaskRepository,
+        WormAuditService wormAuditService,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher
+    ) {
         this.sessionRegistry = sessionRegistry;
         this.workerNodeRepository = workerNodeRepository;
         this.computeTaskRepository = computeTaskRepository;
         this.wormAuditService = wormAuditService;
+        this.studioEventPublisher = studioEventPublisher;
     }
 
     /**
@@ -114,6 +127,19 @@ public class WorkerDeadManSweeper {
                         task.setStatus(TaskStatus.ERR_WORKER_LOST);
                         task.setCompletedAt(now.truncatedTo(ChronoUnit.MILLIS));
                         failedCount++;
+
+                        if (studioEventPublisher != null && Boolean.TRUE.equals(task.getNotifyOnFailure())) {
+                            String funcName = task.getFunction() != null ? task.getFunction().getName() : task.getName();
+                            studioEventPublisher.publishTaskFailedAlert(new dev.legatus.server.service.dto.lstcp.EventTaskFailedAlertFrame.Payload(
+                                task.getTaskId(),
+                                task.getName(),
+                                funcName,
+                                workerId,
+                                -1,
+                                "Worker node became unresponsive (ERR_WORKER_LOST)",
+                                System.currentTimeMillis()
+                            ));
+                        }
                     }
                     computeTaskRepository.save(task);
                 }

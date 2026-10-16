@@ -59,8 +59,33 @@ public record SubmitTaskRequest(
     Map<String, String> env,
 
     @JsonProperty("secret_refs")
-    List<String> secretRefs
+    List<String> secretRefs,
+
+    @JsonProperty("notify_on_failure")
+    Boolean notifyOnFailure,
+
+    @JsonProperty("unlimited_instructions")
+    Boolean unlimitedInstructions,
+
+    @JsonProperty("unlimited_time")
+    Boolean unlimitedTime
 ) {
+
+    public SubmitTaskRequest(
+        String name,
+        TaskPriority priority,
+        Integer priorityWeight,
+        Boolean idempotent,
+        Integer maxRetries,
+        String entryPoint,
+        BytecodePayload bytecode,
+        ConstraintsPayload constraints,
+        Map<String, Object> arguments,
+        Map<String, String> env,
+        List<String> secretRefs
+    ) {
+        this(name, priority, priorityWeight, idempotent, maxRetries, entryPoint, bytecode, constraints, arguments, env, secretRefs, false, false, false);
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record BytecodePayload(
@@ -81,7 +106,7 @@ public record SubmitTaskRequest(
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record ConstraintsPayload(
-        @Min(1000)
+        @Min(0)
         @Max(1000000000L)
         @JsonProperty("instruction_budget")
         Long instructionBudget,
@@ -91,9 +116,19 @@ public record SubmitTaskRequest(
         @JsonProperty("max_memory_bytes")
         Long maxMemoryBytes,
 
-        @Min(100)
+        @Min(0)
         @Max(3600000)
         @JsonProperty("timeout_ms")
-        Integer timeoutMs
-    ) {}
+        Integer timeoutMs,
+
+        @JsonProperty("unlimited_instructions")
+        Boolean unlimitedInstructions,
+
+        @JsonProperty("unlimited_time")
+        Boolean unlimitedTime
+    ) {
+        public ConstraintsPayload(Long instructionBudget, Long maxMemoryBytes, Integer timeoutMs) {
+            this(instructionBudget, maxMemoryBytes, timeoutMs, false, false);
+        }
+    }
 }

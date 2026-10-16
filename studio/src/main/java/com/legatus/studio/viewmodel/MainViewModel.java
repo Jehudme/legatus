@@ -12,7 +12,8 @@ public class MainViewModel {
         OVERVIEW("Cluster Overview", "cluster_overview"),
         FLEET("Worker Fleet", "fleet_topology"),
         QUARANTINE("Quarantine Queue", "quarantine_attestation"),
-        FUNCTIONS("Functions & Bytecode", "functions_workbench"),
+        FUNCTIONS("Function Catalog", "functions_workbench"),
+        EXECUTE("Execution Workbench", "execute_workbench"),
         TASKS("Task Explorer", "task_explorer"),
         SECRETS("Secrets Vault", "secrets_vault"),
         USERS("User Management", "admin_users"),
@@ -76,4 +77,9 @@ public class MainViewModel {
     public StringProperty activeProfileNameProperty() { return activeProfileName; }
     public String getActiveProfileName() { return activeProfileName.get(); }
     public void setActiveProfileName(String value) { this.activeProfileName.set(value); }
+
+    private final ObjectProperty<com.legatus.studio.model.BytecodeItem> targetFunctionForExecution = new SimpleObjectProperty<>();
+    public ObjectProperty<com.legatus.studio.model.BytecodeItem> targetFunctionForExecutionProperty() { return targetFunctionForExecution; }
+    public com.legatus.studio.model.BytecodeItem getTargetFunctionForExecution() { return targetFunctionForExecution.get(); }
+    public void setTargetFunctionForExecution(com.legatus.studio.model.BytecodeItem item) { this.targetFunctionForExecution.set(item); }
 }

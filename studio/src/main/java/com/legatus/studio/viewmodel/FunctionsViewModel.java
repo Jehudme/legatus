@@ -141,15 +141,33 @@ public class FunctionsViewModel {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         for (com.legatus.studio.protocol.RestDto.SolixFunctionDto fn : list) {
                             String sha = fn.effectiveSha256();
-                            if (!sha.isBlank() && bytecodeItems.stream().noneMatch(b -> b.getSha256().equalsIgnoreCase(sha))) {
-                                BytecodeItem item = new BytecodeItem(
-                                        sha,
-                                        fn.name() != null ? fn.name() : "function",
-                                        fn.effectiveEntryPoint(),
-                                        0L,
-                                        fn.createdAt() != null ? String.valueOf(fn.createdAt()) : ""
-                                );
-                                bytecodeItems.add(item);
+                            if (!sha.isBlank()) {
+                                var existing = bytecodeItems.stream()
+                                        .filter(b -> b.getSha256().equalsIgnoreCase(sha) || (b.getFunctionId() != null && b.getFunctionId().equals(fn.functionId())))
+                                        .findFirst();
+                                if (existing.isPresent()) {
+                                    BytecodeItem item = existing.get();
+                                    item.setFunctionName(fn.name() != null ? fn.name() : "function");
+                                    item.setEntryPoint(fn.effectiveEntryPoint());
+                                    item.setDescription(fn.description() != null ? fn.description() : "");
+                                    item.setTags(fn.tags() != null ? fn.tags() : "");
+                                    item.setInvocationsLastHour(fn.invocationsLastHour() != null ? fn.invocationsLastHour() : 0L);
+                                    item.setRawDto(fn);
+                                } else {
+                                    BytecodeItem item = new BytecodeItem(
+                                            fn.functionId(),
+                                            sha,
+                                            fn.name() != null ? fn.name() : "function",
+                                            fn.effectiveEntryPoint(),
+                                            0L,
+                                            fn.createdAt() != null ? String.valueOf(fn.createdAt()) : "",
+                                            fn.description() != null ? fn.description() : "",
+                                            fn.tags() != null ? fn.tags() : "",
+                                            fn.invocationsLastHour() != null ? fn.invocationsLastHour() : 0L,
+                                            fn
+                                    );
+                                    bytecodeItems.add(item);
+                                }
                             }
                         }
                     });
@@ -286,6 +304,25 @@ public class FunctionsViewModel {
             });
             return null;
         });
+    }
+
+    public CompletableFuture<Void> updateFunctionMetadata(java.util.UUID functionId, String description, String tags) {
+        if (functionId == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return bytecodeService.updateMetadata(functionId, description, tags)
+                .thenAccept(updated -> {
+                    com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                        for (BytecodeItem item : bytecodeItems) {
+                            if (functionId.equals(item.getFunctionId())) {
+                                item.setDescription(updated.description() != null ? updated.description() : "");
+                                item.setTags(updated.tags() != null ? updated.tags() : "");
+                                item.setRawDto(updated);
+                                break;
+                            }
+                        }
+                    });
+                });
     }
 
     public ObservableList<BytecodeItem> getBytecodeItems() { return bytecodeItems; }

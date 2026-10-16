@@ -51,7 +51,7 @@ ExecutionResult execute_task(ExecutionEnvelope& envelope, SecretZeroizer& zeroiz
 
     opts.bytecode_source = bytecode;
     opts.program_args = { envelope.arguments_json };
-    opts.instruction_budget = envelope.instruction_budget;
+    opts.instruction_budget = (envelope.instruction_budget == 0) ? UINT64_MAX : envelope.instruction_budget;
     opts.sandboxed = true;
 
     try {

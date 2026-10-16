@@ -68,7 +68,7 @@ public class ComputeTask implements Serializable, Persistable<String> {
     private String bytecodeSha256;
 
     @NotNull
-    @Min(value = 1000L)
+    @Min(value = 0L)
     @Max(value = 1000000000L)
     @Column(name = "instruction_budget", nullable = false)
     private Long instructionBudget;
@@ -80,7 +80,7 @@ public class ComputeTask implements Serializable, Persistable<String> {
     private Long maxMemoryBytes;
 
     @NotNull
-    @Min(value = 100)
+    @Min(value = 0)
     @Max(value = 3600000)
     @Column(name = "timeout_ms", nullable = false)
     private Integer timeoutMs;
@@ -154,6 +154,9 @@ public class ComputeTask implements Serializable, Persistable<String> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     private WorkerNode assignedWorker;
+
+    @Column(name = "notify_on_failure")
+    private Boolean notifyOnFailure = false;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -537,6 +540,19 @@ public class ComputeTask implements Serializable, Persistable<String> {
 
     public void setVersion(Long version) {
         this.version = version;
+    }
+
+    public Boolean getNotifyOnFailure() {
+        return this.notifyOnFailure;
+    }
+
+    public void setNotifyOnFailure(Boolean notifyOnFailure) {
+        this.notifyOnFailure = notifyOnFailure;
+    }
+
+    public ComputeTask notifyOnFailure(Boolean notifyOnFailure) {
+        this.setNotifyOnFailure(notifyOnFailure);
+        return this;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

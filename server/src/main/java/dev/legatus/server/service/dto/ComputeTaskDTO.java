@@ -47,7 +47,7 @@ public class ComputeTaskDTO implements Serializable {
     private String bytecodeSha256;
 
     @NotNull
-    @Min(value = 1000L)
+    @Min(value = 0L)
     @Max(value = 1000000000L)
     private Long instructionBudget;
 
@@ -57,7 +57,7 @@ public class ComputeTaskDTO implements Serializable {
     private Long maxMemoryBytes;
 
     @NotNull
-    @Min(value = 100)
+    @Min(value = 0)
     @Max(value = 3600000)
     private Integer timeoutMs;
 
@@ -106,6 +106,8 @@ public class ComputeTaskDTO implements Serializable {
     private SolixFunctionDTO function;
 
     private WorkerNodeDTO assignedWorker;
+
+    private Boolean notifyOnFailure = false;
 
     public String getTaskId() {
         return taskId;
@@ -321,6 +323,14 @@ public class ComputeTaskDTO implements Serializable {
 
     public void setAssignedWorker(WorkerNodeDTO assignedWorker) {
         this.assignedWorker = assignedWorker;
+    }
+
+    public Boolean getNotifyOnFailure() {
+        return notifyOnFailure;
+    }
+
+    public void setNotifyOnFailure(Boolean notifyOnFailure) {
+        this.notifyOnFailure = notifyOnFailure;
     }
 
     @Override

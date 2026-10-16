@@ -175,8 +175,16 @@ public final class RestDto {
             @JsonProperty("entry_point") String entry_point,
             @JsonProperty("bytecode") BytecodeRef bytecode,
             @JsonProperty("constraints") ConstraintsPayload constraints,
-            @JsonProperty("arguments") java.util.Map<String, Object> arguments
-    ) {}
+            @JsonProperty("arguments") java.util.Map<String, Object> arguments,
+            @JsonProperty("notify_on_failure") Boolean notify_on_failure,
+            @JsonProperty("unlimited_instructions") Boolean unlimited_instructions,
+            @JsonProperty("unlimited_time") Boolean unlimited_time
+    ) {
+        public CreateTaskRequest(String name, String priority, String entry_point, BytecodeRef bytecode,
+                                 ConstraintsPayload constraints, java.util.Map<String, Object> arguments) {
+            this(name, priority, entry_point, bytecode, constraints, arguments, false, false, false);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -190,8 +198,14 @@ public final class RestDto {
     public record ConstraintsPayload(
             @JsonProperty("instruction_budget") Long instruction_budget,
             @JsonProperty("max_memory_bytes") Long max_memory_bytes,
-            @JsonProperty("timeout_ms") Integer timeout_ms
-    ) {}
+            @JsonProperty("timeout_ms") Integer timeout_ms,
+            @JsonProperty("unlimited_instructions") Boolean unlimited_instructions,
+            @JsonProperty("unlimited_time") Boolean unlimited_time
+    ) {
+        public ConstraintsPayload(Long instruction_budget, Long max_memory_bytes, Integer timeout_ms) {
+            this(instruction_budget, max_memory_bytes, timeout_ms, false, false);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -213,8 +227,17 @@ public final class RestDto {
             @JsonProperty("defaultBudget") Long defaultBudget,
             @JsonProperty("defaultMemoryBytes") Long defaultMemoryBytes,
             @JsonProperty("defaultTimeoutMs") Integer defaultTimeoutMs,
-            @JsonProperty("createdAt") Object createdAt
+            @JsonProperty("createdAt") Object createdAt,
+            @JsonProperty("tags") String tags,
+            @JsonProperty("description") String description,
+            @JsonProperty("invocationsLastHour") Long invocationsLastHour
     ) {
+        public SolixFunctionDto(java.util.UUID functionId, String name, String semver, String entryPoint,
+                                String bytecodeFormat, String bytecodeSha256, Long defaultBudget,
+                                Long defaultMemoryBytes, Integer defaultTimeoutMs, Object createdAt) {
+            this(functionId, name, semver, entryPoint, bytecodeFormat, bytecodeSha256, defaultBudget, defaultMemoryBytes, defaultTimeoutMs, createdAt, null, null, 0L);
+        }
+
         public String effectiveSha256() {
             return bytecodeSha256 != null ? bytecodeSha256 : "";
         }
@@ -222,6 +245,32 @@ public final class RestDto {
             return entryPoint != null && !entryPoint.isBlank() ? entryPoint : "main";
         }
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ExecutionProfileDto(
+            @JsonProperty("profile_id") String profile_id,
+            @JsonProperty("profile_name") String profile_name,
+            @JsonProperty("function_id") java.util.UUID function_id,
+            @JsonProperty("arguments_json") String arguments_json,
+            @JsonProperty("instruction_budget") Long instruction_budget,
+            @JsonProperty("unlimited_instructions") Boolean unlimited_instructions,
+            @JsonProperty("time_limit_ms") Long time_limit_ms,
+            @JsonProperty("unlimited_time") Boolean unlimited_time,
+            @JsonProperty("memory_mb") Long memory_mb,
+            @JsonProperty("priority") String priority,
+            @JsonProperty("notify_on_failure") Boolean notify_on_failure,
+            @JsonProperty("created_at") Object created_at,
+            @JsonProperty("updated_at") Object updated_at,
+            @JsonProperty("version") Long version
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record UpdateFunctionMetadataRequest(
+            @JsonProperty("description") String description,
+            @JsonProperty("tags") String tags
+    ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)

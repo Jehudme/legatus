@@ -86,6 +86,14 @@ public class SolixFunction implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Size(max = 1024)
+    @Column(name = "tags", length = 1024)
+    private String tags;
+
+    @Size(max = 2048)
+    @Column(name = "description", length = 2048)
+    private String description;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public UUID getFunctionId() {
@@ -242,6 +250,32 @@ public class SolixFunction implements Serializable {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getTags() {
+        return this.tags;
+    }
+
+    public SolixFunction tags(String tags) {
+        this.setTags(tags);
+        return this;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public SolixFunction description(String description) {
+        this.setDescription(description);
+        return this;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

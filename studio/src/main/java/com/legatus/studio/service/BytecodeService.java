@@ -61,4 +61,9 @@ public class BytecodeService {
         return restClient.get("/api/solix-functions", com.legatus.studio.protocol.RestDto.SolixFunctionDto[].class)
                 .thenApply(arr -> arr != null ? java.util.List.of(arr) : java.util.List.of());
     }
+
+    public CompletableFuture<com.legatus.studio.protocol.RestDto.SolixFunctionDto> updateMetadata(java.util.UUID functionId, String description, String tags) {
+        var req = new com.legatus.studio.protocol.RestDto.UpdateFunctionMetadataRequest(description, tags);
+        return restClient.put("/api/solix-functions/" + functionId + "/metadata", req, com.legatus.studio.protocol.RestDto.SolixFunctionDto.class);
+    }
 }

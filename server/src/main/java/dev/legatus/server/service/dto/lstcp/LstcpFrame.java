@@ -26,7 +26,8 @@ import java.util.UUID;
     @JsonSubTypes.Type(value = EventClusterMetricTickFrame.class, name = "EVENT_CLUSTER_METRIC_TICK"),
     @JsonSubTypes.Type(value = EventWorkerStateChangedFrame.class, name = "EVENT_WORKER_STATE_CHANGED"),
     @JsonSubTypes.Type(value = EventTaskLifecycleFrame.class, name = "EVENT_TASK_LIFECYCLE"),
-    @JsonSubTypes.Type(value = EventTaskLogChunkFrame.class, name = "EVENT_TASK_LOG_CHUNK")
+    @JsonSubTypes.Type(value = EventTaskLogChunkFrame.class, name = "EVENT_TASK_LOG_CHUNK"),
+    @JsonSubTypes.Type(value = EventTaskFailedAlertFrame.class, name = "EVENT_TASK_FAILED_ALERT")
 })
 public sealed interface LstcpFrame permits
     StudioSessionInitFrame,
@@ -39,7 +40,8 @@ public sealed interface LstcpFrame permits
     EventClusterMetricTickFrame,
     EventWorkerStateChangedFrame,
     EventTaskLifecycleFrame,
-    EventTaskLogChunkFrame {
+    EventTaskLogChunkFrame,
+    EventTaskFailedAlertFrame {
 
     String type();
     UUID id();

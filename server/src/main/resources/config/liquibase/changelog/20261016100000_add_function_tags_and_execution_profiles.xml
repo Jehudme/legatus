@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261016100000-1" author="legatus">
+        <addColumn tableName="functions">
+            <column name="tags" type="varchar(1024)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="description" type="varchar(2048)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="tasks">
+            <column name="notify_on_failure" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261016100000-2" author="legatus">
+        <createTable tableName="execution_profiles">
+            <column name="profile_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="profile_name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="function_id" type="${uuidType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arguments_json" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="instruction_budget" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="unlimited_instructions" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="time_limit_ms" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="unlimited_time" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="memory_mb" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="priority" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="notify_on_failure" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="version" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+            tableName="execution_profiles"
+            columnNames="function_id, profile_name"
+            constraintName="ux_exec_profile_func_name"/>
+    </changeSet>
+</databaseChangeLog>

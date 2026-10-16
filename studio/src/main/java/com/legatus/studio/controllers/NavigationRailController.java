@@ -13,6 +13,7 @@ public class NavigationRailController {
     @FXML private Button quarantineBtn;
     @FXML private Label quarantineBadge;
     @FXML private Button functionsBtn;
+    @FXML private Button executeBtn;
     @FXML private Button tasksBtn;
     @FXML private Button secretsBtn;
     @FXML private Button usersBtn;
@@ -43,6 +44,7 @@ public class NavigationRailController {
     @FXML private void onFleetClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.FLEET); }
     @FXML private void onQuarantineClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.QUARANTINE); }
     @FXML private void onFunctionsClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.FUNCTIONS); }
+    @FXML private void onExecuteClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.EXECUTE); }
     @FXML private void onTasksClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.TASKS); }
     @FXML private void onSecretsClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.SECRETS); }
     @FXML private void onUsersClicked() { if (viewModel != null) viewModel.selectModule(MainViewModel.NavigationModule.USERS); }

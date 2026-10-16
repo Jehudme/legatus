@@ -48,6 +48,18 @@ public class MainCockpitController {
             drawerController.setViewModel(new com.legatus.studio.viewmodel.DrawerViewModel(ctx.getLogStreamBuffer()));
         }
 
+        if (ctx.getLstcpClient() != null) {
+            ctx.getLstcpClient().setTaskFailedAlertListener(alert -> {
+                Platform.runLater(() -> {
+                    try {
+                        java.awt.Toolkit.getDefaultToolkit().beep();
+                    } catch (Exception ignored) {}
+                    com.legatus.studio.service.NotificationService.error("Task Failed Alert",
+                            "Task '" + alert.taskName() + "' (" + alert.taskId() + ") failed: " + alert.errorMessage());
+                });
+            });
+        }
+
         bindViewModel();
     }
 
@@ -98,6 +110,12 @@ public class MainCockpitController {
                         } else if (ctx.getBytecodeService() != null) {
                             c.setViewModel(new com.legatus.studio.viewmodel.FunctionsViewModel(ctx.getBytecodeService(), ctx.getTaskService()));
                         }
+                    }
+                }
+                case EXECUTE -> {
+                    ExecuteWorkbenchController c = ViewLoaderService.switchView(contentContainer, module.getFxmlName());
+                    if (c != null) {
+                        c.setContext(ctx, viewModel);
                     }
                 }
                 case TASKS -> {

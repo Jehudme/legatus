@@ -59,6 +59,7 @@ public class TaskGatewayService {
     private final ObjectMapper objectMapper;
     private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
     private final dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
+    private final dev.legatus.server.repository.SolixFunctionRepository solixFunctionRepository;
 
     public TaskGatewayService(
         ComputeTaskRepository computeTaskRepository,
@@ -69,7 +70,7 @@ public class TaskGatewayService {
         LegatusProperties legatusProperties,
         ObjectMapper objectMapper
     ) {
-        this(computeTaskRepository, bytecodeStorageService, taskSchedulerService, taskDispatcher, wormAuditService, legatusProperties, objectMapper, null, new dev.legatus.server.security.BytecodeSecurityValidator());
+        this(computeTaskRepository, bytecodeStorageService, taskSchedulerService, taskDispatcher, wormAuditService, legatusProperties, objectMapper, null, new dev.legatus.server.security.BytecodeSecurityValidator(), null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -82,7 +83,8 @@ public class TaskGatewayService {
         LegatusProperties legatusProperties,
         ObjectMapper objectMapper,
         @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
-        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.repository.SolixFunctionRepository solixFunctionRepository
     ) {
         this.computeTaskRepository = computeTaskRepository;
         this.bytecodeStorageService = bytecodeStorageService;
@@ -93,6 +95,7 @@ public class TaskGatewayService {
         this.objectMapper = objectMapper;
         this.studioEventPublisher = studioEventPublisher;
         this.bytecodeSecurityValidator = bytecodeSecurityValidator != null ? bytecodeSecurityValidator : new dev.legatus.server.security.BytecodeSecurityValidator();
+        this.solixFunctionRepository = solixFunctionRepository;
     }
 
     /**
@@ -167,6 +170,18 @@ public class TaskGatewayService {
             if (request.constraints().timeoutMs() != null) {
                 timeoutMs = request.constraints().timeoutMs();
             }
+            if (Boolean.TRUE.equals(request.constraints().unlimitedInstructions())) {
+                instructionBudget = 0L;
+            }
+            if (Boolean.TRUE.equals(request.constraints().unlimitedTime())) {
+                timeoutMs = 0;
+            }
+        }
+        if (Boolean.TRUE.equals(request.unlimitedInstructions())) {
+            instructionBudget = 0L;
+        }
+        if (Boolean.TRUE.equals(request.unlimitedTime())) {
+            timeoutMs = 0;
         }
 
         String taskId = generateTaskId();
@@ -187,7 +202,12 @@ public class TaskGatewayService {
             .createdAt(Instant.now())
             .inputJson(serializeJson(request.arguments()))
             .envJson(serializeJson(request.env()))
-            .secretRefsJson(serializeJson(request.secretRefs()));
+            .secretRefsJson(serializeJson(request.secretRefs()))
+            .notifyOnFailure(Boolean.TRUE.equals(request.notifyOnFailure()));
+
+        if (solixFunctionRepository != null) {
+            solixFunctionRepository.findFirstByBytecodeSha256(expectedSha256).ifPresent(task::setFunction);
+        }
 
         task = computeTaskRepository.saveAndFlush(task);
 

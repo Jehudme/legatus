@@ -29,7 +29,7 @@ import tech.jhipster.web.util.ResponseUtil;
  * REST controller for managing {@link dev.legatus.server.domain.SolixFunction}.
  */
 @RestController
-@RequestMapping("/api/solix-functions")
+@RequestMapping({ "/api/solix-functions", "/api/v1/functions" })
 public class SolixFunctionResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(SolixFunctionResource.class);
@@ -99,6 +99,25 @@ public class SolixFunctionResource {
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, solixFunctionDTO.getFunctionId().toString()))
             .body(solixFunctionDTO);
+    }
+
+    public record UpdateFunctionMetadataRequest(
+        String description,
+        String tags
+    ) {}
+
+    /**
+     * {@code PUT  /api/solix-functions/:functionId/metadata} : Updates description and tags of a function.
+     */
+    @PutMapping("/{functionId}/metadata")
+    public ResponseEntity<SolixFunctionDTO> updateMetadata(
+        @PathVariable(value = "functionId") final UUID functionId,
+        @RequestBody UpdateFunctionMetadataRequest req
+    ) {
+        LOG.debug("REST request to update metadata for SolixFunction : {}, {}", functionId, req);
+        return solixFunctionService.updateMetadata(functionId, req.description(), req.tags())
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /**
