@@ -75,6 +75,9 @@ public class ObservableModelsTest {
         assertNotNull(task.getFormattedStartTime());
         assertEquals("--", task.getFormattedEndTime()); // Executing tasks have '--' end time
 
+        task.setTimeoutMs(30_000L);
+        assertEquals(30_000L, task.getTimeoutMs());
+
         task.setStatus("COMPLETED");
         task.setExitCode(0);
         assertEquals("COMPLETED", task.getStatus());

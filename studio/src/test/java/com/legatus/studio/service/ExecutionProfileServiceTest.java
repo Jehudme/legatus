@@ -49,6 +49,8 @@ public class ExecutionProfileServiceTest {
         // Test mutators
         profile.setProfileName("Updated Benchmark");
         assertEquals("Updated Benchmark", profile.getProfileName());
+        profile.setFunctionName("compute-heavy");
+        assertEquals("compute-heavy", profile.getFunctionName());
         profile.setNotifyOnFailure(false);
         assertFalse(profile.isNotifyOnFailure());
         profile.setInstructionBudget(0L);
