@@ -17,7 +17,6 @@ import java.util.UUID;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class SolixFunctionDTO implements Serializable {
 
-    @NotNull
     private UUID functionId;
 
     @NotNull

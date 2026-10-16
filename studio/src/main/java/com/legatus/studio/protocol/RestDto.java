@@ -263,7 +263,15 @@ public final class RestDto {
             @JsonProperty("created_at") Object created_at,
             @JsonProperty("updated_at") Object updated_at,
             @JsonProperty("version") Long version
-    ) {}
+    ) {
+        public ExecutionProfileDto(String profile_id, String profile_name, java.util.UUID function_id,
+                                   String arguments_json, Long instruction_budget, Boolean unlimited_instructions,
+                                   Long time_limit_ms, Boolean unlimited_time, Long memory_mb,
+                                   String priority, Boolean notify_on_failure, Long version) {
+            this(profile_id, profile_name, function_id, arguments_json, instruction_budget, unlimited_instructions,
+                 time_limit_ms, unlimited_time, memory_mb, priority, notify_on_failure, null, null, version);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
