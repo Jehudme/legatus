@@ -3,6 +3,7 @@ name: Pipeline Publish
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
