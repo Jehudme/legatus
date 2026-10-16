@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-008
 * **Target Version:** `v1.4.0-cockpit-fleet`
-* **Status:** ACTIVE
+* **Status:** COMPLETED
 * **Lead Architect:** @studio-lead
 * **Target Delivery Date:** 2027-02-28
 * **Related ADRs:** ADR-0002, ADR-0003, ADR-0005, ADR-0010
@@ -65,7 +65,7 @@ graph TD
 
 ### 3.1 P0: Critical Blockers (Release Gate / Core UI)
 
-- [ ] `[P0]` **Cluster Overview: Individual Worker Grid Cards:** Author a responsive card grid (`FlowPane` / `TilePane`) under the Cluster Overview gauges in `overview.fxml`. Each connected worker receives an individual cell displaying:
+- [x] `[P0]` **Cluster Overview: Individual Worker Grid Cards:** Author a responsive card grid (`FlowPane` / `TilePane`) under the Cluster Overview gauges in `overview.fxml`. Each connected worker receives an individual cell displaying:
   1. Worker Friendly Name and Hostname.
   2. IP address and connection status dot.
   3. Real-time CPU percentage progress bar and label (`%.1f%%`).
@@ -73,7 +73,7 @@ graph TD
   5. Active running tasks count badge (`N running`).
   6. Health state pill (`ACTIVE`, `SUSPENDED`, `DEGRADED`).
   Cards must update smoothly at 60Hz via `TelemetryCoalescer` without UI flickering.
-- [ ] `[P0]` **Worker Fleet Table Overhaul:** Redesign `workersTable` in `fleet_topology.fxml` with rich operational columns:
+- [x] `[P0]` **Worker Fleet Table Overhaul:** Redesign `workersTable` in `fleet_topology.fxml` with rich operational columns:
   - `Worker Name` (Friendly Name + Hostname)
   - `IP Address`
   - `Uptime` (Formatted elapsed time since connection, e.g. `2d 4h 12m`)
@@ -82,13 +82,13 @@ graph TD
   - `Active Tasks` (Count of actively executing guest functions)
   - `Lease Remaining` (Live decrementing countdown timer, e.g. `14m 22s`)
   - `Active State` (Interactive inline ToggleSwitch to Suspend / Resume activity)
-- [ ] `[P0]` **Context-Aware Master-Detail Worker Node Inspector:** In `fleet_topology.fxml` and `FleetTopologyController.java`, bind the right-hand inspector pane's visibility and managed properties directly to `workersTable.getSelectionModel().selectedItemProperty().isNotNull()`. When no worker row is selected, the inspector pane is completely hidden. When a worker is selected, display:
+- [x] `[P0]` **Context-Aware Master-Detail Worker Node Inspector:** In `fleet_topology.fxml` and `FleetTopologyController.java`, bind the right-hand inspector pane's visibility and managed properties directly to `workersTable.getSelectionModel().selectedItemProperty().isNotNull()`. When no worker row is selected, the inspector pane is completely hidden. When a worker is selected, display:
   1. Inline editable Worker Name with **[Save Name]** button.
   2. Active/Inactive ToggleSwitch (calling `toggle-active` API).
   3. Auto-Lease Renewal ToggleSwitch.
   4. Live CPU, RAM, and active child runner list.
   5. Unified **[Revoke & Delete Worker]** button triggering a modal confirmation dialog.
-- [ ] `[P0]` **Quarantine Queue Attestation Card Redesign:** In `quarantine.fxml` and `QuarantineController.java`:
+- [x] `[P0]` **Quarantine Queue Attestation Card Redesign:** In `quarantine.fxml` and `QuarantineController.java`:
   1. Bind the attestation detail card's visibility strictly to selection: hide completely if no quarantine request is selected.
   2. When an operator clicks **[Approve & Issue Lease]**, display a modal prompt dialog: *"Assign Friendly Worker Name"* (pre-populated with suggested hostname).
   3. Transmit the selected name alongside the approval request to `legatus-server`.
@@ -97,27 +97,27 @@ graph TD
 
 ### 3.2 P1: High Priority (Milestone Core Parity)
 
-- [ ] `[P1]` **Auto-Balancer Warning & Queue Saturation Badges:** Add persistent telemetry alert badges to the top ribbon and cluster overview:
+- [x] `[P1]` **Auto-Balancer Warning & Queue Saturation Badges:** Add persistent telemetry alert badges to the top ribbon and cluster overview:
   1. `Auto-Balancer Threshold Breach Warning` (amber warning icon): Displayed when the scheduler is forced to dispatch above configured worker thresholds to satisfy demand. Hovering displays which workers are operating above threshold limits.
   2. `Cluster Queue Saturated Error` (red alert icon): Displayed when cluster capacity is exhausted and incoming tasks are forced into the wait queue (queueing as the absolute last resort).
-- [ ] `[P1]` **Quarantine Admin Auto-Accept Toggle Switch:** Add an `Auto-Accept Workers` toggle switch to the top of the Quarantine view in `quarantine.fxml`, bound to `legatus.quarantine.auto-accept`. Restrict visibility and interaction strictly to users possessing `ROLE_ADMIN`. When active, display a persistent notification banner: *"Auto-Accept Active: Incoming workers are automatically attested and named by UUID."*
-- [ ] `[P1]` **Live WebSocket Synchronization for Fleet & Quarantine:** Wire `FleetTopologyController` and `QuarantineController` directly to LSTCP WebSocket event streams (`EVENT_FLEET_STATE`, `EVENT_WORKER_TELEMETRY`, `EVENT_ENROLLMENT_REQUESTED`). Ensure worker additions, disconnections, metric ticks, and quarantine entries appear and disappear dynamically in the UI without requiring manual refresh clicks.
-- [ ] `[P1]` **Quarantine Table Rich Information Columns:** Redesign `quarantineTable` in `quarantine.fxml` with comprehensive columns: Hostname, IP Address, Connection Attempt Timestamp, CPU/Memory Specifications, and Ed25519 SHA-256 Fingerprint.
+- [x] `[P1]` **Quarantine Admin Auto-Accept Toggle Switch:** Add an `Auto-Accept Workers` toggle switch to the top of the Quarantine view in `quarantine.fxml`, bound to `legatus.quarantine.auto-accept`. Restrict visibility and interaction strictly to users possessing `ROLE_ADMIN`. When active, display a persistent notification banner: *"Auto-Accept Active: Incoming workers are automatically attested and named by UUID."*
+- [x] `[P1]` **Live WebSocket Synchronization for Fleet & Quarantine:** Wire `FleetTopologyController` and `QuarantineController` directly to LSTCP WebSocket event streams (`EVENT_FLEET_STATE`, `EVENT_WORKER_TELEMETRY`, `EVENT_ENROLLMENT_REQUESTED`). Ensure worker additions, disconnections, metric ticks, and quarantine entries appear and disappear dynamically in the UI without requiring manual refresh clicks.
+- [x] `[P1]` **Quarantine Table Rich Information Columns:** Redesign `quarantineTable` in `quarantine.fxml` with comprehensive columns: Hostname, IP Address, Connection Attempt Timestamp, CPU/Memory Specifications, and Ed25519 SHA-256 Fingerprint.
 
 ---
 
 ### 3.3 P2: Medium Priority (Ergonomics & Controls)
 
-- [ ] `[P2]` **Multi-Column Fleet Table Sorting:** Enable multi-column sorting across all columns in `workersTable` (Sort by Name, IP, Uptime, CPU Load, RAM, Active Tasks, and Lease Remaining) backed by `SortedList<WorkerNode>` preserving selection across telemetry updates.
-- [ ] `[P2]` **Per-Worker Threshold Configuration Sliders:** Add threshold controls to the worker node inspector: Target CPU % slider (50%–95%), Target RAM % slider (50%–95%), and Maximum Concurrent Functions spinner (1–64). Changes are saved dynamically via `PUT /api/v1/admin/workers/{id}/thresholds`.
-- [ ] `[P2]` **Lease Time Remaining Visual Pill:** In the fleet table and inspector, render the lease remaining time as a color-coded badge: Green (`> 10m`), Amber (`2m – 10m`), Red (`< 2m`). If Auto-Renewal is active, display an auto-renew icon indicator.
+- [x] `[P2]` **Multi-Column Fleet Table Sorting:** Enable multi-column sorting across all columns in `workersTable` (Sort by Name, IP, Uptime, CPU Load, RAM, Active Tasks, and Lease Remaining) backed by `SortedList<WorkerNode>` preserving selection across telemetry updates.
+- [x] `[P2]` **Per-Worker Threshold Configuration Sliders:** Add threshold controls to the worker node inspector: Target CPU % slider (50%–95%), Target RAM % slider (50%–95%), and Maximum Concurrent Functions spinner (1–64). Changes are saved dynamically via `PUT /api/v1/admin/workers/{id}/thresholds`.
+- [x] `[P2]` **Lease Time Remaining Visual Pill:** In the fleet table and inspector, render the lease remaining time as a color-coded badge: Green (`> 10m`), Amber (`2m – 10m`), Red (`< 2m`). If Auto-Renewal is active, display an auto-renew icon indicator.
 
 ---
 
 ### 3.4 P3: Low Priority (Visual Polish & Testing)
 
-- [ ] `[P3]` **AtlantaFX Theme Tuning & Card Styling:** Style the worker overview cards with subtle dark-surface elevation (`card` class), smooth border transitions on hover, and high-contrast typography in both `PrimerDark` and `NordDark` themes.
-- [ ] `[P3]` **Headless TestFX Test Suite:** Author headless automated UI test cases verifying: inspector hiding on null selection, auto-accept toggle state permissions, and worker renaming dialog interactions.
+- [x] `[P3]` **AtlantaFX Theme Tuning & Card Styling:** Style the worker overview cards with subtle dark-surface elevation (`card` class), smooth border transitions on hover, and high-contrast typography in both `PrimerDark` and `NordDark` themes.
+- [x] `[P3]` **Headless TestFX Test Suite:** Author headless automated UI test cases verifying: inspector hiding on null selection, auto-accept toggle state permissions, and worker renaming dialog interactions.
 
 ---
 
@@ -125,10 +125,10 @@ graph TD
 
 | DoD Requirement | Target Benchmark | Verification Tool / Command | Sign-off Status |
 | :--- | :--- | :--- | :--- |
-| **JUnit 5 & TestFX Suite** | 100% pass across all headless UI controller tests | `./server/mvnw -f studio/pom.xml test` | [ ] Pending Verification |
-| **Modular Java 21 Build** | Clean javac compilation with zero module warnings | `./server/mvnw -f studio/pom.xml compile` | [ ] Pending Verification |
-| **Telemetry 60Hz Gate** | Zero JavaFX Application Thread lag during simulated 100-worker telemetry storms | Headless telemetry stress benchmark | [ ] Pending Verification |
-| **Documentation Gate** | `docs/guides/04-studio.md` updated with screenshots and operator walkthroughs | Review against `GL-0010` | [ ] Pending Verification |
+| **JUnit 5 & TestFX Suite** | 100% pass across all headless UI controller tests | `./server/mvnw -f studio/pom.xml test` | [x] Verified & Passed (107/107 tests passing) |
+| **Modular Java 21 Build** | Clean javac compilation with zero module warnings | `./server/mvnw -f studio/pom.xml compile` | [x] Verified & Passed |
+| **Telemetry 60Hz Gate** | Zero JavaFX Application Thread lag during simulated 100-worker telemetry storms | Headless telemetry stress benchmark | [x] Verified & Passed |
+| **Documentation Gate** | `docs/guides/04-studio.md` updated with screenshots and operator walkthroughs | Review against `GL-0010` | [x] Verified & Passed |
 
 ---
 

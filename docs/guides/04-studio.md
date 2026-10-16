@@ -61,19 +61,28 @@ Studio organizes operations into a persistent four-zone layout:
    * Keyboard shortcuts (`Ctrl+1` through `Ctrl+6` on Linux/Windows; `Cmd+1` through `Cmd+6` on macOS).
 3. **Center Primary Workspace (Zone 3):**
    * Master-detail interface displaying tabular data, charts, and contextual inspector forms.
-   * **Fleet Topology Management:** Worker fleet view displays all registered nodes sorted by state priority (`ONLINE` nodes pinned to top, followed by `DRAINING`, `PENDING_APPROVAL`, `QUARANTINED`, `OFFLINE`, and `REVOKED`). Operators can drain active nodes, revoke credentials, and permanently delete offline or dead workers from the registry with instant table updates.
+   * **Cluster Overview:** High-level cluster summary gauges (Online Workers, Aggregate CPU %, Active Tasks, Memory Pool) coupled with live alert banners:
+     * *Auto-Balancer Threshold Breach Warning:* Amber banner and ribbon badge triggered when the server scheduler must exceed worker CPU/RAM/task limits to fulfill compute load without queueing.
+     * *Cluster Queue Saturated Error:* Red banner and ribbon badge indicating all cluster capacity is saturated and tasks are forced into wait queues.
+     * *Worker Overview Grid:* Responsive card flow (`FlowPane`) displaying individual worker cells with live normalized CPU progress bar, RAM load bar, running task badge, operational state pill, and mini CPU sparkline.
+   * **Fleet Topology Table & Inspector:**
+     * Sortable 9-column table: Worker Name (Friendly Name + Hostname), Source IP, formatted Uptime (`Xd Yh Zm`), CPU Load (bar + label), RAM Load (bar + label), Active Tasks, color-coded Lease Remaining badge (`>10m` green, `2-10m` amber, `<2m` red) with auto-renewal indicator, Status pill, and inline Active/Paused switch.
+     * *Context-Aware Node Inspector:* Hidden when no row is selected (`visible=false, managed=false`). Upon worker selection, reveals inline friendly name editor, Active/Suspended toggle, Auto-Renew Lease toggle, threshold sliders (Target CPU 50–95%, Target RAM 50–95%, Max Tasks 1–64), live metrics, and unified **[Revoke Lease & Delete Worker]** decommission action with confirmation dialog.
 4. **Bottom Collapsible Drawer (Zone 4):**
    * Expandable drawer housing the **Task Console Log Stream**, **Cluster Event Log**, and **Security Audit Trail**.
    * Toggle with `Ctrl+` `~` (backtick) or click the drawer expand button.
 
 ---
 
-## 3. Visual Quarantine Attestation Workflow
+## 3. Quarantine Queue, Attestation & Auto-Accept Workflow
 
-When a new worker daemon launches, it enters quarantine. Operators visually attest its cryptographic fingerprint before issuing a cluster lease:
+When a new worker daemon launches, it enters quarantine until attested and authorized by an operator or auto-accepted by policy:
 
 ```
 +-----------------------------------------------------------------------------------------+
+| [✓] Auto-Accept Incoming Workers (Admin Only)                                           |
+| Banner: Auto-Accept Active: Incoming workers are automatically attested & named by UUID.|
+|                                                                                         |
 | QUARANTINE ATTESTATION: compute-linux-east-042 (10.0.4.12)                              |
 | Hardware Profile: 16 Physical Cores (32 Logical) | 64.0 GB Host RAM                     |
 | Declared Allocatable Quota: 16 Cores | 32.0 GB Memory Pool                              |
@@ -90,12 +99,19 @@ When a new worker daemon launches, it enters quarantine. Operators visually atte
 +-----------------------------------------------------------------------------------------+
 ```
 
-### Step-by-Step Approval Procedure:
+### 3.1 Operator Approval Procedure:
 1. When a new node registers, a yellow badge counter appears on the **Quarantine** navigation tab.
-2. Click **Quarantine** to view pending registrations.
-3. Compare the **3-Word Visual Confirmation Code** (`Tiger-Galaxy-77`) against the physical terminal output of the host where `legatusd` was launched.
-4. If the code and fingerprint match, click **[Approve & Issue Lease]**. The server hashes an issued secret token using Argon2id and transitions the node to `ONLINE`.
-5. If the node identity is unrecognized or the IP is suspicious, click **[Reject & Blacklist Node]** to permanently revoke the registration.
+2. Click **Quarantine** to view pending registrations. The master list displays hostname, source IP, allocatable cores/memory, submission timestamp, and Ed25519 fingerprint.
+3. Attestation card visibility is bound to selection: no card is rendered if no node is selected.
+4. When selected, compare the **3-Word Visual Confirmation Code** (`Tiger-Galaxy-77`) against the physical terminal output of the host where `legatusd` was launched.
+5. Click **[Approve & Issue Lease]**. Studio opens the **Assign Friendly Worker Name** modal dialog (pre-populated with suggested hostname). Enter a human-readable friendly name (e.g. `gpu-worker-01`).
+6. Studio issues `POST /api/v1/admin/workers/enrollments/{id}/approve` with `friendly_name` and lease duration. The server issues a lease token and transitions the worker to `ONLINE`.
+7. If the node identity is unrecognized or suspicious, click **[Reject & Blacklist Node]** to reject the registration and optionally blacklist the IP.
+
+### 3.2 Auto-Accept Mode (Admin Only):
+* Administrators possessing `ROLE_ADMIN` can toggle the **Auto-Accept Workers** switch.
+* When active, a persistent cyan banner notifies operators that auto-acceptance is active.
+* Incoming registration requests are automatically approved by the server with lease issuance and named using their unique UUID without operator intervention.
 
 ---
 
