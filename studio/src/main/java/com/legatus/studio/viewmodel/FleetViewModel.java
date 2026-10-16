@@ -23,6 +23,7 @@ public class FleetViewModel {
     private final StringProperty stateFilter = new SimpleStringProperty("ALL");
     private final BooleanProperty isLoading = new SimpleBooleanProperty(false);
     private final StringProperty statusMessage = new SimpleStringProperty("");
+    private final StringProperty errorMessage = new SimpleStringProperty("");
 
     private final WorkerService workerService;
 
@@ -97,7 +98,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to rename worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to rename worker: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -125,7 +128,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to toggle active state: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to toggle active state: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -147,7 +152,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to set auto renew: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to set auto renew: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -171,7 +178,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to update thresholds: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to update thresholds: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -193,7 +202,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to drain worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to drain worker: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -215,7 +226,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to revoke worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to revoke worker: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -238,7 +251,9 @@ public class FleetViewModel {
                 .exceptionally(ex -> {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isLoading.set(false);
-                        statusMessage.set("Failed to delete worker: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Failed to delete worker: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return null;
                 });
@@ -261,4 +276,7 @@ public class FleetViewModel {
 
     public BooleanProperty isLoadingProperty() { return isLoading; }
     public StringProperty statusMessageProperty() { return statusMessage; }
+    public StringProperty errorMessageProperty() { return errorMessage; }
+    public String getErrorMessage() { return errorMessage.get(); }
+    public void setErrorMessage(String value) { this.errorMessage.set(value); }
 }

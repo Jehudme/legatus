@@ -59,18 +59,17 @@ public class LstcpClient implements WebSocket.Listener {
 
     private final StringBuilder messageBuffer = new StringBuilder();
 
-    // Event handlers
-    private Consumer<State> stateListener;
-    private Consumer<SessionAckPayload> sessionAckListener;
-    private Consumer<Double> rttListener;
-    private Consumer<ClusterMetricTickPayload> metricTickListener;
-    private Consumer<WorkerStateChangedPayload> workerStateListener;
-    private Consumer<EnrollmentRequestedPayload> enrollmentListener;
-    private Consumer<TaskLifecyclePayload> taskLifecycleListener;
-    private Consumer<TaskLogChunkPayload> taskLogChunkListener;
+    // Event handlers (Multicast event listener lists)
+    private final java.util.List<Consumer<State>> stateListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<SessionAckPayload>> sessionAckListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<Double>> rttListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<ClusterMetricTickPayload>> metricTickListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<WorkerStateChangedPayload>> workerStateListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<EnrollmentRequestedPayload>> enrollmentListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<TaskLifecyclePayload>> taskLifecycleListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final java.util.List<Consumer<TaskLogChunkPayload>> taskLogChunkListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private Consumer<TaskFailedAlertPayload> taskFailedAlertListener;
-    private Consumer<RestDto.UserStateChangedPayload> userStateListener;
+    private final java.util.List<Consumer<TaskFailedAlertPayload>> taskFailedAlertListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<Consumer<RestDto.UserStateChangedPayload>> userStateListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public LstcpClient(String serverUrl, boolean trustAllCerts) {
         this.wsBaseUrl = normalizeWsUrl(serverUrl);
@@ -144,8 +143,8 @@ public class LstcpClient implements WebSocket.Listener {
 
     private void transitionState(State newState) {
         this.state = newState;
-        if (stateListener != null) {
-            stateListener.accept(newState);
+        for (var l : stateListeners) {
+            try { l.accept(newState); } catch (Exception ignored) {}
         }
     }
 
@@ -227,7 +226,9 @@ public class LstcpClient implements WebSocket.Listener {
         }
 
         reconnectAttempts++;
-        long backoff = Math.min(30000, (long) (1000 * Math.pow(2, Math.min(reconnectAttempts, 5)))) + random.nextInt(1000);
+        long baseBackoff = Math.min(30_000L, 1000L * (1L << Math.min(reconnectAttempts - 1, 5)));
+        double jitter = 0.8 + (random.nextDouble() * 0.4); // 0.8 to 1.2 (+/- 20%)
+        long backoff = Math.max(500L, (long) (baseBackoff * jitter));
 
         backgroundExecutor.schedule(() -> {
             if (shouldReconnect && state == State.DISCONNECTED) {
@@ -244,10 +245,13 @@ public class LstcpClient implements WebSocket.Listener {
             messageBuffer.setLength(0);
             processMessage(fullMessage);
         }
-        return WebSocket.Listener.super.onText(webSocket, data, last);
+        if (webSocket != null) {
+            return WebSocket.Listener.super.onText(webSocket, data, last);
+        }
+        return null;
     }
 
-    private void processMessage(String text) {
+    void processMessage(String text) {
         lastReceivedTimestamp = System.currentTimeMillis();
         try {
             JsonNode root = MAPPER.readTree(text);
@@ -258,45 +262,61 @@ public class LstcpClient implements WebSocket.Listener {
                 case "STUDIO_SESSION_ACK" -> {
                     transitionState(State.STREAMING);
                     SessionAckPayload ack = MAPPER.treeToValue(payload, SessionAckPayload.class);
-                    if (sessionAckListener != null) sessionAckListener.accept(ack);
+                    for (var l : sessionAckListeners) {
+                        try { l.accept(ack); } catch (Exception ignored) {}
+                    }
                     sendHeartbeatNow();
                 }
                 case "STUDIO_HEARTBEAT_ACK" -> {
-                    if (lastHeartbeatSentTimestamp > 0 && rttListener != null) {
+                    if (lastHeartbeatSentTimestamp > 0) {
                         double rtt = (double) (System.currentTimeMillis() - lastHeartbeatSentTimestamp);
-                        rttListener.accept(Math.max(0.1, rtt));
+                        double finalRtt = Math.max(0.1, rtt);
+                        for (var l : rttListeners) {
+                            try { l.accept(finalRtt); } catch (Exception ignored) {}
+                        }
                     }
                 }
                 case "EVENT_CLUSTER_METRIC_TICK" -> {
                     ClusterMetricTickPayload tick = MAPPER.treeToValue(payload, ClusterMetricTickPayload.class);
-                    if (metricTickListener != null) metricTickListener.accept(tick);
+                    for (var l : metricTickListeners) {
+                        try { l.accept(tick); } catch (Exception ignored) {}
+                    }
                 }
                 case "EVENT_WORKER_STATE_CHANGED" -> {
                     WorkerStateChangedPayload worker = MAPPER.treeToValue(payload, WorkerStateChangedPayload.class);
-                    if (workerStateListener != null) workerStateListener.accept(worker);
+                    for (var l : workerStateListeners) {
+                        try { l.accept(worker); } catch (Exception ignored) {}
+                    }
                 }
                 case "EVENT_ENROLLMENT_REQUESTED" -> {
                     EnrollmentRequestedPayload enr = MAPPER.treeToValue(payload, EnrollmentRequestedPayload.class);
-                    if (enrollmentListener != null) enrollmentListener.accept(enr);
+                    for (var l : enrollmentListeners) {
+                        try { l.accept(enr); } catch (Exception ignored) {}
+                    }
                 }
                 case "EVENT_TASK_LIFECYCLE" -> {
                     TaskLifecyclePayload task = MAPPER.treeToValue(payload, TaskLifecyclePayload.class);
-                    if (taskLifecycleListener != null) taskLifecycleListener.accept(task);
+                    for (var l : taskLifecycleListeners) {
+                        try { l.accept(task); } catch (Exception ignored) {}
+                    }
                 }
                 case "EVENT_TASK_LOG_CHUNK" -> {
                     TaskLogChunkPayload chunk = MAPPER.treeToValue(payload, TaskLogChunkPayload.class);
-                    if (taskLogChunkListener != null) taskLogChunkListener.accept(chunk);
                     for (var l : taskLogChunkListeners) {
                         try { l.accept(chunk); } catch (Exception ignored) {}
                     }
                 }
                 case "EVENT_TASK_FAILED_ALERT" -> {
                     TaskFailedAlertPayload alert = MAPPER.treeToValue(payload, TaskFailedAlertPayload.class);
-                    if (taskFailedAlertListener != null) taskFailedAlertListener.accept(alert);
+                    for (var l : taskFailedAlertListeners) {
+                        try { l.accept(alert); } catch (Exception ignored) {}
+                    }
                 }
                 case "EVENT_USER_STATE_CHANGED" -> {
                     RestDto.UserStateChangedPayload user = MAPPER.treeToValue(payload, RestDto.UserStateChangedPayload.class);
-                    if (userStateListener != null) userStateListener.accept(user);
+                    for (var l : userStateListeners) {
+                        try { l.accept(user); } catch (Exception ignored) {}
+                    }
                 }
             }
         } catch (Exception ignored) {
@@ -336,22 +356,45 @@ public class LstcpClient implements WebSocket.Listener {
         return state;
     }
 
-    public void setStateListener(Consumer<State> listener) { this.stateListener = listener; }
-    public void setSessionAckListener(Consumer<SessionAckPayload> listener) { this.sessionAckListener = listener; }
-    public void setRttListener(Consumer<Double> listener) { this.rttListener = listener; }
-    public void setMetricTickListener(Consumer<ClusterMetricTickPayload> listener) { this.metricTickListener = listener; }
-    public void setWorkerStateListener(Consumer<WorkerStateChangedPayload> listener) { this.workerStateListener = listener; }
-    public void setEnrollmentListener(Consumer<EnrollmentRequestedPayload> listener) { this.enrollmentListener = listener; }
-    public void setTaskLifecycleListener(Consumer<TaskLifecyclePayload> listener) { this.taskLifecycleListener = listener; }
-    public void setTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) { this.taskLogChunkListener = listener; }
-    public void addTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) {
-        if (listener != null) this.taskLogChunkListeners.add(listener);
-    }
-    public void removeTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) {
-        if (listener != null) this.taskLogChunkListeners.remove(listener);
-    }
-    public void setTaskFailedAlertListener(Consumer<TaskFailedAlertPayload> listener) { this.taskFailedAlertListener = listener; }
-    public void setUserStateListener(Consumer<RestDto.UserStateChangedPayload> listener) { this.userStateListener = listener; }
+    public void addStateListener(Consumer<State> listener) { if (listener != null) this.stateListeners.add(listener); }
+    public void removeStateListener(Consumer<State> listener) { if (listener != null) this.stateListeners.remove(listener); }
+    public void setStateListener(Consumer<State> listener) { addStateListener(listener); }
+
+    public void addSessionAckListener(Consumer<SessionAckPayload> listener) { if (listener != null) this.sessionAckListeners.add(listener); }
+    public void removeSessionAckListener(Consumer<SessionAckPayload> listener) { if (listener != null) this.sessionAckListeners.remove(listener); }
+    public void setSessionAckListener(Consumer<SessionAckPayload> listener) { addSessionAckListener(listener); }
+
+    public void addRttListener(Consumer<Double> listener) { if (listener != null) this.rttListeners.add(listener); }
+    public void removeRttListener(Consumer<Double> listener) { if (listener != null) this.rttListeners.remove(listener); }
+    public void setRttListener(Consumer<Double> listener) { addRttListener(listener); }
+
+    public void addMetricTickListener(Consumer<ClusterMetricTickPayload> listener) { if (listener != null) this.metricTickListeners.add(listener); }
+    public void removeMetricTickListener(Consumer<ClusterMetricTickPayload> listener) { if (listener != null) this.metricTickListeners.remove(listener); }
+    public void setMetricTickListener(Consumer<ClusterMetricTickPayload> listener) { addMetricTickListener(listener); }
+
+    public void addWorkerStateListener(Consumer<WorkerStateChangedPayload> listener) { if (listener != null) this.workerStateListeners.add(listener); }
+    public void removeWorkerStateListener(Consumer<WorkerStateChangedPayload> listener) { if (listener != null) this.workerStateListeners.remove(listener); }
+    public void setWorkerStateListener(Consumer<WorkerStateChangedPayload> listener) { addWorkerStateListener(listener); }
+
+    public void addEnrollmentListener(Consumer<EnrollmentRequestedPayload> listener) { if (listener != null) this.enrollmentListeners.add(listener); }
+    public void removeEnrollmentListener(Consumer<EnrollmentRequestedPayload> listener) { if (listener != null) this.enrollmentListeners.remove(listener); }
+    public void setEnrollmentListener(Consumer<EnrollmentRequestedPayload> listener) { addEnrollmentListener(listener); }
+
+    public void addTaskLifecycleListener(Consumer<TaskLifecyclePayload> listener) { if (listener != null) this.taskLifecycleListeners.add(listener); }
+    public void removeTaskLifecycleListener(Consumer<TaskLifecyclePayload> listener) { if (listener != null) this.taskLifecycleListeners.remove(listener); }
+    public void setTaskLifecycleListener(Consumer<TaskLifecyclePayload> listener) { addTaskLifecycleListener(listener); }
+
+    public void addTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) { if (listener != null) this.taskLogChunkListeners.add(listener); }
+    public void removeTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) { if (listener != null) this.taskLogChunkListeners.remove(listener); }
+    public void setTaskLogChunkListener(Consumer<TaskLogChunkPayload> listener) { addTaskLogChunkListener(listener); }
+
+    public void addTaskFailedAlertListener(Consumer<TaskFailedAlertPayload> listener) { if (listener != null) this.taskFailedAlertListeners.add(listener); }
+    public void removeTaskFailedAlertListener(Consumer<TaskFailedAlertPayload> listener) { if (listener != null) this.taskFailedAlertListeners.remove(listener); }
+    public void setTaskFailedAlertListener(Consumer<TaskFailedAlertPayload> listener) { addTaskFailedAlertListener(listener); }
+
+    public void addUserStateListener(Consumer<RestDto.UserStateChangedPayload> listener) { if (listener != null) this.userStateListeners.add(listener); }
+    public void removeUserStateListener(Consumer<RestDto.UserStateChangedPayload> listener) { if (listener != null) this.userStateListeners.remove(listener); }
+    public void setUserStateListener(Consumer<RestDto.UserStateChangedPayload> listener) { addUserStateListener(listener); }
 
     private static class InsecureTrustManager implements X509TrustManager {
         public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }

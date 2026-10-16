@@ -239,7 +239,7 @@ public class ExecuteWorkbenchController {
         };
         context.getLstcpClient().addTaskLogChunkListener(logChunkListener);
 
-        context.getLstcpClient().setTaskLifecycleListener(lifecycle -> {
+        context.getLstcpClient().addTaskLifecycleListener(lifecycle -> {
             if (lifecycle == null || lifecycle.task_id() == null) return;
             if (lifecycle.task_id().equals(currentMonitoredTaskId)) {
                 Platform.runLater(() -> {

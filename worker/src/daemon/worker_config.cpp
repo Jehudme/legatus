@@ -15,7 +15,7 @@
 namespace legatus::daemon {
 
 WorkerConfig WorkerConfig::parse_toml(const std::string& toml_content) {
-    WorkerConfig cfg;
+    WorkerConfig cfg = default_for_system();
     toml::table tbl = toml::parse(toml_content);
 
     if (auto server_tbl = tbl["server"].as_table()) {

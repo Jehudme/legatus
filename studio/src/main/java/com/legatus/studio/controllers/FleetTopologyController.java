@@ -244,32 +244,119 @@ public class FleetTopologyController {
             inspectorPane.managedProperty().bind(inspectorPane.visibleProperty());
         }
 
-        // Selection listener to populate inspector
+        // Selection listener to populate inspector dynamically
         workersTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
+            unbindInspector();
             if (newV != null) {
                 viewModel.setSelectedWorker(newV);
-                if (nameField != null) nameField.setText(newV.getFriendlyName());
-                if (selectedWorkerIdLabel != null) selectedWorkerIdLabel.setText(newV.getWorkerId());
-                if (selectedHostLabel != null) selectedHostLabel.setText(newV.getHostname());
-                if (selectedIpOsLabel != null) selectedIpOsLabel.setText(newV.getSourceIp() + " | " + newV.getOs() + "/" + newV.getArchitecture());
-                if (selectedStateLabel != null) selectedStateLabel.setText(newV.getState());
-                if (activeCheckBox != null) activeCheckBox.setSelected(newV.isActive());
-                if (autoRenewCheckBox != null) autoRenewCheckBox.setSelected(newV.isAutoRenewLease());
-                if (selectedLeaseLabel != null) selectedLeaseLabel.setText(newV.getFormattedLeaseRemaining());
-                if (targetCpuSlider != null) targetCpuSlider.setValue(newV.getTargetCpuPct());
-                if (targetRamSlider != null) targetRamSlider.setValue(newV.getTargetRamPct());
-                if (maxTasksSpinner != null && maxTasksSpinner.getValueFactory() != null) {
-                    maxTasksSpinner.getValueFactory().setValue(newV.getMaxConcurrentTasks());
-                }
-                if (selectedCpuLabel != null) selectedCpuLabel.setText(String.format("%.1f%%", newV.getCpuLoadPct()));
-                if (selectedRamLabel != null) {
-                    double usedGb = newV.getMemoryUsedBytes() / (1024.0 * 1024.0 * 1024.0);
-                    double maxGb = newV.getMaxMemoryBytes() / (1024.0 * 1024.0 * 1024.0);
-                    selectedRamLabel.setText(String.format("%.1f / %.1f GB", usedGb, maxGb));
-                }
-                if (selectedTasksLabel != null) selectedTasksLabel.setText(String.valueOf(newV.getActiveTasksCount()));
+                bindInspector(newV);
+            } else {
+                viewModel.setSelectedWorker(null);
             }
         });
+
+        // Error alert listener
+        if (viewModel.errorMessageProperty() != null) {
+            viewModel.errorMessageProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null && !newVal.isBlank()) {
+                    showErrorAlert("Fleet Action Failure", newVal);
+                }
+            });
+        }
+    }
+
+    private final java.util.List<Runnable> inspectorUnbinders = new java.util.ArrayList<>();
+
+    public void unbindInspector() {
+        for (Runnable unbinder : inspectorUnbinders) {
+            try { unbinder.run(); } catch (Exception ignored) {}
+        }
+        inspectorUnbinders.clear();
+
+        if (selectedCpuLabel != null) selectedCpuLabel.textProperty().unbind();
+        if (selectedRamLabel != null) selectedRamLabel.textProperty().unbind();
+        if (selectedLeaseLabel != null) selectedLeaseLabel.textProperty().unbind();
+        if (selectedStateLabel != null) selectedStateLabel.textProperty().unbind();
+        if (selectedTasksLabel != null) selectedTasksLabel.textProperty().unbind();
+        if (selectedWorkerIdLabel != null) selectedWorkerIdLabel.textProperty().unbind();
+        if (selectedHostLabel != null) selectedHostLabel.textProperty().unbind();
+    }
+
+    public void bindInspector(WorkerNode newV) {
+        if (nameField != null) nameField.setText(newV.getFriendlyName());
+        if (selectedWorkerIdLabel != null) selectedWorkerIdLabel.setText(newV.getWorkerId());
+        if (selectedHostLabel != null) selectedHostLabel.setText(newV.getHostname());
+        if (selectedIpOsLabel != null) selectedIpOsLabel.setText(newV.getSourceIp() + " | " + newV.getOs() + "/" + newV.getArchitecture());
+        if (activeCheckBox != null) activeCheckBox.setSelected(newV.isActive());
+        if (autoRenewCheckBox != null) autoRenewCheckBox.setSelected(newV.isAutoRenewLease());
+        if (targetCpuSlider != null) targetCpuSlider.setValue(newV.getTargetCpuPct());
+        if (targetRamSlider != null) targetRamSlider.setValue(newV.getTargetRamPct());
+        if (maxTasksSpinner != null && maxTasksSpinner.getValueFactory() != null) {
+            maxTasksSpinner.getValueFactory().setValue(newV.getMaxConcurrentTasks());
+        }
+
+        if (selectedStateLabel != null) {
+            selectedStateLabel.textProperty().bind(newV.stateProperty());
+            var stateListener = (javafx.beans.value.ChangeListener<String>) (obs, oldS, newS) -> updateInspectorStateBadge(newS);
+            newV.stateProperty().addListener(stateListener);
+            inspectorUnbinders.add(() -> newV.stateProperty().removeListener(stateListener));
+            updateInspectorStateBadge(newV.getState());
+        }
+
+        if (selectedCpuLabel != null) {
+            selectedCpuLabel.textProperty().bind(Bindings.createStringBinding(
+                    () -> String.format("%.1f%%", newV.getCpuLoadPct()),
+                    newV.cpuLoadPctProperty()
+            ));
+        }
+
+        if (selectedRamLabel != null) {
+            selectedRamLabel.textProperty().bind(Bindings.createStringBinding(() -> {
+                double usedGb = newV.getMemoryUsedBytes() / (1024.0 * 1024.0 * 1024.0);
+                double maxGb = newV.getMaxMemoryBytes() / (1024.0 * 1024.0 * 1024.0);
+                return String.format("%.1f / %.1f GB", usedGb, maxGb);
+            }, newV.memoryUsedBytesProperty(), newV.maxMemoryBytesProperty()));
+        }
+
+        if (selectedLeaseLabel != null) {
+            selectedLeaseLabel.textProperty().bind(Bindings.createStringBinding(
+                    newV::getFormattedLeaseRemaining,
+                    newV.remainingLeaseSecProperty()
+            ));
+        }
+
+        if (selectedTasksLabel != null) {
+            selectedTasksLabel.textProperty().bind(Bindings.createStringBinding(
+                    () -> String.valueOf(newV.getActiveTasksCount()),
+                    newV.activeTasksCountProperty()
+            ));
+        }
+    }
+
+    private void updateInspectorStateBadge(String state) {
+        if (selectedStateLabel == null || state == null) return;
+        selectedStateLabel.getStyleClass().removeAll("badge-online", "badge-inactive", "badge-draining", "badge-offline");
+        if ("ONLINE".equalsIgnoreCase(state)) {
+            selectedStateLabel.getStyleClass().add("badge-online");
+        } else if ("INACTIVE".equalsIgnoreCase(state)) {
+            selectedStateLabel.getStyleClass().add("badge-inactive");
+        } else if ("DRAINING".equalsIgnoreCase(state)) {
+            selectedStateLabel.getStyleClass().add("badge-draining");
+        } else {
+            selectedStateLabel.getStyleClass().add("badge-offline");
+        }
+    }
+
+    private void showErrorAlert(String title, String message) {
+        try {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        } catch (Exception e) {
+            System.err.println("[ALERT ERROR] " + title + ": " + message);
+        }
     }
 
     @FXML
@@ -363,4 +450,10 @@ public class FleetTopologyController {
     public Spinner<Integer> getMaxTasksSpinner() {
         return maxTasksSpinner;
     }
+
+    public Label getSelectedCpuLabel() { return selectedCpuLabel; }
+    public Label getSelectedRamLabel() { return selectedRamLabel; }
+    public Label getSelectedLeaseLabel() { return selectedLeaseLabel; }
+    public Label getSelectedStateLabel() { return selectedStateLabel; }
+    public Label getSelectedTasksLabel() { return selectedTasksLabel; }
 }

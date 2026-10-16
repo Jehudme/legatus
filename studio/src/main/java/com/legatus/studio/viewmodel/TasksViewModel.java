@@ -22,6 +22,7 @@ public class TasksViewModel implements AutoCloseable {
     private final StringProperty searchQuery = new SimpleStringProperty("");
     private final BooleanProperty isBusy = new SimpleBooleanProperty(false);
     private final StringProperty statusMessage = new SimpleStringProperty("");
+    private final StringProperty errorMessage = new SimpleStringProperty("");
 
     // Dispatch form properties
     private final StringProperty dispatchName = new SimpleStringProperty("");
@@ -90,7 +91,9 @@ public class TasksViewModel implements AutoCloseable {
                     com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                         isBusy.set(false);
                         current.setIsAborting(false);
-                        statusMessage.set("Abort request failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                        String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                        statusMessage.set("Abort request failed: " + err);
+                        errorMessage.set(err != null ? err : "Unknown error");
                     });
                     return false;
                 });
@@ -135,7 +138,9 @@ public class TasksViewModel implements AutoCloseable {
         }).exceptionally(ex -> {
             com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
                 isBusy.set(false);
-                statusMessage.set("Dispatch failed: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()));
+                String err = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                statusMessage.set("Dispatch failed: " + err);
+                errorMessage.set(err != null ? err : "Unknown error");
             });
             return null;
         });
@@ -226,6 +231,10 @@ public class TasksViewModel implements AutoCloseable {
     public StringProperty dispatchEntrypointProperty() { return dispatchEntrypoint; }
     public LongProperty dispatchBudgetProperty() { return dispatchBudget; }
     public LongProperty dispatchMemoryProperty() { return dispatchMemory; }
+
+    public StringProperty errorMessageProperty() { return errorMessage; }
+    public String getErrorMessage() { return errorMessage.get(); }
+    public void setErrorMessage(String value) { this.errorMessage.set(value); }
 
     @Override
     public void close() {

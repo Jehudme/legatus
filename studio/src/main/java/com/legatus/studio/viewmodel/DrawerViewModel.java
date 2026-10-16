@@ -25,9 +25,15 @@ public class DrawerViewModel {
         this.filteredConsoleLines = new javafx.collections.transformation.FilteredList<>(consoleLines, this::matchesFilter);
         this.filterText.addListener((obs, oldV, newV) -> filteredConsoleLines.setPredicate(this::matchesFilter));
 
-        // Forward stream lines onto JavaFX Application Thread safely
+        // Forward stream lines onto JavaFX Application Thread safely with 10,000-line ceiling
         this.logStreamBuffer.addLineListener(line -> {
-            com.legatus.studio.service.FxAsync.runOnFxThread(() -> consoleLines.add(line));
+            com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
+                consoleLines.add(line);
+                if (consoleLines.size() > 10_000) {
+                    int excess = consoleLines.size() - 10_000;
+                    consoleLines.remove(0, excess);
+                }
+            });
         });
     }
 

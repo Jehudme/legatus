@@ -23,13 +23,64 @@ public class TelemetryService implements AutoCloseable {
 
     private final ClusterMetrics clusterMetrics = new ClusterMetrics();
     private final ObservableMap<String, WorkerNode> workersMap = FXCollections.observableHashMap();
-    private final ObservableList<WorkerNode> workersList = FXCollections.observableArrayList();
+    private final ObservableList<WorkerNode> workersList = FXCollections.observableArrayList(worker -> new javafx.beans.Observable[]{
+            worker.friendlyNameProperty(),
+            worker.hostnameProperty(),
+            worker.stateProperty(),
+            worker.cpuLoadPctProperty(),
+            worker.memoryUsedBytesProperty(),
+            worker.activeTasksCountProperty(),
+            worker.remainingLeaseSecProperty(),
+            worker.uptimeSecondsProperty(),
+            worker.allocatableCoresProperty(),
+            worker.maxMemoryBytesProperty(),
+            worker.activeProperty()
+    });
     private final ObservableList<QuarantineEnrollment> enrollmentsList = FXCollections.observableArrayList();
-    private final ObservableList<TaskRecord> tasksList = FXCollections.observableArrayList();
+    private final ObservableList<TaskRecord> tasksList = FXCollections.observableArrayList(task -> new javafx.beans.Observable[]{
+            task.nameProperty(),
+            task.statusProperty(),
+            task.exitCodeProperty(),
+            task.assignedWorkerIdProperty(),
+            task.instructionsConsumedProperty(),
+            task.instructionBudgetProperty(),
+            task.peakMemoryBytesProperty(),
+            task.executionWallTimeMsProperty(),
+            task.timeoutMsProperty(),
+            task.startedAtProperty(),
+            task.finishedAtProperty(),
+            task.workerFriendlyNameProperty(),
+            task.profileNameProperty()
+    });
 
     private final TelemetryCoalescer coalescer;
     private final LstcpClient lstcpClient;
     private final com.legatus.studio.transport.LogStreamBuffer logStreamBuffer;
+    private final java.util.concurrent.ScheduledExecutorService pulseExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "telemetry-1s-pulse");
+        t.setDaemon(true);
+        return t;
+    });
+
+    public static java.time.Instant parseInstant(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number num) {
+            long val = num.longValue();
+            if (val <= 0) return null;
+            return val < 10_000_000_000L ? java.time.Instant.ofEpochSecond(val) : java.time.Instant.ofEpochMilli(val);
+        }
+        String s = obj.toString().trim();
+        if (s.isEmpty() || "null".equalsIgnoreCase(s)) return null;
+        try {
+            long val = Long.parseLong(s);
+            if (val <= 0) return null;
+            return val < 10_000_000_000L ? java.time.Instant.ofEpochSecond(val) : java.time.Instant.ofEpochMilli(val);
+        } catch (NumberFormatException ignored) {}
+        try {
+            return java.time.Instant.parse(s);
+        } catch (Exception ignored) {}
+        return null;
+    }
 
     public TelemetryService(LstcpClient lstcpClient) {
         this(lstcpClient, true, null);
@@ -44,19 +95,52 @@ public class TelemetryService implements AutoCloseable {
         this.logStreamBuffer = logStreamBuffer;
         this.coalescer = new TelemetryCoalescer(this::applyBatch, dispatchOnFxThread, TelemetryCoalescer.COALESCE_INTERVAL_MS);
 
-        // Attach listeners from LstcpClient directly into Coalescer ring buffer
-        this.lstcpClient.setMetricTickListener(this.coalescer::pushClusterMetricTick);
-        this.lstcpClient.setWorkerStateListener(this.coalescer::pushWorkerStateChanged);
-        this.lstcpClient.setTaskLifecycleListener(this.coalescer::pushTaskLifecycle);
-        this.lstcpClient.setTaskLogChunkListener(chunk -> {
+        // Attach listeners from LstcpClient directly into Coalescer ring buffer via multicast methods
+        this.lstcpClient.addMetricTickListener(this.coalescer::pushClusterMetricTick);
+        this.lstcpClient.addWorkerStateListener(this.coalescer::pushWorkerStateChanged);
+        this.lstcpClient.addTaskLifecycleListener(this.coalescer::pushTaskLifecycle);
+        this.lstcpClient.addTaskLogChunkListener(chunk -> {
             if (logStreamBuffer != null && chunk != null && chunk.log_chunk() != null) {
                 logStreamBuffer.appendLine(String.format("[%s] [TASK %s] %s",
                         java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
                         chunk.task_id(), chunk.log_chunk()));
             }
         });
-        this.lstcpClient.setEnrollmentListener(this.coalescer::pushEnrollmentRequested);
-        this.lstcpClient.setRttListener(rtt -> FxAsync.runOnFxThread(() -> clusterMetrics.setRttLatencyMs(rtt)));
+        this.lstcpClient.addEnrollmentListener(this.coalescer::pushEnrollmentRequested);
+        this.lstcpClient.addRttListener(rtt -> FxAsync.runOnFxThread(() -> clusterMetrics.setRttLatencyMs(rtt)));
+
+        // Continuous 1-second pulse for lease countdown and live running task duration
+        this.pulseExecutor.scheduleAtFixedRate(this::onOneSecondPulse, 1, 1, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    private void onOneSecondPulse() {
+        FxAsync.runOnFxThread(() -> {
+            // 1. Decrement remaining lease seconds continuously
+            for (WorkerNode worker : workersList) {
+                long remaining = worker.getRemainingLeaseSec();
+                if (remaining > 0) {
+                    worker.setRemainingLeaseSec(remaining - 1);
+                }
+            }
+
+            // 2. Update live wall-clock duration for executing tasks
+            java.time.Instant now = java.time.Instant.now();
+            for (TaskRecord task : tasksList) {
+                String st = task.getStatus();
+                if ("EXECUTING".equalsIgnoreCase(st) || "DISPATCHED".equalsIgnoreCase(st)) {
+                    java.time.Instant started = parseInstant(task.getStartedAt());
+                    if (started == null) {
+                        started = parseInstant(task.getCreatedAt());
+                    }
+                    if (started != null) {
+                        long elapsed = java.time.Duration.between(started, now).toMillis();
+                        if (elapsed >= 0) {
+                            task.setExecutionWallTimeMs(elapsed);
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private void applyBatch(TelemetryCoalescer.TelemetryBatch batch) {
@@ -149,6 +233,15 @@ public class TelemetryService implements AutoCloseable {
                     if (taskEvent.peak_memory_bytes() != null) existing.setPeakMemoryBytes(taskEvent.peak_memory_bytes());
                     if (taskEvent.execution_wall_time_ms() != null && taskEvent.execution_wall_time_ms() > 0) {
                         existing.setExecutionWallTimeMs(taskEvent.execution_wall_time_ms());
+                    } else if (("COMPLETED".equalsIgnoreCase(taskEvent.status()) || "FAILED".equalsIgnoreCase(taskEvent.status()) || "ABORTED".equalsIgnoreCase(taskEvent.status()))
+                            && existing.getExecutionWallTimeMs() <= 0) {
+                        java.time.Instant s = parseInstant(existing.getStartedAt());
+                        java.time.Instant f = parseInstant(existing.getFinishedAt());
+                        if (f == null) f = java.time.Instant.now();
+                        if (s != null) {
+                            long dur = java.time.Duration.between(s, f).toMillis();
+                            if (dur > 0) existing.setExecutionWallTimeMs(dur);
+                        }
                     }
                     if (taskEvent.instruction_budget() != null && taskEvent.instruction_budget() >= 0) {
                         existing.setInstructionBudget(taskEvent.instruction_budget());
@@ -156,20 +249,29 @@ public class TelemetryService implements AutoCloseable {
                     if (taskEvent.timeout_ms() != null) {
                         existing.setTimeoutMs(taskEvent.timeout_ms());
                     }
-                    if (taskEvent.started_at() != null) existing.setStartedAt(taskEvent.started_at().toString());
-                    if (taskEvent.ended_at() != null) existing.setFinishedAt(taskEvent.ended_at().toString());
+                    if (taskEvent.started_at() != null) {
+                        java.time.Instant sInst = parseInstant(taskEvent.started_at());
+                        if (sInst != null) existing.setStartedAt(sInst.toString());
+                    }
+                    if (taskEvent.ended_at() != null) {
+                        java.time.Instant eInst = parseInstant(taskEvent.ended_at());
+                        if (eInst != null) existing.setFinishedAt(eInst.toString());
+                    }
                     found = true;
                     break;
                 }
             }
             if (!found) {
+                java.time.Instant sInst = parseInstant(taskEvent.started_at());
+                java.time.Instant eInst = parseInstant(taskEvent.ended_at());
                 TaskRecord newRecord = new TaskRecord(
                         taskEvent.task_id(), taskEvent.name(), taskEvent.status(), taskEvent.exit_code(),
                         taskEvent.assigned_worker_id(), taskEvent.instructions_consumed(),
-                        taskEvent.peak_memory_bytes(), taskEvent.execution_wall_time_ms(),
+                        taskEvent.peak_memory_bytes(),
+                        taskEvent.execution_wall_time_ms() != null ? taskEvent.execution_wall_time_ms() : 0L,
                         "",
-                        taskEvent.started_at() != null ? taskEvent.started_at().toString() : "",
-                        taskEvent.ended_at() != null ? taskEvent.ended_at().toString() : "",
+                        sInst != null ? sInst.toString() : "",
+                        eInst != null ? eInst.toString() : "",
                         taskEvent.worker_friendly_name() != null ? taskEvent.worker_friendly_name() : "",
                         taskEvent.profile_name() != null ? taskEvent.profile_name() : ""
                 );
@@ -190,23 +292,19 @@ public class TelemetryService implements AutoCloseable {
         }
 
         // Live task duration streaming for executing tasks
+        java.time.Instant nowInstant = java.time.Instant.now();
         for (TaskRecord task : tasksList) {
-            if ("EXECUTING".equalsIgnoreCase(task.getStatus())) {
-                String startTimeStr = task.getStartedAt();
-                if (startTimeStr == null || startTimeStr.isBlank()) {
-                    startTimeStr = task.getCreatedAt();
+            String st = task.getStatus();
+            if ("EXECUTING".equalsIgnoreCase(st) || "DISPATCHED".equalsIgnoreCase(st)) {
+                java.time.Instant started = parseInstant(task.getStartedAt());
+                if (started == null) {
+                    started = parseInstant(task.getCreatedAt());
                 }
-                if (startTimeStr != null && !startTimeStr.isBlank()) {
-                    try {
-                        long elapsed = java.time.Duration.between(java.time.Instant.parse(startTimeStr), java.time.Instant.now()).toMillis();
-                        if (elapsed >= 0) {
-                            task.setExecutionWallTimeMs(elapsed);
-                        }
-                    } catch (Exception e) {
-                        task.setExecutionWallTimeMs(task.getExecutionWallTimeMs() + TelemetryCoalescer.COALESCE_INTERVAL_MS);
+                if (started != null) {
+                    long elapsed = java.time.Duration.between(started, nowInstant).toMillis();
+                    if (elapsed >= 0) {
+                        task.setExecutionWallTimeMs(elapsed);
                     }
-                } else {
-                    task.setExecutionWallTimeMs(task.getExecutionWallTimeMs() + TelemetryCoalescer.COALESCE_INTERVAL_MS);
                 }
             }
         }
@@ -239,6 +337,7 @@ public class TelemetryService implements AutoCloseable {
 
     @Override
     public void close() {
+        pulseExecutor.shutdownNow();
         coalescer.close();
     }
 }

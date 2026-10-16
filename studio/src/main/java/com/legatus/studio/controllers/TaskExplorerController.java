@@ -162,6 +162,8 @@ public class TaskExplorerController {
         tasksTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, selected) -> {
             if (selected != null) {
                 inspectTask(selected);
+            } else {
+                unbindCurrentTask();
             }
         });
 
@@ -169,60 +171,102 @@ public class TaskExplorerController {
             abortStatusLabel.textProperty().bind(viewModel.statusMessageProperty());
         }
 
+        if (viewModel.errorMessageProperty() != null) {
+            viewModel.errorMessageProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null && !newVal.isBlank()) {
+                    showErrorAlert("Task Action Failure", newVal);
+                }
+            });
+        }
+
         viewModel.refreshTasks();
     }
 
-    private void inspectTask(TaskRecord task) {
+    private final java.util.List<Runnable> taskUnbinders = new java.util.ArrayList<>();
+
+    public void unbindCurrentTask() {
+        for (Runnable unbinder : taskUnbinders) {
+            try { unbinder.run(); } catch (Exception ignored) {}
+        }
+        taskUnbinders.clear();
+
+        if (selectedDurationLabel != null) selectedDurationLabel.textProperty().unbind();
+        if (selectedTimingLabel != null) selectedTimingLabel.textProperty().unbind();
+    }
+
+    public void inspectTask(TaskRecord task) {
         if (task == null) return;
+        unbindCurrentTask();
+
         this.currentlyInspectedTaskId = task.getTaskId();
         viewModel.setSelectedTask(task);
 
-        selectedTaskIdLabel.setText(task.getTaskId());
+        if (selectedTaskIdLabel != null) selectedTaskIdLabel.setText(task.getTaskId());
 
         String fnProfile = task.getName();
         if (task.getProfileName() != null && !task.getProfileName().isBlank()) {
             fnProfile += " [" + task.getProfileName() + "]";
         }
-        selectedNameLabel.setText(fnProfile);
+        if (selectedNameLabel != null) selectedNameLabel.setText(fnProfile);
 
-        // Status badge styling
+        // Status badge styling with listener tracking
         updateStatusBadge(task.getStatus());
-        task.statusProperty().addListener((obs, oldV, newStatus) -> updateStatusBadge(newStatus));
+        javafx.beans.value.ChangeListener<String> statusListener = (obs, oldV, newStatus) -> updateStatusBadge(newStatus);
+        task.statusProperty().addListener(statusListener);
+        taskUnbinders.add(() -> task.statusProperty().removeListener(statusListener));
 
         // Worker display
         String workerDisplay = task.getWorkerFriendlyName() != null && !task.getWorkerFriendlyName().isBlank()
                 ? task.getWorkerFriendlyName() + " (" + task.getAssignedWorkerId() + ")"
                 : (task.getAssignedWorkerId().isBlank() ? "Unassigned" : task.getAssignedWorkerId());
-        selectedWorkerLabel.setText(workerDisplay);
+        if (selectedWorkerLabel != null) selectedWorkerLabel.setText(workerDisplay);
 
         // Duration text
-        selectedDurationLabel.textProperty().bind(Bindings.createStringBinding(
-                task::getFormattedDuration, task.executionWallTimeMsProperty()
-        ));
+        if (selectedDurationLabel != null) {
+            selectedDurationLabel.textProperty().bind(Bindings.createStringBinding(
+                    task::getFormattedDuration, task.executionWallTimeMsProperty()
+            ));
+        }
 
         // Timestamps text
-        selectedTimingLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> task.getFormattedStartTime() + " / " + task.getFormattedEndTime(),
-                task.startedAtProperty(), task.finishedAtProperty(), task.statusProperty()
-        ));
+        if (selectedTimingLabel != null) {
+            selectedTimingLabel.textProperty().bind(Bindings.createStringBinding(
+                    () -> task.getFormattedStartTime() + " / " + task.getFormattedEndTime(),
+                    task.startedAtProperty(), task.finishedAtProperty(), task.statusProperty()
+            ));
+        }
 
         // Duration progress bar (hide if unlimited or <= 0)
         updateDurationMeter(task);
-        task.executionWallTimeMsProperty().addListener((obs, oldV, cur) -> updateDurationMeter(task));
-        task.timeoutMsProperty().addListener((obs, oldV, cur) -> updateDurationMeter(task));
+        javafx.beans.value.ChangeListener<Number> durationListener = (obs, oldV, cur) -> updateDurationMeter(task);
+        task.executionWallTimeMsProperty().addListener(durationListener);
+        taskUnbinders.add(() -> task.executionWallTimeMsProperty().removeListener(durationListener));
+
+        javafx.beans.value.ChangeListener<Number> timeoutListener = (obs, oldV, cur) -> updateDurationMeter(task);
+        task.timeoutMsProperty().addListener(timeoutListener);
+        taskUnbinders.add(() -> task.timeoutMsProperty().removeListener(timeoutListener));
 
         // Instruction progress bar (hide if unlimited or <= 0)
         updateInstructionMeter(task);
-        task.instructionsConsumedProperty().addListener((obs, oldV, cur) -> updateInstructionMeter(task));
-        task.instructionBudgetProperty().addListener((obs, oldV, cur) -> updateInstructionMeter(task));
+        javafx.beans.value.ChangeListener<Number> instructionsListener = (obs, oldV, cur) -> updateInstructionMeter(task);
+        task.instructionsConsumedProperty().addListener(instructionsListener);
+        taskUnbinders.add(() -> task.instructionsConsumedProperty().removeListener(instructionsListener));
+
+        javafx.beans.value.ChangeListener<Number> budgetListener = (obs, oldV, cur) -> updateInstructionMeter(task);
+        task.instructionBudgetProperty().addListener(budgetListener);
+        taskUnbinders.add(() -> task.instructionBudgetProperty().removeListener(budgetListener));
 
         // Abort button enable/disable (strictly disable if not executing/queued)
         updateAbortButtonState(task.getStatus());
-        task.statusProperty().addListener((obs, oldV, curStatus) -> updateAbortButtonState(curStatus));
+        javafx.beans.value.ChangeListener<String> abortStateListener = (obs, oldV, curStatus) -> updateAbortButtonState(curStatus);
+        task.statusProperty().addListener(abortStateListener);
+        taskUnbinders.add(() -> task.statusProperty().removeListener(abortStateListener));
 
         // Clear terminal and subscribe to logs
-        taskTerminalArea.clear();
-        taskTerminalArea.appendText("[SYSTEM] Subscribed to logs for task " + task.getTaskId() + " (status=" + task.getStatus() + ")\n");
+        if (taskTerminalArea != null) {
+            taskTerminalArea.clear();
+            taskTerminalArea.appendText("[SYSTEM] Subscribed to logs for task " + task.getTaskId() + " (status=" + task.getStatus() + ")\n");
+        }
 
         if (context != null && context.getLstcpClient() != null) {
             context.getLstcpClient().sendFrame(Frame.create("SUBSCRIBE_TASK_LOGS", Map.of("task_id", task.getTaskId())));
@@ -257,8 +301,12 @@ public class TaskExplorerController {
             durationProgressBox.setManaged(true);
             long elapsed = task.getExecutionWallTimeMs();
             double progress = (double) elapsed / timeoutMs;
-            durationProgressBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
-            durationProgressLabel.setText(String.format("%,dms / %,dms", elapsed, timeoutMs));
+            if (durationProgressBar != null) {
+                durationProgressBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
+            }
+            if (durationProgressLabel != null) {
+                durationProgressLabel.setText(String.format("%,dms / %,dms", elapsed, timeoutMs));
+            }
         }
     }
 
@@ -275,8 +323,12 @@ public class TaskExplorerController {
             instructionProgressBox.setManaged(true);
             long consumed = task.getInstructionsConsumed();
             double progress = (double) consumed / budget;
-            instructionProgressBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
-            selectedInstructionsLabel.setText(String.format("%,d / %,d instructions", consumed, budget));
+            if (instructionProgressBar != null) {
+                instructionProgressBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
+            }
+            if (selectedInstructionsLabel != null) {
+                selectedInstructionsLabel.setText(String.format("%,d / %,d instructions", consumed, budget));
+            }
         }
     }
 
@@ -285,6 +337,18 @@ public class TaskExplorerController {
         String st = status != null ? status.toUpperCase() : "";
         boolean canAbort = "EXECUTING".equals(st) || "QUEUED".equals(st) || "SUBMITTING".equals(st) || "DISPATCHED".equals(st);
         abortButton.setDisable(!canAbort);
+    }
+
+    private void showErrorAlert(String title, String message) {
+        try {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        } catch (Exception e) {
+            System.err.println("[ALERT ERROR] " + title + ": " + message);
+        }
     }
 
     @FXML
@@ -300,4 +364,14 @@ public class TaskExplorerController {
             viewModel.triggerAbort("Operator requested abort");
         }
     }
+
+    public Label getSelectedTaskIdLabel() { return selectedTaskIdLabel; }
+    public Label getSelectedDurationLabel() { return selectedDurationLabel; }
+    public ProgressBar getDurationProgressBar() { return durationProgressBar; }
+    public ProgressBar getInstructionProgressBar() { return instructionProgressBar; }
+    public VBox getDurationProgressBox() { return durationProgressBox; }
+    public VBox getInstructionProgressBox() { return instructionProgressBox; }
+    public Button getAbortButton() { return abortButton; }
+    public TextArea getTaskTerminalArea() { return taskTerminalArea; }
+    public int getActiveUnbinderCount() { return taskUnbinders.size(); }
 }
