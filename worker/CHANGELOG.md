@@ -2,6 +2,30 @@
 
 All notable changes to the Legatus Worker subsystem (`legatusd`, `legatus`, `legatus-runner`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.2.0](https://github.com/Jehudme/legatus/compare/worker-v0.1.0...worker-v0.2.0) (2026-10-16)
+
+
+### Features
+
+* **all:** resolve telemetry live updates, audit verification, worker fleet, and vault contracts ([3f04ac6](https://github.com/Jehudme/legatus/commit/3f04ac6efa0666e130ebba548e8691e66b8ad763))
+* **cockpit:** implement Milestone 011 live sync, telemetry overhaul, and UX improvements ([1dff83b](https://github.com/Jehudme/legatus/commit/1dff83ba3823c3a34c04913cb5df147a3094711d))
+* **control-plane:** implement server-centric worker control plane and dynamic configuration ([c7ce658](https://github.com/Jehudme/legatus/commit/c7ce6582e321a3d2bc00b2938d2fcb26f390943e))
+* **platform:** implement MS-005 protocol parity, streaming, and workflow DAG engine ([3c17611](https://github.com/Jehudme/legatus/commit/3c17611449bf49087fff50c9410278d68c219154))
+* **stdlib:** add Solix build manifest for worker stdlib ([0d97074](https://github.com/Jehudme/legatus/commit/0d97074853bd56eee542a5a17cf270c7f1faf77b))
+* **studio:** add execution workbench, profile engine, and catalog metadata inspector (MS-009) ([1980951](https://github.com/Jehudme/legatus/commit/19809512f0103a22408ef12af644b5dc189e2a70))
+* **tasks:** dispatch bytecode payload, broadcast task lifecycle, and sync Studio task explorer ([5826aba](https://github.com/Jehudme/legatus/commit/5826aba8e8a2ec889f3d3842c09dcf22c094dd08))
+* **worker:** configure CMake precompiled headers and CPack installer rules ([fabf9ff](https://github.com/Jehudme/legatus/commit/fabf9ff8a47590d9beffe46c0409c34298256445))
+* **worker:** implement CLI11 operator CLI, legatusd daemon loop, and spdlog rotating sinks ([c3cc85e](https://github.com/Jehudme/legatus/commit/c3cc85e3dacac6704a4326961c3a533069166630))
+* **worker:** implement cross-platform nng REQ0/REP0 local IPC bus with 6 formal actions ([19698c3](https://github.com/Jehudme/legatus/commit/19698c340d0ba88bddebc43d524753be30b1b97f))
+* **worker:** implement cross-platform paths, host telemetry collector, and bytecode deduplication cache ([9071faa](https://github.com/Jehudme/legatus/commit/9071faacd336b02c8929076799dd534c2e46b8fa))
+* **worker:** implement LCTP WebSocket client with jittered heartbeats and dead-man switch ([ebd31eb](https://github.com/Jehudme/legatus/commit/ebd31eb0974dfd03c0427b2b281d67088f5d0043))
+* **worker:** implement legatus up daemon launcher subcommand ([8e9101e](https://github.com/Jehudme/legatus/commit/8e9101e851563a89193f6c1f4426631e523dc907))
+* **worker:** implement legatus-runner task engine and secret zeroization ([bda8e6e](https://github.com/Jehudme/legatus/commit/bda8e6ea9ff08a9ecc02f8ae0b90c4a546709de6))
+* **worker:** implement MS-006 sandboxed standard library and pure in-memory runtime ([84383bf](https://github.com/Jehudme/legatus/commit/84383bf97f69a875153d766385fe0a99efaf12e1))
+* **worker:** implement quarantine node enrollment, ed25519 visual attestation, and worker.toml config ([61b2c66](https://github.com/Jehudme/legatus/commit/61b2c66f64df9970c0d909d4609f6e010be591fa))
+* **worker:** implement reproc++ child process supervisor with two-stage kill escalation ([f14c60c](https://github.com/Jehudme/legatus/commit/f14c60c4f2edd7a08d1cc64fe3ad10b7af0a0cbd))
+* **worker:** scaffold c++20 worker build system and project structure ([a3aee30](https://github.com/Jehudme/legatus/commit/a3aee3046b1586825f72f13f04413591c95befee))
+
 ## [1.0.0-worker-mvp] - 2026-10-15
 ### Added
 * Bootstrap C++20 CMake build system with FetchContent dependencies (`solix` v1.1.1, `CLI11`, `nlohmann_json`, `spdlog`, `fmt`, `nng`, `reproc++`, `IXWebSocket`, `Catch2`).
