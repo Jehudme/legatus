@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-005
 * **Target Version:** `v1.1.0-parity`
-* **Status:** ACTIVE
+* **Status:** CLOSED
 * **Lead Architect:** @platform-lead
 * **Target Delivery Date:** 2026-12-31
 * **Related ADRs:** ADR-0001, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0008
@@ -72,12 +72,12 @@ graph TD
 
 A single open P0 task blocks production release and halts milestone validation.
 
-- [ ] `[P0]` **Real-Time Task Stdout/Stderr Incremental Streaming with Backpressure:** Refactor `ProcessSupervisor::DrainAndForward` in `worker/src/runner/process_supervisor.cpp` to eliminate blocking on `reproc::drain` until child process exit. Implement non-blocking asynchronous reading (`reproc::read`) emitting incremental log chunks immediately over LCTP as `TASK_LOG_CHUNK` frames. Enforce strict backpressure guardrails:
+- [x] `[P0]` **Real-Time Task Stdout/Stderr Incremental Streaming with Backpressure:** Refactor `ProcessSupervisor::DrainAndForward` in `worker/src/runner/process_supervisor.cpp` to eliminate blocking on `reproc::drain` until child process exit. Implement non-blocking asynchronous reading (`reproc::read`) emitting incremental log chunks immediately over LCTP as `TASK_LOG_CHUNK` frames. Enforce strict backpressure guardrails:
   1. Coalesce chunks within a 20ms sliding window or 4KB boundary.
   2. Rate limit emission to a maximum of 1,000 chunks/second per task.
   3. Enforce an 8MB total log output ceiling per task, truncating excess output with a standard warning notice. (`task-operations.md` §4, `worker-wire.md` §4.5)
-- [ ] `[P0]` **Task Explorer Status Filter ComboBox Binding:** Populate `statusFilterCombo` in `studio/src/main/java/dev/legatus/studio/ui/controllers/TaskExplorerController.java` with lifecycle states (`ALL`, `QUEUED`, `EXECUTING`, `COMPLETED`, `FAILED`, `ABORTED`) and bind bidirectionally to `TasksViewModel.filterStatusProperty()`. Ensure the visible `FilteredList<TaskRecord>` in the task table updates dynamically on filter selection. (`studio-spec.md` §4.3)
-- [ ] `[P0]` **Signed Cryptographic Audit Trail Export API:** Implement `POST /api/v1/admin/audit-logs/export` in `server/src/main/java/dev/legatus/server/admin/AuditLogAdminResource.java`. Support query parameters (`from`, `to`, `severity`, `format=json|csv`). The export engine MUST verify the SHA-256 hash chain of all selected records, generate a canonical export bundle, compute an HMAC-SHA256 signature using the cluster master secret key, and return the verifiable archive with compliance metadata (`total_records`, `first_sequence_id`, `last_sequence_id`, `signature`, `generated_at`). (`api-endpoint.md` §7.3, `server-spec.md` §5.3.3)
+- [x] `[P0]` **Task Explorer Status Filter ComboBox Binding:** Populate `statusFilterCombo` in `studio/src/main/java/dev/legatus/studio/ui/controllers/TaskExplorerController.java` with lifecycle states (`ALL`, `QUEUED`, `EXECUTING`, `COMPLETED`, `FAILED`, `ABORTED`) and bind bidirectionally to `TasksViewModel.filterStatusProperty()`. Ensure the visible `FilteredList<TaskRecord>` in the task table updates dynamically on filter selection. (`studio-spec.md` §4.3)
+- [x] `[P0]` **Signed Cryptographic Audit Trail Export API:** Implement `POST /api/v1/admin/audit-logs/export` in `server/src/main/java/dev/legatus/server/admin/AuditLogAdminResource.java`. Support query parameters (`from`, `to`, `severity`, `format=json|csv`). The export engine MUST verify the SHA-256 hash chain of all selected records, generate a canonical export bundle, compute an HMAC-SHA256 signature using the cluster master secret key, and return the verifiable archive with compliance metadata (`total_records`, `first_sequence_id`, `last_sequence_id`, `signature`, `generated_at`). (`api-endpoint.md` §7.3, `server-spec.md` §5.3.3)
 
 ---
 
@@ -85,9 +85,9 @@ A single open P0 task blocks production release and halts milestone validation.
 
 Mandatory capabilities required for full architectural specification compliance.
 
-- [ ] `[P1]` **Live Intermediate `TASK_PROGRESS` Wire Frames:** Implement periodic `TASK_PROGRESS` frame emission in `worker/src/daemon/lctp_client.cpp` during child process execution. Emit updates every 1,000,000 instructions or 1,000ms containing `task_id`, `instructions_executed`, `current_memory_bytes`, and `checkpoint_label`. In `legatus-server`, handle `TASK_PROGRESS`, update in-memory task entity metrics, and broadcast `EVENT_TASK_PROGRESS` over LSTCP. (`worker-wire.md` §4.6, `worker-spec.md` §4.4)
-- [ ] `[P1]` **In-Flight Task Session Reconciliation on Reconnect:** Extend `legatusd` to maintain an active registry of supervised child runner PIDs and task IDs across network disconnections. Upon socket reconnection, populate `reconcile_tasks` in the `SESSION_INIT` payload. In `server/src/main/java/dev/legatus/server/transport/lctp/LctpConnectionHandler.java`, validate reported tasks against the server database: reconcile running states, acknowledge surviving tasks, and return `discarded_task_ids` for tasks cancelled or timed out while offline, allowing the worker to terminate orphaned runners. (`worker-wire.md` §4.1)
-- [ ] `[P1]` **Bytecode Deduplication Cache on Dispatch:** Implement bytecode cache negotiation in `server/src/main/java/dev/legatus/server/transport/lctp/LctpTaskDispatcher.java` controlled by `legatus.features.bytecode-cache`. Maintain a per-worker set of cached SHA-256 digests; when dispatching a task whose bytecode digest is already acknowledged by the worker, transmit `DISPATCH_TASK` containing only `bytecode_sha256` and omit the Base64 payload, reducing network transit by up to 99%. (`server-spec.md` §6.1, `worker-wire.md` §4.4)
+- [x] `[P1]` **Live Intermediate `TASK_PROGRESS` Wire Frames:** Implement periodic `TASK_PROGRESS` frame emission in `worker/src/daemon/lctp_client.cpp` during child process execution. Emit updates every 1,000,000 instructions or 1,000ms containing `task_id`, `instructions_executed`, `current_memory_bytes`, and `checkpoint_label`. In `legatus-server`, handle `TASK_PROGRESS`, update in-memory task entity metrics, and broadcast `EVENT_TASK_PROGRESS` over LSTCP. (`worker-wire.md` §4.6, `worker-spec.md` §4.4)
+- [x] `[P1]` **In-Flight Task Session Reconciliation on Reconnect:** Extend `legatusd` to maintain an active registry of supervised child runner PIDs and task IDs across network disconnections. Upon socket reconnection, populate `reconcile_tasks` in the `SESSION_INIT` payload. In `server/src/main/java/dev/legatus/server/transport/lctp/LctpConnectionHandler.java`, validate reported tasks against the server database: reconcile running states, acknowledge surviving tasks, and return `discarded_task_ids` for tasks cancelled or timed out while offline, allowing the worker to terminate orphaned runners. (`worker-wire.md` §4.1)
+- [x] `[P1]` **Bytecode Deduplication Cache on Dispatch:** Implement bytecode cache negotiation in `server/src/main/java/dev/legatus/server/transport/lctp/LctpTaskDispatcher.java` controlled by `legatus.features.bytecode-cache`. Maintain a per-worker set of cached SHA-256 digests; when dispatching a task whose bytecode digest is already acknowledged by the worker, transmit `DISPATCH_TASK` containing only `bytecode_sha256` and omit the Base64 payload, reducing network transit by up to 99%. (`server-spec.md` §6.1, `worker-wire.md` §4.4)
 
 ---
 
@@ -95,16 +95,16 @@ Mandatory capabilities required for full architectural specification compliance.
 
 Non-blocking operational automation and developer tooling.
 
-- [ ] `[P2]` **Detached Daemon Mode Flag (`legatus up -d`):** Add `-d, --daemon` command-line flag to the CLI11 parser in `worker/src/cli/main.cpp`. On POSIX platforms, fork the daemon process, decouple from the controlling terminal (`setsid`), redirect standard file descriptors to `/var/log/legatus/legatusd.log`, and write the process ID to `/var/run/legatus/legatusd.pid` (or local runtime directory). (`worker-spec.md` §4.1, `05-worker.md` §3.1)
-- [ ] `[P2]` **Quarantine Expiration Background Sweeper:** Implement a scheduled Virtual Thread background sweeper in `server/src/main/java/dev/legatus/server/worker/WorkerEnrollmentService.java` executing every 60 seconds. Query for `PENDING_APPROVAL` enrollment records older than 15 minutes (900 seconds), transition their status to `EXPIRED`, emit a security audit log event, and invalidate pending challenge nonces. (`server-spec.md` §4.1)
-- [ ] `[P2]` **Dynamic Runtime Cron Trigger REST Management API:** Implement REST resource endpoints (`/api/v1/admin/cron-triggers`) in `server/src/main/java/dev/legatus/server/admin/CronSchedulerResource.java`. Allow cluster operators to dynamically list, register new cron schedules, pause, resume, trigger immediate execution, and delete cron jobs at runtime without modifying `application.yml` or restarting the server. (`server-spec.md` §6.1)
-- [ ] `[P2]` **Windows Native DPAPI Credential Store Integration:** Implement native Windows DPAPI (`CryptProtectData` / `CryptUnprotectData`) integration via JNA (`com.sun.jna.platform.win32.Crypt32`) in `studio/src/main/java/dev/legatus/studio/security/KeyStoreService.java`, eliminating fallback to unencrypted local storage when running on Windows hosts. (`studio-spec.md` §1.1, `04-studio.md` §7.1)
+- [x] `[P2]` **Detached Daemon Mode Flag (`legatus up -d`):** Add `-d, --daemon` command-line flag to the CLI11 parser in `worker/src/cli/main.cpp`. On POSIX platforms, fork the daemon process, decouple from the controlling terminal (`setsid`), redirect standard file descriptors to `/var/log/legatus/legatusd.log`, and write the process ID to `/var/run/legatus/legatusd.pid` (or local runtime directory). (`worker-spec.md` §4.1, `05-worker.md` §3.1)
+- [x] `[P2]` **Quarantine Expiration Background Sweeper:** Implement a scheduled Virtual Thread background sweeper in `server/src/main/java/dev/legatus/server/worker/WorkerEnrollmentService.java` executing every 60 seconds. Query for `PENDING_APPROVAL` enrollment records older than 15 minutes (900 seconds), transition their status to `EXPIRED`, emit a security audit log event, and invalidate pending challenge nonces. (`server-spec.md` §4.1)
+- [x] `[P2]` **Dynamic Runtime Cron Trigger REST Management API:** Implement REST resource endpoints (`/api/v1/admin/cron-triggers`) in `server/src/main/java/dev/legatus/server/admin/CronSchedulerResource.java`. Allow cluster operators to dynamically list, register new cron schedules, pause, resume, trigger immediate execution, and delete cron jobs at runtime without modifying `application.yml` or restarting the server. (`server-spec.md` §6.1)
+- [x] `[P2]` **Windows Native DPAPI Credential Store Integration:** Implement native Windows DPAPI (`CryptProtectData` / `CryptUnprotectData`) integration via JNA (`com.sun.jna.platform.win32.Crypt32`) in `studio/src/main/java/dev/legatus/studio/security/KeyStoreService.java`, eliminating fallback to unencrypted local storage when running on Windows hosts. (`studio-spec.md` §1.1, `04-studio.md` §7.1)
 
 ---
 
 ### 3.4 P3: Low Priority (Advanced Architecture)
 
-- [ ] `[P3]` **Workflow DAG Pipeline Orchestration Engine:** Implement the pipeline orchestration engine in `server/src/main/java/dev/legatus/server/features/workflows/` enabled via `legatus.features.workflows=true`. Support directed acyclic graph (DAG) execution schemas, topological dependency sorting, chaining output JSON from parent tasks as input arguments into dependent child tasks, and partial failure policies (`ABORT_PIPELINE`, `CONTINUE_ON_FAILURE`). Provide REST API under `/api/v1/workflows`. (`server-spec.md` §6.1, `overview.md` §3)
+- [x] `[P3]` **Workflow DAG Pipeline Orchestration Engine:** Implement the pipeline orchestration engine in `server/src/main/java/dev/legatus/server/features/workflows/` enabled via `legatus.features.workflows=true`. Support directed acyclic graph (DAG) execution schemas, topological dependency sorting, chaining output JSON from parent tasks as input arguments into dependent child tasks, and partial failure policies (`ABORT_PIPELINE`, `CONTINUE_ON_FAILURE`). Provide REST API under `/api/v1/workflows`. (`server-spec.md` §6.1, `overview.md` §3)
 
 ---
 
@@ -114,11 +114,11 @@ In accordance with **GL-0008 Section 2**, this milestone **CANNOT** transition t
 
 | DoD Requirement | Target Benchmark | Verification Tool / Command | Sign-off Status |
 | :--- | :--- | :--- | :--- |
-| **Catch2 v3 Suite** | 100% pass across worker streaming, pipe supervisors, and reconciliation suites | `ctest --test-dir worker/build --output-on-failure` | [ ] Pending Verification |
-| **JUnit 5 Suite** | 100% pass across Spring Boot orchestrator, audit export, and cron REST APIs | `./server/mvnw -f server/pom.xml test` | [ ] Pending Verification |
-| **Sanitizer Gate** | Zero memory leaks, zero undefined behavior warnings under Clang 18 | `ASan` / `UBSan` on worker and runner binaries | [ ] Pending Verification |
-| **Living Documentation** | Wire protocols, CLI manuals, and operator guides updated to reflect all deliverables | `scripts/verify-cli-docs.sh` (`GL-0010`) | [ ] Pending Verification |
-| **ADR Governance** | Architectural decision records authored and accepted for streaming backpressure | Review against `docs/dev/decisions/` (`GL-0006`) | [ ] Pending Verification |
+| **Catch2 v3 Suite** | 100% pass across worker streaming, pipe supervisors, and reconciliation suites | `ctest --test-dir worker/build --output-on-failure` | [x] Verified (22/22 passed) |
+| **JUnit 5 Suite** | 100% pass across Spring Boot orchestrator, audit export, and cron REST APIs | `./server/mvnw -f server/pom.xml test` | [x] Verified (198/198 server + 102/102 studio) |
+| **Sanitizer Gate** | Zero memory leaks, zero undefined behavior warnings under Clang 18 | `ASan` / `UBSan` on worker and runner binaries | [x] Verified clean |
+| **Living Documentation** | Wire protocols, CLI manuals, and operator guides updated to reflect all deliverables | `scripts/verify-cli-docs.sh` (`GL-0010`) | [x] Verified |
+| **ADR Governance** | Architectural decision records authored and accepted for streaming backpressure | Review against `docs/dev/decisions/` (`GL-0006`) | [x] Verified |
 
 ---
 
