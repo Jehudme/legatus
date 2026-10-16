@@ -117,20 +117,45 @@ When a new worker daemon launches, it enters quarantine until attested and autho
 
 ## 4. Function Deployment & Task Management
 
-### 4.1 Functions & Bytecode Workbench
-1. Navigate to **Functions & Bytecode** in the left rail.
-2. **Catalog Persistence:** Registered bytecode functions are fetched directly from `/api/solix-functions` upon session initialization and cached in `StudioContext`. Functions remain persistent across window navigation. Operators can click **[Refresh Catalog]** at any time to re-sync with the cluster.
-3. **Uploading Bytecode (.slxb):**
+### 4.1 Functions & Bytecode Catalog
+1. Navigate to **Functions** in the left navigation rail.
+2. **Catalog Persistence & Metadata Inspection:**
+   * Registered bytecode functions are loaded directly from `/api/solix-functions` upon session initialization and cached in `StudioContext`.
+   * The catalog list displays function name, semver, entry point, 64-character SHA-256 digest, and an active **Invocations in Last Hour** usage frequency badge.
+   * Selecting any function opens the dedicated **Metadata Inspector** card displaying:
+     * Full Bytecode SHA-256 digest and creation timestamp.
+     * **Description Textarea:** Free-form functional summary of the guest code.
+     * **Tagging Chip Container:** Visual AtlantaFX tags (e.g. `crypto`, `etl`, `v2`, `batch`) with one-click removal and tag addition.
+     * Click **[Save Metadata]** to persist description and tags via `PUT /api/solix-functions/{id}/metadata`.
+   * **Tag Search Filter:** Use the top tag filter input to instantly isolate functions matching specific operational tags.
+3. **Registering New Bytecode (.slxb):**
    * Click **[Choose File...]** to inspect any local compiled `.slxb` binary. Studio computes the SHA-256 digest in real time.
    * Provide a Function Name and Entry Point (defaults to `main`).
    * Click **[Register Bytecode]** (`POST /api/v1/bytecode`). The function is immediately cataloged and selected for execution.
-4. **Parameter Configuration & Workload Execution:**
-   * Select any function from the table (or use the newly registered one). The selected function name, entry point, and truncated SHA-256 digest are displayed in the **Execute Workload & Parameters** card.
-   * **Arguments (JSON):** Provide runtime arguments in standard JSON format (e.g. `{"matrix_size": 1024, "alpha": 0.5}`).
-   * **Constraints:** Configure Instruction Budget (e.g. `10000000`), Memory Limit in Megabytes (e.g. `64`), and Task Priority (`NORMAL`, `HIGH`, `LOW`, `CRITICAL`, `BATCH`).
-   * Click **[Execute Function]** (`POST /api/v1/tasks`). Studio submits the workload specification, and on acceptance displays the cluster-assigned Task ID (e.g. `task-20261015-77121e97 [Status: EXECUTING]`).
+4. **Transitioning to Execution:**
+   * Click **[Open in Execution Workbench]** in the metadata inspector to seamlessly transition to the dedicated execution workbench with the selected function pre-loaded.
 
-### 4.2 Inspecting Active Tasks & Two-Stage Abort
+### 4.2 Dedicated Execution Workbench & Execution Profiles
+1. Navigate to **Execute** in the left navigation rail (or click **[Open in Execution Workbench]** from the catalog).
+2. **Persistent Execution Profile Management:**
+   * Select a pre-configured execution profile from the **Execution Profile** dropdown (e.g., `Default`, `Benchmark-High-Load`, `Nightly-Batch`).
+   * **[Save]:** Update parameters of the currently selected profile (persisted on server via `PUT /api/v1/execution-profiles/{id}`).
+   * **[Save As New]:** Prompts for a new profile name and creates a new profile record via `POST /api/v1/execution-profiles`. Enforces uniqueness and optimistic concurrency control.
+   * **[Delete]:** Permanently removes the selected profile from the cluster.
+   * **[Export] & [Import]:** Export the profile as a portable `.json` configuration file or import external profile definitions.
+3. **Arguments Editor & JSON Validation:**
+   * Write execution parameters in JSON format. The editor performs real-time JSON syntax validation and indicates validation errors before submission.
+   * Click **[Format JSON]** to automatically pretty-print and indent argument payloads.
+4. **Flexible Quota Controls & Unlimited Toggles:**
+   * **Instruction Budget:** Configure numeric instruction cap or check **[✓] Unlimited Instructions** ($I_{\text{budget}} = \infty$, sentinel `0`).
+   * **Wall-Clock Time Limit:** Configure timeout in milliseconds or check **[✓] Unlimited Time Limit** ($T_{\text{limit}} = \infty$, sentinel `0`).
+   * **Task Priority:** Select `NORMAL`, `HIGH`, `LOW`, `CRITICAL`, or `BATCH`.
+   * **Failure Notification Alert:** Check **[✓] Notify on Failure**. If the task exits with non-zero exit code or fails on the worker, `legatus-server` dispatches an `EVENT_TASK_FAILED_ALERT` frame, triggering an urgent desktop toast notification and audio chime in Studio.
+5. **Dispatch & Live WebSocket Telemetry:**
+   * Click **[Execute Function]** to submit the task.
+   * The live console automatically connects to the task's WebSocket log stream, rendering real-time instruction cycle progress meter updates and streaming standard output chunks in real time without leaving the workbench.
+
+### 4.3 Inspecting Active Tasks & Two-Stage Abort
 1. Navigate to **Task Explorer** in the left rail.
 2. **Task Ledger Sync & Refresh:**
    * The Task Ledger automatically synchronizes all historical and active cluster tasks from `GET /api/v1/tasks` upon entering the view and initial session startup.
@@ -145,7 +170,7 @@ When a new worker daemon launches, it enters quarantine until attested and autho
    * If the child process shuts down cooperatively, the terminal status shows `ABORTED` (Exit Code 130).
    * If the process hangs, the worker executes Stage 2 unconditional termination after 10 seconds, showing `KILLED_FORCIBLY` (Exit Code 137).
 
-### 4.3 Cryptographic WORM Audit Trail & Verification
+### 4.4 Cryptographic WORM Audit Trail & Verification
 1. Navigate to **Audit Trail** in the left navigation rail.
 2. The audit ledger automatically loads the complete cryptographically linked sequence of cluster events (`GET /api/v1/admin/audit-logs`) upon display.
 3. Operators can filter ledger entries by **Actor** or **Action** via real-time search inputs, or click **[Refresh Ledger]** to fetch new entries.
