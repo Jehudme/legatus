@@ -62,6 +62,17 @@ public class ClusterMetricsService {
      * Computes authoritative cluster statistics isolating inactive/disabled workers.
      */
     public ClusterStatsDto computeClusterStats() {
+        if (workerSessionRegistry != null) {
+            for (LctpWorkerSession ws : workerSessionRegistry.getAllActiveSessions()) {
+                workerNodeRepository.findById(ws.getWorkerId()).ifPresent(w -> {
+                    if (w.getState() == WorkerState.OFFLINE && Boolean.TRUE.equals(w.getActive())) {
+                        w.setState(WorkerState.ONLINE);
+                        workerNodeRepository.save(w);
+                    }
+                });
+            }
+        }
+
         int onlineActive = (int) workerNodeRepository.countByStateAndActiveTrue(WorkerState.ONLINE);
         int draining = (int) workerNodeRepository.countByState(WorkerState.DRAINING);
         int offline = (int) (workerNodeRepository.countByState(WorkerState.OFFLINE)

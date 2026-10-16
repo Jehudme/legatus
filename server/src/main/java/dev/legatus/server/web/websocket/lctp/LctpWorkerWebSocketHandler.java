@@ -129,17 +129,20 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        switch (frame) {
-            case SessionInitFrame init -> handleSessionInit(workerSession, init);
-
-            case ConfigSyncReqFrame syncReq -> handleConfigSyncReq(workerSession, syncReq);
-            case HeartbeatFrame hb -> handleHeartbeat(workerSession, hb);
-            case DrainNoticeFrame drain -> handleDrainNotice(workerSession, drain);
-            case TaskProgressFrame progress -> handleTaskProgress(workerSession, progress);
-            case TaskLogChunkFrame chunk -> handleTaskLogChunk(workerSession, chunk);
-            case TaskResultFrame result -> handleTaskResult(workerSession, result);
-            case ProtocolErrorFrame err -> LOG.warn("Worker reported LCTP protocol error: {} - {}", err.payload().errorCode(), err.payload().message());
-            default -> LOG.warn("Unhandled or unexpected inbound frame type: {}", frame.type());
+        try {
+            switch (frame) {
+                case SessionInitFrame init -> handleSessionInit(workerSession, init);
+                case ConfigSyncReqFrame syncReq -> handleConfigSyncReq(workerSession, syncReq);
+                case HeartbeatFrame hb -> handleHeartbeat(workerSession, hb);
+                case DrainNoticeFrame drain -> handleDrainNotice(workerSession, drain);
+                case TaskProgressFrame progress -> handleTaskProgress(workerSession, progress);
+                case TaskLogChunkFrame chunk -> handleTaskLogChunk(workerSession, chunk);
+                case TaskResultFrame result -> handleTaskResult(workerSession, result);
+                case ProtocolErrorFrame err -> LOG.warn("Worker reported LCTP protocol error: {} - {}", err.payload().errorCode(), err.payload().message());
+                default -> LOG.warn("Unhandled or unexpected inbound frame type: {}", frame.type());
+            }
+        } catch (Throwable t) {
+            LOG.error("Unexpected error handling LCTP frame type {}: {}", frame.type(), t.getMessage(), t);
         }
     }
 
@@ -284,6 +287,21 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
     private void handleHeartbeat(LctpWorkerSession session, HeartbeatFrame frame) throws IOException {
         session.setLastHeartbeatAt(Instant.now());
         session.setDraining(frame.payload().draining());
+
+        workerNodeRepository.findById(session.getWorkerId()).ifPresent(w -> {
+            boolean updated = false;
+            if (w.getState() == WorkerState.OFFLINE && Boolean.TRUE.equals(w.getActive())) {
+                w.setState(WorkerState.ONLINE);
+                updated = true;
+            }
+            Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+            w.setLastSeenAt(now);
+            updated = true;
+            if (updated) {
+                workerNodeRepository.save(w);
+            }
+        });
+
         if (frame.payload().hostMetrics() != null) {
             session.setLastHostMetrics(frame.payload().hostMetrics());
             if (thresholdScheduler != null) {
@@ -332,11 +350,11 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             for (HeartbeatFrame.RunningTask rt : frame.payload().runningTasks()) {
                 computeTaskRepository.findById(rt.taskId()).ifPresent(t -> {
                     boolean changed = false;
-                    if (rt.instructionsConsumed() != null && !rt.instructionsConsumed().equals(t.getInstructionsConsumed())) {
+                    if (t.getInstructionsConsumed() == null || t.getInstructionsConsumed() != rt.instructionsConsumed()) {
                         t.setInstructionsConsumed(rt.instructionsConsumed());
                         changed = true;
                     }
-                    if (rt.elapsedWallTimeMs() != null && rt.elapsedWallTimeMs() > 0) {
+                    if (rt.elapsedWallTimeMs() > 0) {
                         t.setWallTimeMs(rt.elapsedWallTimeMs());
                         changed = true;
                     } else if (t.getStartedAt() != null) {
@@ -503,7 +521,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             if (frame.payload().metrics() != null) {
                 task.setInstructionsConsumed(frame.payload().metrics().instructionsConsumed());
                 task.setPeakMemoryBytes(frame.payload().metrics().peakMemoryBytes());
-                if (frame.payload().metrics().executionWallTimeMs() != null && frame.payload().metrics().executionWallTimeMs() > 0) {
+                if (frame.payload().metrics().executionWallTimeMs() > 0) {
                     task.setWallTimeMs(frame.payload().metrics().executionWallTimeMs());
                 }
             }

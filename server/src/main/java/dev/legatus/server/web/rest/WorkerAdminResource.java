@@ -226,9 +226,15 @@ public class WorkerAdminResource {
                     uptimeSec = Math.max(0L, java.time.Duration.between(w.getCreatedAt(), now).toSeconds());
                 }
                 long remainingSec = 0L;
+                WorkerState effectiveState = w.getState();
+                if (workerSessionRegistry != null && workerSessionRegistry.getByWorkerId(w.getWorkerId()).isPresent()) {
+                    if (effectiveState == null || effectiveState == WorkerState.OFFLINE) {
+                        effectiveState = WorkerState.ONLINE;
+                    }
+                }
                 if (w.getLeaseExpiresAt() != null) {
                     remainingSec = Math.max(0L, java.time.Duration.between(now, w.getLeaseExpiresAt()).toSeconds());
-                } else if (w.getState() == WorkerState.ONLINE) {
+                } else if (effectiveState == WorkerState.ONLINE) {
                     remainingSec = 86400L;
                 }
 
@@ -239,7 +245,7 @@ public class WorkerAdminResource {
                     w.getSourceIp() != null ? w.getSourceIp() : "",
                     w.getOs() != null ? w.getOs().name().toLowerCase() : "linux",
                     w.getArch() != null ? w.getArch().name().toLowerCase() : "x86_64",
-                    w.getState() != null ? w.getState().name() : "OFFLINE",
+                    effectiveState != null ? effectiveState.name() : "OFFLINE",
                     Boolean.TRUE.equals(w.getActive()),
                     w.getAllocatableCores() != null ? w.getAllocatableCores() : 1,
                     w.getMaxMemoryBytes() != null ? w.getMaxMemoryBytes() : 1073741824L,
