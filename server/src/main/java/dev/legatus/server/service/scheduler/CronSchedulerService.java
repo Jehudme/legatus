@@ -51,6 +51,7 @@ public class CronSchedulerService {
 
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
     private final Map<String, LegatusProperties.CronJobConfig> configuredJobs = new ConcurrentHashMap<>();
+    private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
     @Autowired
     public CronSchedulerService(
@@ -149,14 +150,61 @@ public class CronSchedulerService {
         if (jobName == null) {
             return false;
         }
+        pausedJobs.remove(jobName);
         ScheduledFuture<?> future = scheduledTasks.remove(jobName);
-        configuredJobs.remove(jobName);
+        boolean hadConfig = configuredJobs.remove(jobName) != null;
         if (future != null) {
             future.cancel(false);
             LOG.info("Cancelled and unregistered cron job '{}'", jobName);
             return true;
         }
-        return false;
+        return hadConfig;
+    }
+
+    /**
+     * Pauses an actively scheduled cron job without deleting its configuration.
+     */
+    public synchronized boolean pauseJob(String jobName) {
+        if (jobName == null || !configuredJobs.containsKey(jobName)) {
+            return false;
+        }
+        ScheduledFuture<?> future = scheduledTasks.remove(jobName);
+        if (future != null) {
+            future.cancel(false);
+        }
+        pausedJobs.add(jobName);
+        LOG.info("Paused cron job '{}'", jobName);
+        return true;
+    }
+
+    /**
+     * Resumes a paused cron job.
+     */
+    public synchronized boolean resumeJob(String jobName) {
+        if (jobName == null || !pausedJobs.contains(jobName)) {
+            return false;
+        }
+        LegatusProperties.CronJobConfig job = configuredJobs.get(jobName);
+        if (job == null) {
+            pausedJobs.remove(jobName);
+            return false;
+        }
+        pausedJobs.remove(jobName);
+        return registerJob(job);
+    }
+
+    /**
+     * Checks if a cron job is currently paused.
+     */
+    public boolean isJobPaused(String jobName) {
+        return pausedJobs.contains(jobName);
+    }
+
+    /**
+     * Returns an unmodifiable snapshot map of all registered cron jobs.
+     */
+    public Map<String, LegatusProperties.CronJobConfig> getAllJobs() {
+        return Collections.unmodifiableMap(new HashMap<>(configuredJobs));
     }
 
     /**

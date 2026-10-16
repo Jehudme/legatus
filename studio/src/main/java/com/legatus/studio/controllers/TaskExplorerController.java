@@ -41,6 +41,13 @@ public class TaskExplorerController {
         if (viewModel == null) return;
 
         searchField.textProperty().bindBidirectional(viewModel.searchQueryProperty());
+        if (statusFilterCombo != null) {
+            statusFilterCombo.getItems().setAll("ALL", "QUEUED", "EXECUTING", "COMPLETED", "FAILED", "ABORTED");
+            if (statusFilterCombo.getValue() == null) {
+                statusFilterCombo.setValue(viewModel.filterStatusProperty().get() != null ? viewModel.filterStatusProperty().get() : "ALL");
+            }
+            statusFilterCombo.valueProperty().bindBidirectional(viewModel.filterStatusProperty());
+        }
         tasksTable.setItems(viewModel.getFilteredTasks());
 
         taskIdCol.setCellValueFactory(c -> c.getValue().taskIdProperty());

@@ -140,4 +140,34 @@ TEST_CASE("ProcessSupervisor - Out-of-Process Task Execution", "[worker][daemon]
         task_thread.join();
         REQUIRE(fast_supervisor.active_task_count() == 0);
     }
+
+    SECTION("Real-time stdout chunk streaming callback and active task info") {
+        const std::string solix_src = R"(
+            public class Main {
+                public static int32 main(char[][] args) {
+                    return 0;
+                }
+            }
+        )";
+        auto bytecode = compile_solix_to_bytecode(solix_src);
+        REQUIRE(!bytecode.empty());
+
+        legatus::runner::ExecutionEnvelope envelope;
+        envelope.task_id = "task-proc-streaming";
+        envelope.function_name = "main";
+        envelope.bytecode_base64 = legatus::common::base64_encode(bytecode);
+        envelope.arguments_json = "{}";
+        envelope.instruction_budget = 100000;
+        envelope.memory_limit_bytes = 64 * 1024 * 1024;
+
+        std::vector<std::string> streamed_chunks;
+        auto on_chunk = [&](const std::string& /*stream*/, const std::string& chunk) {
+            streamed_chunks.push_back(chunk);
+        };
+
+        auto res = supervisor.launch_task(envelope, on_chunk);
+        REQUIRE(res.exit_code == 0);
+        REQUIRE(supervisor.active_task_count() == 0);
+        REQUIRE(supervisor.get_active_tasks_info().empty());
+    }
 }

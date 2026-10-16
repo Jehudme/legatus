@@ -25,7 +25,9 @@ int main(int argc, char* argv[]) {
     // 0. legatus up
     auto* up_cmd = app.add_subcommand("up", "Start the legatusd supervisor daemon in the background");
     std::string config_arg;
+    bool daemon_flag = false;
     up_cmd->add_option("-c,--config", config_arg, "Path to worker.toml configuration file");
+    up_cmd->add_flag("-d,--daemon", daemon_flag, "Run as detached background daemon (redirect output to log file)");
     up_cmd->callback([&]() {
         auto client = get_client();
         auto res = client.daemon_status();
@@ -39,11 +41,20 @@ int main(int argc, char* argv[]) {
             ? legatus::common::PathResolver::get_config_path().string()
             : config_arg;
 
-        std::cout << "[INFO] Launching legatusd daemon with config: " << cfg << "\n";
+        std::cout << "[INFO] Launching legatusd daemon with config: " << cfg << (daemon_flag ? " [detached daemon mode]" : "") << "\n";
+        auto log_dir = legatus::common::PathResolver::get_log_dir();
+        std::error_code ec;
+        std::filesystem::create_directories(log_dir, ec);
+        std::string log_file = (log_dir / "legatusd.log").string();
+
 #if defined(_WIN32)
-        std::string cmd = "start /B legatusd.exe --config \"" + cfg + "\"";
+        std::string cmd = daemon_flag
+            ? ("start /B legatusd.exe --config \"" + cfg + "\" > \"" + log_file + "\" 2>&1")
+            : ("start /B legatusd.exe --config \"" + cfg + "\"");
 #else
-        std::string cmd = "legatusd --config \"" + cfg + "\" >/dev/null 2>&1 &";
+        std::string cmd = daemon_flag
+            ? ("nohup legatusd --config \"" + cfg + "\" > \"" + log_file + "\" 2>&1 &")
+            : ("legatusd --config \"" + cfg + "\" >/dev/null 2>&1 &");
 #endif
         int rc = std::system(cmd.c_str());
         if (rc == 0) {

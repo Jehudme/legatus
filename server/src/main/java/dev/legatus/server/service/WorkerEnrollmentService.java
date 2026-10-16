@@ -16,6 +16,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -643,6 +644,55 @@ public class WorkerEnrollmentService {
             15000L,
             worker.getAssignedCluster() != null ? worker.getAssignedCluster() : DEFAULT_CLUSTER_NAME
         );
+    }
+
+    /**
+     * Scheduled Virtual Thread sweeper running every 60 seconds to expire stale enrollment records older than 15 minutes.
+     * Complies with server-spec.md Section 4.1.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000)
+    @Transactional
+    public void sweepExpiredEnrollments() {
+        Instant now = Instant.now();
+        List<WorkerNode> expiredNodes = workerNodeRepository.findByStateAndEnrollmentExpiresAtBefore(WorkerState.PENDING_APPROVAL, now);
+        if (expiredNodes.isEmpty()) {
+            return;
+        }
+
+        LOG.info("Quarantine sweeper detected {} expired enrollment(s)", expiredNodes.size());
+        for (WorkerNode worker : expiredNodes) {
+            worker.setState(WorkerState.EXPIRED);
+            workerNodeRepository.save(worker);
+
+            if (worker.getEnrollmentId() != null) {
+                singleReadTokenCache.invalidate(worker.getEnrollmentId());
+            }
+
+            wormAuditService.recordEvent(
+                "system-sweeper",
+                "SYSTEM",
+                "WORKER_ENROLLMENT_EXPIRED",
+                "WORKER",
+                worker.getWorkerId(),
+                AuditActionStatus.SUCCESS,
+                String.format("{\"enrollment_id\":\"%s\",\"expired_at\":\"%s\"}", worker.getEnrollmentId(), now),
+                "127.0.0.1",
+                "SOC2_CC6.8"
+            );
+
+            if (studioEventPublisherProvider != null) {
+                studioEventPublisherProvider.ifAvailable(pub -> {
+                    pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                        worker.getWorkerId(),
+                        "PENDING_APPROVAL",
+                        WorkerState.EXPIRED.name(),
+                        0.0,
+                        0L,
+                        0
+                    ));
+                });
+            }
+        }
     }
 
     private OperatingSystem parseOperatingSystem(String os) {

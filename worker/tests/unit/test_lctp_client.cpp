@@ -52,6 +52,7 @@ TEST_CASE("LCTP Client - In-Process Mock Broker Full Lifecycle", "[worker][daemo
     std::atomic<bool> heartbeat_received{false};
     std::atomic<bool> drain_notice_received{false};
     std::atomic<bool> task_result_received{false};
+    std::atomic<bool> task_log_chunk_received{false};
     std::string task_result_status;
 
     std::mutex server_ws_mutex;
@@ -90,6 +91,8 @@ TEST_CASE("LCTP Client - In-Process Mock Broker Full Lifecycle", "[worker][daemo
                     ws.sendText(ack.serialize());
                 } else if (frame.type == "DRAIN_NOTICE") {
                     drain_notice_received = true;
+                } else if (frame.type == "TASK_LOG_CHUNK") {
+                    task_log_chunk_received = true;
                 } else if (frame.type == "TASK_RESULT") {
                     task_result_received = true;
                     task_result_status = frame.payload.value("status", "");
@@ -149,12 +152,14 @@ TEST_CASE("LCTP Client - In-Process Mock Broker Full Lifecycle", "[worker][daemo
     auto bytecode = compile_solix_to_bytecode(solix_src);
     REQUIRE(!bytecode.empty());
 
+    std::string test_sha256 = "mock-sha256-dedup-key";
     nlohmann::json dispatch_payload = {
         {"task_id", "task-ws-integration-99"},
         {"entry_point", "main"},
         {"bytecode", {
             {"format", "solix_bc_v1"},
             {"encoding", "base64"},
+            {"sha256", test_sha256},
             {"payload", legatus::common::base64_encode(bytecode)}
         }},
         {"constraints", {
@@ -172,6 +177,43 @@ TEST_CASE("LCTP Client - In-Process Mock Broker Full Lifecycle", "[worker][daemo
         std::lock_guard<std::mutex> lock(server_ws_mutex);
         REQUIRE(active_client_ws != nullptr);
         active_client_ws->sendText(dispatch_frame.serialize());
+    }
+
+    retries = 0;
+    while (!task_result_received && retries++ < 100) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
+    REQUIRE(task_result_received);
+    REQUIRE(task_result_status == "COMPLETED");
+    REQUIRE(task_log_chunk_received);
+
+    // 4. Bytecode deduplication dispatch (no payload, only sha256)
+    task_result_received = false;
+    task_result_status = "";
+    nlohmann::json dedup_dispatch_payload = {
+        {"task_id", "task-ws-dedup-100"},
+        {"entry_point", "main"},
+        {"bytecode", {
+            {"format", "solix_bc_v1"},
+            {"encoding", "base64"},
+            {"sha256", test_sha256},
+            {"payload", nullptr}
+        }},
+        {"constraints", {
+            {"instruction_budget", 100000},
+            {"max_memory_bytes", 64 * 1024 * 1024},
+            {"timeout_ms", 10000}
+        }},
+        {"arguments", "{}"},
+        {"secrets", {}}
+    };
+    auto dedup_frame = legatus::daemon::LctpFrame::create("DISPATCH_TASK", dedup_dispatch_payload);
+
+    {
+        std::lock_guard<std::mutex> lock(server_ws_mutex);
+        REQUIRE(active_client_ws != nullptr);
+        active_client_ws->sendText(dedup_frame.serialize());
     }
 
     retries = 0;

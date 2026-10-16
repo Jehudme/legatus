@@ -71,6 +71,18 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- Native JNA for Windows DPAPI Platform Keyring -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>5.14.0</version>
+        </dependency>
+
         <!-- Test Dependencies: JUnit 5, AssertJ, TestFX -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

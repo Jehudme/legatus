@@ -218,11 +218,15 @@ void LctpClient::send_heartbeat() {
 
     nlohmann::json running_tasks = nlohmann::json::array();
     if (supervisor_) {
-        auto tasks = supervisor_->get_active_tasks();
-        for (const auto& t : tasks) {
+        auto tasks_info = supervisor_->get_active_tasks_info();
+        for (const auto& t : tasks_info) {
             running_tasks.push_back({
-                {"task_id", t},
-                {"status", "EXECUTING"}
+                {"task_id", t.task_id},
+                {"pid", t.pid},
+                {"status", "EXECUTING"},
+                {"instructions_consumed", t.instructions_consumed},
+                {"memory_used_bytes", t.memory_used_bytes},
+                {"elapsed_wall_time_ms", t.elapsed_wall_time_ms}
             });
         }
     }
@@ -255,6 +259,19 @@ void LctpClient::send_session_init() {
     std::string hostname = get_system_hostname();
     std::string wid = config_.identity.worker_id.empty() ? hostname : config_.identity.worker_id;
 
+    nlohmann::json reconcile_tasks = nlohmann::json::array();
+    if (supervisor_) {
+        auto tasks_info = supervisor_->get_active_tasks_info();
+        for (const auto& t : tasks_info) {
+            reconcile_tasks.push_back({
+                {"task_id", t.task_id},
+                {"status", "EXECUTING"},
+                {"instructions_consumed", t.instructions_consumed},
+                {"elapsed_wall_time_ms", t.elapsed_wall_time_ms}
+            });
+        }
+    }
+
     nlohmann::json p = {
         {"worker_id", wid},
         {"previous_session_id", nullptr},
@@ -280,7 +297,7 @@ void LctpClient::send_session_init() {
             {"max_memory_bytes", config_.resources.max_memory_bytes},
             {"max_instruction_budget_per_task", config_.resources.max_instruction_budget_per_task}
         }},
-        {"reconcile_tasks", nlohmann::json::array()}
+        {"reconcile_tasks", reconcile_tasks}
     };
 
     send_frame(LctpFrame::create("SESSION_INIT", p));
@@ -297,6 +314,18 @@ void LctpClient::handle_session_ack(const LctpFrame& frame) {
             last_heartbeat_ack_ = std::chrono::steady_clock::now();
             last_heartbeat_sent_ = std::chrono::steady_clock::now();
         }
+
+        // Reconcile and abort any tasks server instructed us to discard
+        if (frame.payload.contains("discarded_task_ids") && frame.payload["discarded_task_ids"].is_array()) {
+            for (const auto& tid_val : frame.payload["discarded_task_ids"]) {
+                std::string tid = tid_val.get<std::string>();
+                if (!tid.empty() && supervisor_) {
+                    spdlog::warn("Aborting discarded orphan task {} from prior session", tid);
+                    supervisor_->abort_task(tid);
+                }
+            }
+        }
+
         update_state(LctpState::OPERATIONAL);
     } else {
         // Rejection
@@ -319,10 +348,26 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
     envelope.task_id = frame.payload.value("task_id", "");
     envelope.function_name = frame.payload.value("entry_point", "main");
 
+    std::string sha256;
     if (frame.payload.contains("bytecode") && frame.payload["bytecode"].is_object()) {
         const auto& bc = frame.payload["bytecode"];
-        if (bc.contains("payload") && bc["payload"].is_string()) {
+        sha256 = bc.value("sha256", "");
+        if (bc.contains("payload") && bc["payload"].is_string() && !bc["payload"].get<std::string>().empty()) {
             envelope.bytecode_base64 = bc["payload"].get<std::string>();
+            if (!sha256.empty()) {
+                std::lock_guard<std::mutex> lock(bytecode_cache_mutex_);
+                bytecode_cache_[sha256] = envelope.bytecode_base64;
+            }
+        } else if (!sha256.empty()) {
+            // Deduplication hit: resolve from local worker cache
+            std::lock_guard<std::mutex> lock(bytecode_cache_mutex_);
+            auto it = bytecode_cache_.find(sha256);
+            if (it != bytecode_cache_.end()) {
+                envelope.bytecode_base64 = it->second;
+                spdlog::info("Resolved bytecode for task {} from worker cache (SHA-256: {})", envelope.task_id, sha256);
+            } else {
+                spdlog::error("Bytecode SHA-256 {} not found in local worker cache and no payload sent", sha256);
+            }
         }
     }
 
@@ -356,7 +401,42 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
     // Launch asynchronously so message handling loop remains unblocked
     std::thread([this, envelope]() {
         spdlog::info("Spawning task runner for task {}", envelope.task_id);
-        auto result = supervisor_->launch_task(envelope);
+
+        std::shared_ptr<std::atomic<bool>> task_running = std::make_shared<std::atomic<bool>>(true);
+
+        // Background progress ticker thread (TASK_PROGRESS emitted every 1000ms while running)
+        std::thread progress_thread([this, task_id = envelope.task_id, task_running]() {
+            while (task_running->load()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                if (!task_running->load()) break;
+
+                nlohmann::json progress_payload = {
+                    {"task_id", task_id},
+                    {"progress_pct", 0.0},
+                    {"instructions_consumed", 0},
+                    {"memory_used_bytes", 0},
+                    {"log_chunk", nullptr}
+                };
+                send_frame(LctpFrame::create("TASK_PROGRESS", progress_payload));
+            }
+        });
+
+        auto on_log_chunk = [this, task_id = envelope.task_id](const std::string& stream, const std::string& chunk) {
+            nlohmann::json chunk_payload = {
+                {"task_id", task_id},
+                {"stream", stream},
+                {"log_chunk", chunk},
+                {"instructions_consumed", 0},
+                {"progress_pct", 0.0}
+            };
+            send_frame(LctpFrame::create("TASK_LOG_CHUNK", chunk_payload));
+        };
+
+        auto result = supervisor_->launch_task(envelope, on_log_chunk);
+        task_running->store(false);
+        if (progress_thread.joinable()) {
+            progress_thread.join();
+        }
 
         std::string terminal_status = "COMPLETED";
         if (result.exit_code == 0) {

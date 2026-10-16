@@ -15,6 +15,9 @@ module com.legatus.studio {
     requires java.desktop;
     requires static jdk.httpserver;
 
+    requires com.sun.jna;
+    requires com.sun.jna.platform;
+
     opens com.legatus.studio to javafx.fxml;
     opens com.legatus.studio.controllers to javafx.fxml;
     opens com.legatus.studio.config to com.fasterxml.jackson.databind;

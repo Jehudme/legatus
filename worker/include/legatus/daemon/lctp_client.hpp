@@ -106,6 +106,9 @@ private:
     std::mutex cv_mutex_;
     std::condition_variable cv_;
 
+    std::mutex bytecode_cache_mutex_;
+    std::unordered_map<std::string, std::string> bytecode_cache_;
+
     std::function<void(LctpState)> on_state_change_;
     std::function<void(const LctpFrame&)> on_frame_received_;
     std::function<void(const LctpFrame&)> on_frame_sent_;

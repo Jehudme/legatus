@@ -18,6 +18,7 @@ public class LctpWorkerSession {
     private final WebSocketSession webSocketSession;
     private final WorkerTicket ticket;
     private final Set<String> activeTaskIds = ConcurrentHashMap.newKeySet();
+    private final Set<String> cachedBytecodeDigests = ConcurrentHashMap.newKeySet();
     private volatile Instant lastHeartbeatAt;
     private volatile boolean draining;
     private volatile String state;
@@ -57,6 +58,10 @@ public class LctpWorkerSession {
 
     public Set<String> getActiveTaskIds() {
         return activeTaskIds;
+    }
+
+    public Set<String> getCachedBytecodeDigests() {
+        return cachedBytecodeDigests;
     }
 
     public Instant getLastHeartbeatAt() {

@@ -19,4 +19,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSp
     List<AuditLog> findAllByOrderBySequenceNumAsc();
 
     List<AuditLog> findBySequenceNumBetweenOrderBySequenceNumAsc(Long startSeq, Long endSeq);
+
+    List<AuditLog> findByTimestampBetweenOrderBySequenceNumAsc(java.time.Instant start, java.time.Instant end);
 }

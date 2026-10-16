@@ -117,4 +117,32 @@ class AuditLogAdminResourceIT {
         assertThat(latest.getEventType()).isEqualTo("AUDIT_LOG_TAMPER_ATTEMPT");
         assertThat(latest.getActionStatus()).isEqualTo(AuditActionStatus.DENIED);
     }
+
+    @Test
+    @DisplayName("Should export signed cryptographic audit trail package and append AUDIT_LOG_EXPORTED meta-audit event")
+    void testExportAuditTrailSuccess() throws Exception {
+        wormAuditService.recordEvent(
+            "admin", "CLUSTER_ADMIN", "SECURITY_POLICY_UPDATE", "POLICY", "1", AuditActionStatus.SUCCESS, "{}", "127.0.0.1", null
+        );
+        wormAuditService.recordEvent(
+            "admin", "CLUSTER_ADMIN", "WORKER_AUTH", "WORKER", "worker-1", AuditActionStatus.SUCCESS, "{}", "127.0.0.1", null
+        );
+
+        mockMvc.perform(post("/api/v1/admin/audit-logs/export")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"format\":\"JSON_CANONICAL\",\"compliance_standard\":\"SOC2_TYPE2\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.export_id", notNullValue()))
+            .andExpect(jsonPath("$.generated_at", notNullValue()))
+            .andExpect(jsonPath("$.exported_by", is("admin_auditor")))
+            .andExpect(jsonPath("$.record_count", greaterThanOrEqualTo(2)))
+            .andExpect(jsonPath("$.signature", notNullValue()))
+            .andExpect(jsonPath("$.head_hash", notNullValue()))
+            .andExpect(jsonPath("$.records", isA(List.class)))
+            .andExpect(jsonPath("$.meta_audit_sequence", notNullValue()));
+
+        AuditLog latest = auditLogRepository.findTopByOrderBySequenceNumDesc().orElseThrow();
+        assertThat(latest.getEventType()).isEqualTo("AUDIT_LOG_EXPORTED");
+        assertThat(latest.getActorId()).isEqualTo("admin_auditor");
+    }
 }

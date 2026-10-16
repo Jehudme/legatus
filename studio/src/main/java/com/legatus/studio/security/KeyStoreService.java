@@ -53,8 +53,37 @@ public class KeyStoreService {
         return switch (os) {
             case LINUX -> loadFromLibsecret();
             case MACOS -> loadFromMacOsKeychain();
+            case WINDOWS -> loadFromWindowsDpapi();
             default -> null;
         };
+    }
+
+    private static byte[] loadFromWindowsDpapi() {
+        try {
+            Path dpapiFile = PathResolver.getKeyFilePath().getParent().resolve("master.dpapi");
+            if (Files.exists(dpapiFile)) {
+                byte[] encrypted = Files.readAllBytes(dpapiFile);
+                byte[] decrypted = com.sun.jna.platform.win32.Crypt32Util.cryptUnprotectData(encrypted);
+                if (decrypted != null && decrypted.length == KEY_LENGTH_BYTES) {
+                    return decrypted;
+                }
+            }
+
+            // Generate and protect new master key
+            byte[] newKey = new byte[KEY_LENGTH_BYTES];
+            new SecureRandom().nextBytes(newKey);
+            byte[] protectedBytes = com.sun.jna.platform.win32.Crypt32Util.cryptProtectData(newKey);
+
+            Path parent = dpapiFile.getParent();
+            if (parent != null && !Files.exists(parent)) {
+                Files.createDirectories(parent);
+            }
+            Files.write(dpapiFile, protectedBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            return newKey;
+        } catch (Throwable ignored) {
+            // DPAPI unavailable or not on Windows
+        }
+        return null;
     }
 
     private static byte[] loadFromLibsecret() {

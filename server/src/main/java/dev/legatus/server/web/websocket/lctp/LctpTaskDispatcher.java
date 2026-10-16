@@ -38,6 +38,7 @@ public class LctpTaskDispatcher implements TaskDispatcher {
     private final BytecodeStorageService bytecodeStorageService;
     private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
     private final ObjectMapper objectMapper;
+    private final dev.legatus.server.config.LegatusProperties legatusProperties;
 
     public LctpTaskDispatcher(
         WorkerSessionRegistry sessionRegistry,
@@ -45,7 +46,18 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         ComputeTaskRepository computeTaskRepository,
         ObjectMapper objectMapper
     ) {
-        this(sessionRegistry, secretVaultService, computeTaskRepository, null, null, objectMapper);
+        this(sessionRegistry, secretVaultService, computeTaskRepository, null, null, objectMapper, null);
+    }
+
+    public LctpTaskDispatcher(
+        WorkerSessionRegistry sessionRegistry,
+        SecretVaultService secretVaultService,
+        ComputeTaskRepository computeTaskRepository,
+        BytecodeStorageService bytecodeStorageService,
+        dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
+        ObjectMapper objectMapper
+    ) {
+        this(sessionRegistry, secretVaultService, computeTaskRepository, bytecodeStorageService, studioEventPublisher, objectMapper, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -55,7 +67,8 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         ComputeTaskRepository computeTaskRepository,
         @org.springframework.beans.factory.annotation.Autowired(required = false) BytecodeStorageService bytecodeStorageService,
         @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.config.LegatusProperties legatusProperties
     ) {
         this.sessionRegistry = sessionRegistry;
         this.secretVaultService = secretVaultService;
@@ -63,6 +76,7 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         this.bytecodeStorageService = bytecodeStorageService;
         this.studioEventPublisher = studioEventPublisher;
         this.objectMapper = objectMapper;
+        this.legatusProperties = legatusProperties;
     }
 
     @Override
@@ -89,17 +103,28 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         Map<String, Object> arguments = parseJsonMap(task.getInputJson());
         Map<String, String> env = parseStringMap(task.getEnvJson());
 
+        boolean bytecodeCacheEnabled = legatusProperties == null ||
+            legatusProperties.getFeatures() == null ||
+            legatusProperties.getFeatures().isBytecodeCache();
+
         String bytecodeBase64 = null;
-        if (bytecodeStorageService != null && task.getBytecodeSha256() != null) {
+        String sha256 = task.getBytecodeSha256();
+
+        if (bytecodeCacheEnabled && sha256 != null && session.getCachedBytecodeDigests().contains(sha256)) {
+            // Deduplication hit: worker already acknowledged this bytecode digest; omit payload
+            LOG.debug("Bytecode cache hit for task {} on worker {}: SHA-256 {}", task.getTaskId(), worker.getWorkerId(), sha256);
+            bytecodeBase64 = null;
+        } else if (bytecodeStorageService != null && sha256 != null) {
             try {
-                Optional<byte[]> bytesOpt = bytecodeStorageService.load(task.getBytecodeSha256());
+                Optional<byte[]> bytesOpt = bytecodeStorageService.load(sha256);
                 if (bytesOpt.isPresent()) {
                     bytecodeBase64 = Base64.getEncoder().encodeToString(bytesOpt.get());
+                    session.getCachedBytecodeDigests().add(sha256);
                 } else {
-                    LOG.warn("Bytecode with SHA-256 {} not found in storage", task.getBytecodeSha256());
+                    LOG.warn("Bytecode with SHA-256 {} not found in storage", sha256);
                 }
             } catch (IOException e) {
-                LOG.warn("Failed to read bytecode for SHA-256 {}: {}", task.getBytecodeSha256(), e.getMessage());
+                LOG.warn("Failed to read bytecode for SHA-256 {}: {}", sha256, e.getMessage());
             }
         }
         final String finalBytecodePayload = bytecodeBase64;

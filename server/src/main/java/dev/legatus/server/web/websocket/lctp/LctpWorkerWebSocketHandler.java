@@ -130,6 +130,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             case HeartbeatFrame hb -> handleHeartbeat(workerSession, hb);
             case DrainNoticeFrame drain -> handleDrainNotice(workerSession, drain);
             case TaskProgressFrame progress -> handleTaskProgress(workerSession, progress);
+            case TaskLogChunkFrame chunk -> handleTaskLogChunk(workerSession, chunk);
             case TaskResultFrame result -> handleTaskResult(workerSession, result);
             case ProtocolErrorFrame err -> LOG.warn("Worker reported LCTP protocol error: {} - {}", err.payload().errorCode(), err.payload().message());
             default -> LOG.warn("Unhandled or unexpected inbound frame type: {}", frame.type());
@@ -293,8 +294,28 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     task.getPeakMemoryBytes(),
                     task.getWallTimeMs()
                 ));
+
+                if (frame.payload().logChunk() != null && !frame.payload().logChunk().isBlank()) {
+                    studioEventPublisher.publishTaskLogChunk(new dev.legatus.server.service.dto.lstcp.EventTaskLogChunkFrame.Payload(
+                        task.getTaskId(),
+                        frame.payload().progressPct(),
+                        task.getInstructionsConsumed(),
+                        frame.payload().logChunk()
+                    ));
+                }
             }
         });
+    }
+
+    private void handleTaskLogChunk(LctpWorkerSession session, TaskLogChunkFrame frame) {
+        if (studioEventPublisher != null && frame.payload() != null && frame.payload().logChunk() != null) {
+            studioEventPublisher.publishTaskLogChunk(new dev.legatus.server.service.dto.lstcp.EventTaskLogChunkFrame.Payload(
+                frame.payload().taskId(),
+                frame.payload().progressPct() != null ? frame.payload().progressPct() : 0.0,
+                frame.payload().instructionsConsumed() != null ? frame.payload().instructionsConsumed() : 0L,
+                frame.payload().logChunk()
+            ));
+        }
     }
 
     private void handleTaskResult(LctpWorkerSession session, TaskResultFrame frame) throws IOException {
