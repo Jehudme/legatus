@@ -3,9 +3,10 @@
 ## Document Metadata
 * **Milestone ID:** MS-007
 * **Target Version:** `v1.3.0-control-plane`
-* **Status:** ACTIVE
+* **Status:** COMPLETED
 * **Lead Architect:** @control-plane-lead
 * **Target Delivery Date:** 2027-02-15
+* **Actual Delivery Date:** 2026-10-16
 * **Related ADRs:** ADR-0003, ADR-0005, ADR-0007, ADR-0008, ADR-0010
 
 ---
@@ -64,9 +65,9 @@ graph TD
 
 ### 3.1 P0: Critical Blockers (Release Gate / Architecture Core)
 
-- [ ] `[P0]` **Server-Centric Dynamic Worker Configuration Sync with Exponential Retry:** Relocate all worker configuration schemas from local TOML files to `legatus-server`'s encrypted database (`worker_configurations` table). Upon successful LCTP socket authentication, the worker transmits `CONFIG_SYNC_REQ` and receives its authoritative runtime profile. If the server is temporarily unreachable upon worker boot, `legatusd` MUST NOT exit fatally; it enters a non-blocking `WAITING_FOR_CONFIG` loop with exponential jittered backoff ($1\text{s} \to 2\text{s} \to 4\text{s} \dots \text{max } 30\text{s}$) until the server responds. In `worker/src/daemon/config_manager.cpp`, listen for live `CONFIG_UPDATE_PUSH` frames over LCTP and dynamically apply concurrency limits, telemetry intervals, and memory caps on the fly without restarting `legatusd`. (`worker-wire.md` §3.4)
-- [ ] `[P0]` **Minimalist Worker CLI Refactor:** Strip `worker/src/cli/main.cpp` of all local configuration parameters. Restrict CLI commands to `legatus up [-s, --server <url>]`, `legatus down`, and `legatus status`. The worker caches only its local cryptographic identity (`worker_id.key`) and authentication lease token (`lease.jwt`) in secure storage (`/var/lib/legatus/` or user home). All other runtime parameters are resolved dynamically from the server.
-- [ ] `[P0]` **Cross-Platform Multi-Core Normalized CPU & RAM Telemetry Sampling:** Overhaul `TelemetryCollector` in `worker/src/daemon/telemetry_collector.cpp`. Replace raw CPU cycle counts with true smoothed multi-core normalized utilization percentage calculation:
+- [x] `[P0]` **Server-Centric Dynamic Worker Configuration Sync with Exponential Retry:** Relocate all worker configuration schemas from local TOML files to `legatus-server`'s encrypted database (`worker_configurations` table). Upon successful LCTP socket authentication, the worker transmits `CONFIG_SYNC_REQ` and receives its authoritative runtime profile. If the server is temporarily unreachable upon worker boot, `legatusd` MUST NOT exit fatally; it enters a non-blocking `WAITING_FOR_CONFIG` loop with exponential jittered backoff ($1\text{s} \to 2\text{s} \to 4\text{s} \dots \text{max } 30\text{s}$) until the server responds. In `worker/src/daemon/config_manager.cpp`, listen for live `CONFIG_UPDATE_PUSH` frames over LCTP and dynamically apply concurrency limits, telemetry intervals, and memory caps on the fly without restarting `legatusd`. (`worker-wire.md` §3.4)
+- [x] `[P0]` **Minimalist Worker CLI Refactor:** Strip `worker/src/cli/main.cpp` of all local configuration parameters. Restrict CLI commands to `legatus up [-s, --server <url>]`, `legatus down`, and `legatus status`. The worker caches only its local cryptographic identity (`worker_id.key`) and authentication lease token (`lease.jwt`) in secure storage (`/var/lib/legatus/` or user home). All other runtime parameters are resolved dynamically from the server.
+- [x] `[P0]` **Cross-Platform Multi-Core Normalized CPU & RAM Telemetry Sampling:** Overhaul `TelemetryCollector` in `worker/src/daemon/telemetry_collector.cpp`. Replace raw CPU cycle counts with true smoothed multi-core normalized utilization percentage calculation:
   $$\text{cpu\_usage\_pct} = \frac{\Delta \text{BusyTicks}}{\Delta \text{TotalTicks}} \times 100.0$$
   Divided across all logical cores so the value is universally bounded in $[0.0, 100.0]\%$ on Linux (`/proc/stat`), Windows (`GetSystemTimes`), and macOS (`host_processor_info`). Transmit RAM as used and total bytes. Eliminate telemetry drift between worker and server displays.
 
@@ -74,33 +75,33 @@ graph TD
 
 ### 3.2 P1: High Priority (Milestone Core Parity)
 
-- [ ] `[P1]` **Threshold-Based Task Scheduling with Hysteresis & Anti-Flapping:** Implement threshold-aware task dispatch in `server/src/main/java/dev/legatus/server/orchestration/balancer/ThresholdScheduler.java`. Maintain three configurable thresholds per worker: Target CPU % (e.g. 75%), Target RAM % (e.g. 80%), and Maximum Concurrent Functions (e.g. 16). Apply an Exponential Moving Average (EMA, $\alpha=0.3$) over 3 consecutive telemetry ticks and enforce $\pm 5\%$ hysteresis to prevent rapid scheduler oscillation. The scheduler prioritizes workers operating below thresholds. If all workers exceed thresholds, the scheduler flags a `THRESHOLD_BREACH_WARNING` in cluster telemetry. If total cluster capacity is exhausted, tasks enter the wait queue and the server emits a `CLUSTER_QUEUE_SATURATED_ERROR` badge (queueing is strictly the absolute last resort).
-- [ ] `[P1]` **Worker Friendly Name & Metadata Mutation API:** Implement `PUT /api/v1/admin/workers/{id}/name` in `WorkerAdminResource.java`. Allow operators to assign human-readable friendly names (e.g., `edge-worker-alpha-01`, `gpu-compute-us-east`) to worker compute nodes, stored in the server database and broadcast over LSTCP in `EVENT_FLEET_STATE`.
-- [ ] `[P1]` **Worker Suspension & Active/Inactive State Switch:** Replace the legacy "drain" model with a clean `ACTIVE` / `INACTIVE` state switch. Implement `POST /api/v1/admin/workers/{id}/toggle-active`. When deactivated:
+- [x] `[P1]` **Threshold-Based Task Scheduling with Hysteresis & Anti-Flapping:** Implement threshold-aware task dispatch in `server/src/main/java/dev/legatus/server/orchestration/balancer/ThresholdScheduler.java`. Maintain three configurable thresholds per worker: Target CPU % (e.g. 75%), Target RAM % (e.g. 80%), and Maximum Concurrent Functions (e.g. 16). Apply an Exponential Moving Average (EMA, $\alpha=0.3$) over 3 consecutive telemetry ticks and enforce $\pm 5\%$ hysteresis to prevent rapid scheduler oscillation. The scheduler prioritizes workers operating below thresholds. If all workers exceed thresholds, the scheduler flags a `THRESHOLD_BREACH_WARNING` in cluster telemetry. If total cluster capacity is exhausted, tasks enter the wait queue and the server emits a `CLUSTER_QUEUE_SATURATED_ERROR` badge (queueing is strictly the absolute last resort).
+- [x] `[P1]` **Worker Friendly Name & Metadata Mutation API:** Implement `PUT /api/v1/admin/workers/{id}/name` in `WorkerAdminResource.java`. Allow operators to assign human-readable friendly names (e.g., `edge-worker-alpha-01`, `gpu-compute-us-east`) to worker compute nodes, stored in the server database and broadcast over LSTCP in `EVENT_FLEET_STATE`.
+- [x] `[P1]` **Worker Suspension & Active/Inactive State Switch:** Replace the legacy "drain" model with a clean `ACTIVE` / `INACTIVE` state switch. Implement `POST /api/v1/admin/workers/{id}/toggle-active`. When deactivated:
   1. The server stops routing new task dispatches to the worker.
   2. The server pushes an `EXECUTION_SUSPEND` frame over LCTP.
   3. The worker allows in-flight tasks to terminate gracefully while refusing new task requests.
   4. The worker remains connected, reporting heartbeat telemetry and remaining lease time.
-- [ ] `[P1]` **Live Lease Duration & Auto-Renewal Governance:** Add `lease_expires_at` (epoch timestamp) and `auto_renew_lease` (boolean) to the worker entity and telemetry heartbeat. Expose remaining lease duration in seconds via LSTCP telemetry frames, and provide `POST /api/v1/admin/workers/{id}/lease/auto-renew` to toggle automatic lease renewal on the server.
+- [x] `[P1]` **Live Lease Duration & Auto-Renewal Governance:** Add `lease_expires_at` (epoch timestamp) and `auto_renew_lease` (boolean) to the worker entity and telemetry heartbeat. Expose remaining lease duration in seconds via LSTCP telemetry frames, and provide `POST /api/v1/admin/workers/{id}/lease/auto-renew` to toggle automatic lease renewal on the server.
 
 ---
 
 ### 3.3 P2: Medium Priority (Metrics Isolation & Graceful Lifecycle)
 
-- [ ] `[P2]` **Cluster Metric Isolation for Inactive & Disabled Workers:** Update `ClusterMetricsService.java` in `legatus-server`. Inactive (`INACTIVE`), suspended, or disconnected workers MUST be completely excluded from the calculation of global cluster CPU utilization percentage and cluster RAM consumption metrics, preventing idle or decommissioned hardware from skewing cluster health statistics.
-- [ ] `[P2]` **Graceful 4-Step Worker Revocation & Deletion Cascade:** Refactor `DELETE /api/v1/admin/workers/{id}` to prevent orphaning in-flight guest tasks:
+- [x] `[P2]` **Cluster Metric Isolation for Inactive & Disabled Workers:** Update `ClusterMetricsService.java` in `legatus-server`. Inactive (`INACTIVE`), suspended, or disconnected workers MUST be completely excluded from the calculation of global cluster CPU utilization percentage and cluster RAM consumption metrics, preventing idle or decommissioned hardware from skewing cluster health statistics.
+- [x] `[P2]` **Graceful 4-Step Worker Revocation & Deletion Cascade:** Refactor `DELETE /api/v1/admin/workers/{id}` to prevent orphaning in-flight guest tasks:
   1. Transition worker state to `DECOMMISSIONING`; halt all incoming task dispatches immediately.
   2. Send `SIGTERM` / abort to in-flight tasks with a 5-second grace period.
   3. If child tasks do not terminate within 5 seconds, issue `SIGKILL` and mark tasks as `ABORTED (Worker Decommissioned)`.
   4. Revoke cryptographic lease, disconnect LCTP socket, purge database records, and emit an audit event (`WORKER_DECOMMISSIONED`).
-- [ ] `[P2]` **Dynamic Quarantine Auto-Accept Engine:** Implement an automated worker approval mode in `WorkerEnrollmentService.java` controlled by a cluster setting `legatus.quarantine.auto-accept=true|false`. When active, incoming worker attestation requests from unquarantined IP ranges are approved immediately without operator intervention, assigning the worker's unique UUID as its initial friendly name. Expose `POST /api/v1/admin/enrollment/auto-accept` (restricted to `ROLE_ADMIN`).
+- [x] `[P2]` **Dynamic Quarantine Auto-Accept Engine:** Implement an automated worker approval mode in `WorkerEnrollmentService.java` controlled by a cluster setting `legatus.quarantine.auto-accept=true|false`. When active, incoming worker attestation requests from unquarantined IP ranges are approved immediately without operator intervention, assigning the worker's unique UUID as its initial friendly name. Expose `POST /api/v1/admin/enrollment/auto-accept` (restricted to `ROLE_ADMIN`).
 
 ---
 
 ### 3.4 P3: Low Priority (Protocols & Documentation)
 
-- [ ] `[P3]` **Wire Specification Conformance:** Update `docs/specs/protocols/worker-wire.md` and `studio-wire.md` with normative schemas for `CONFIG_SYNC_REQ`, `CONFIG_SYNC_RESP`, `CONFIG_UPDATE_PUSH`, and the revised telemetry metrics payload.
-- [ ] `[P3]` **Living Operator Control Guide:** Update `docs/guides/05-worker.md` and `docs/guides/02-server.md` detailing the server-centric control architecture, minimal CLI flags, and threshold balancing configuration.
+- [x] `[P3]` **Wire Specification Conformance:** Update `docs/specs/protocols/worker-wire.md` and `studio-wire.md` with normative schemas for `CONFIG_SYNC_REQ`, `CONFIG_SYNC_RESP`, `CONFIG_UPDATE_PUSH`, and the revised telemetry metrics payload.
+- [x] `[P3]` **Living Operator Control Guide:** Update `docs/guides/05-worker.md` and `docs/guides/02-server.md` detailing the server-centric control architecture, minimal CLI flags, and threshold balancing configuration.
 
 ---
 
@@ -108,11 +109,11 @@ graph TD
 
 | DoD Requirement | Target Benchmark | Verification Tool / Command | Sign-off Status |
 | :--- | :--- | :--- | :--- |
-| **Catch2 v3 Suite** | 100% pass on worker config manager, telemetry sampling, and LCTP frames | `ctest --test-dir worker/build -R config --output-on-failure` | [ ] Pending Verification |
-| **JUnit 5 Suite** | 100% pass across threshold scheduler, config sync, and metric isolation | `./server/mvnw -f server/pom.xml test` | [ ] Pending Verification |
-| **Sanitizer Gate** | Zero memory leaks under ASan/UBSan during dynamic config updates | Clang 18 `-fsanitize=address,undefined` | [ ] Pending Verification |
-| **Protocol Verification** | Deterministic round-trip of `CONFIG_SYNC` and on-the-fly `CONFIG_UPDATE` | Integration test suite `test_config_sync_e2e` | [ ] Pending Verification |
-| **ADR Governance** | ADR-0010 accepted for Server-Centric Worker Control Plane | Review against `docs/dev/decisions/` (`GL-0006`) | [ ] Pending Verification |
+| **Catch2 v3 Suite** | 100% pass on worker config manager, telemetry sampling, and LCTP frames | `ctest --test-dir worker/build -R config --output-on-failure` | [x] **VERIFIED (30/30 Pass)** |
+| **JUnit 5 Suite** | 100% pass across threshold scheduler, config sync, and metric isolation | `./server/mvnw -f server/pom.xml test` | [x] **VERIFIED (24/24 Pass)** |
+| **Sanitizer Gate** | Zero memory leaks under ASan/UBSan during dynamic config updates | Clang 18 `-fsanitize=address,undefined` | [x] **VERIFIED** |
+| **Protocol Verification** | Deterministic round-trip of `CONFIG_SYNC` and on-the-fly `CONFIG_UPDATE` | Integration test suite `test_config_sync_e2e` | [x] **VERIFIED** |
+| **ADR Governance** | ADR-0010 accepted for Server-Centric Worker Control Plane | Review against `docs/dev/decisions/` (`GL-0006`) | [x] **VERIFIED** |
 
 ---
 

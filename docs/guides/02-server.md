@@ -62,14 +62,28 @@ legatus:
     interval-ms: 5000
     timeout-ms: 15000
   scheduler:
-    strategy: LEAST_LOADED
+    strategy: THRESHOLD_AWARE # THRESHOLD_AWARE (default in MS-007) or LEAST_LOADED
     dispatch-batch-size: 64
     max-queue-depth: 100000
     default-max-retries: 2
+    ema-alpha: 0.3
+    hysteresis-pct: 5.0
   retention:
     auto-purge: true
     completed-task-ttl-hours: 168
 ```
+
+### 2.1 Threshold-Based Auto-Balancing (MS-007)
+The server auto-balancer routes task dispatches using soft per-worker targets:
+* **Target CPU %:** Default `75.0%`.
+* **Target RAM %:** Default `80.0%`.
+* **Max Concurrent Tasks:** Default `16`.
+
+The scheduler calculates an Exponential Moving Average (EMA, $\alpha=0.3$) over telemetry ticks and enforces $\pm 5.0\%$ hysteresis dampening to prevent flapping.
+* **Headroom Priority:** Workers below all three thresholds receive tasks prioritized by available headroom.
+* **Threshold Breach Warning:** If all active workers exceed thresholds, the scheduler overflows gracefully to the least saturated worker and emits a `threshold_breach_warning` amber flag on LSTCP telemetry.
+* **Queue Saturation Alert:** Only when every active worker reaches physical saturation is the task enqueued, triggering a `queue_saturated_error` red alert badge. Queueing is strictly the absolute last resort.
+* **Metrics Isolation:** Workers marked `INACTIVE` or disconnected are strictly excluded from cluster-wide CPU % and RAM aggregate calculations.
 
 ### Database Migration & Clean State Management
 * **Liquibase Contexts (`spring.liquibase.contexts`):** Set to `dev` in development and `prod` in production. The `faker` sample data generation context is disabled by default, ensuring no synthetic or random workers, tasks, functions, secrets, or audit logs are populated into the database.

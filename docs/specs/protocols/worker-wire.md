@@ -572,6 +572,83 @@ Emitted when a node or broker receives a frame with an unrecognized `type`, an u
 
 ---
 
+### 4.12 `CONFIG_SYNC_REQ` (Worker $\rightarrow$ Server)
+
+Transmitted by the worker daemon immediately upon entering `OPERATIONAL` state or when detecting server reconnection to request authoritative dynamic configuration.
+
+#### Frame Schema:
+```json
+{
+  "type": "CONFIG_SYNC_REQ",
+  "id": "3b2e5a6c-9f8d-4e1a-8c7b-6d5e4f3a2b1c",
+  "timestamp": 1728907221000,
+  "payload": {
+    "worker_id": "worker-node-alpha-01",
+    "known_config_version": 1
+  }
+}
+```
+
+---
+
+### 4.13 `CONFIG_SYNC_RESP` (Server $\rightarrow$ Worker)
+
+Server response to `CONFIG_SYNC_REQ` transmitting authoritative worker configuration parameters (MS-007, ADR-0010).
+
+#### Frame Schema:
+```json
+{
+  "type": "CONFIG_SYNC_RESP",
+  "id": "4c3f6b7d-0a9e-5f2b-9d8c-7e6f5a4b3c2d",
+  "timestamp": 1728907221100,
+  "payload": {
+    "worker_id": "worker-node-alpha-01",
+    "config_version": 2,
+    "friendly_name": "worker-prod-us-east-1a",
+    "active": true,
+    "target_cpu_pct": 75.0,
+    "target_ram_pct": 80.0,
+    "max_concurrent_tasks": 16,
+    "auto_renew_lease": true,
+    "remaining_lease_sec": 86400,
+    "heartbeat_interval_ms": 5000,
+    "log_level": "info",
+    "runtime_config_json": "{}"
+  }
+}
+```
+
+---
+
+### 4.14 `CONFIG_UPDATE_PUSH` (Server $\rightarrow$ Worker)
+
+Server-initiated push frame sent to connected worker nodes when an operator updates friendly name, threshold targets, active/inactive suspension state, or lease renewal via Legatus Studio cockpit.
+
+#### Frame Schema:
+```json
+{
+  "type": "CONFIG_UPDATE_PUSH",
+  "id": "5d4a7c8e-1b0f-6a3c-0e9d-8f7a6b5c4d3e",
+  "timestamp": 1728907225000,
+  "payload": {
+    "worker_id": "worker-node-alpha-01",
+    "config_version": 3,
+    "friendly_name": "worker-prod-us-east-1a-renamed",
+    "active": false,
+    "target_cpu_pct": 65.0,
+    "target_ram_pct": 70.0,
+    "max_concurrent_tasks": 8,
+    "auto_renew_lease": false,
+    "remaining_lease_sec": 3600,
+    "heartbeat_interval_ms": 3000,
+    "log_level": "debug",
+    "runtime_config_json": "{}"
+  }
+}
+```
+
+---
+
 ## 5. Timing, Heartbeats & Liveness Rules
 
 ### 5.1 Cadence and Jitter Invariants

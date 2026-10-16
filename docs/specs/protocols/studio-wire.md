@@ -170,7 +170,10 @@ Broadcast every `1000ms` to drive live dashboard sparklines and resource gauges.
     "tasks_queued": 4,
     "tasks_executing": 96,
     "tasks_completed_last_60s": 1420,
-    "tasks_failed_last_60s": 2
+    "tasks_failed_last_60s": 2,
+    "threshold_breach_warning": false,
+    "queue_saturated_error": false,
+    "breached_worker_ids": []
   }
 }
 ```

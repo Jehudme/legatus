@@ -25,98 +25,65 @@ In accordance with [`ADR-0007`](../dev/decisions/0007-adopt-nng-for-local-daemon
 
 ---
 
-## 2. Configuration Reference (`worker.toml`)
+## 2. Configuration & State Storage
 
-The worker daemon is configured via TOML located at `/etc/legatus/worker.toml`:
+In the server-centric control architecture (MS-007), worker configuration is authoritative on `legatus-server` and synchronized dynamically over LCTP (`CONFIG_SYNC_REQ` / `CONFIG_UPDATE_PUSH`). Compute daemons no longer rely on local static configuration files.
 
-```toml
-[server]
-url = "wss://server.internal.corp:8443/ws/worker"
-rest_url = "https://server.internal.corp:8443/api/v1"
-tls_ca_cert = "/etc/legatus/tls/ca.crt"
-connect_timeout_seconds = 10
-reconnect_backoff_initial_ms = 1000
-reconnect_backoff_max_ms = 30000
+The local daemon persists only its unique identity and authentication credentials in secure local storage:
+* **Linux / macOS:** `/var/lib/legatus/credentials.json` (or `~/.legatus/credentials.json` for non-root users, `0600` permissions).
+* **Windows:** `%LOCALAPPDATA%\Legatus\credentials.json`.
 
-[node]
-worker_id = "compute-linux-east-042"
-tags = ["gpu=none", "zone=us-east-1a", "tier=standard"]
-
-[capacity]
-# Declare allocatable capacity (0 = auto-detect all physical cores)
-allocatable_cores = 16
-max_memory_bytes = 34359738368 # 32 GB
-
-[logging]
-level = "info" # trace, debug, info, warn, error
-log_file = "/var/log/legatus/worker.log"
-
-[isolation]
-runner_binary = "/opt/legatus/bin/legatus-runner"
-bytecode_cache_dir = "/var/cache/legatus/bytecode"
-scratch_dir = "/var/run/legatus/scratch"
-abort_grace_period_ms = 10000
+```json
+{
+  "worker_id": "018f3a9b-1234-7000-8000-abcdef012345",
+  "secret_token": "legatus_sec_...",
+  "server_url": "wss://server.internal.corp:8443/ws/worker"
+}
 ```
+
+Upon connection, the daemon pulls its runtime profile (allocatable cores, memory limits, task timeout, telemetry interval, runner paths) dynamically from the server. Updates made in Legatus Studio are applied on the fly via `CONFIG_UPDATE_PUSH` frames without process restarts.
 
 ---
 
 ## 3. Interactive CLI Command Reference (`legatus`)
 
-All commands use `CLI11` parsing and communicate with the local `legatusd` daemon:
+The worker CLI surface is stripped down to minimal daemon lifecycle commands:
 
 ### 3.1 Managing Daemon Lifecycle
 ```bash
-# Start the supervisor daemon in the background
-legatus up --config /etc/legatus/worker.toml
+# Start the supervisor daemon and connect to the cluster server
+legatus up --server wss://server.internal.corp:8443/ws/worker
 
-# Cleanly stop the daemon (cancels active tasks immediately)
+# Start with saved credentials / default server
+legatus up
+
+# Cleanly stop the daemon
 legatus down
 
-# Inspect local daemon health, active session ID, and uptime
+# Force stop the daemon immediately
+legatus down --force
+
+# Inspect local daemon health, active session ID, uptime, and dynamic config
 legatus status
+
+# Machine-readable status
+legatus status --json
 ```
 
 **Example `legatus status` Output:**
 ```text
 Daemon Status:   ONLINE
-Session ID:      ses_01HXYZ789ABCDEF
+Worker ID:       018f3a9b-1234-7000-8000-abcdef012345
+Server URL:      wss://server.internal.corp:8443/ws/worker
 Connected Since: 2026-10-14 16:45:00 UTC (Uptime: 4h 12m)
-Remote Broker:   wss://server.internal.corp:8443/ws/worker
-Allocated Cores: 4 / 16 (25% utilization)
-Active Tasks:    4 running (PIDs: 4812, 4815, 4819, 4822)
-Drain Status:    NORMAL (Accepting new tasks)
+Allocated Cores: 4 / 16 (25.0% CPU)
+Active Tasks:    4 running
+Execution State: ACTIVE
+Config Version:  2
 ```
 
-### 3.2 Draining Nodes Before Maintenance
-When performing host reboots or kernel upgrades, drain the node to allow in-flight tasks to complete while preventing new task dispatches:
-
-```bash
-# Unshelve node from server scheduling ring with a 60-second deadline
-legatus drain --timeout 60
-```
-* The daemon immediately transmits an expedited `DRAIN_NOTICE` frame over the WebSocket.
-* The server marks the worker `DRAINING` and stops scheduling new tasks to it.
-* In-flight tasks complete naturally. Once active task count reaches 0, the daemon exits cleanly.
-
-### 3.3 Inspecting and Terminating Guest Tasks
-```bash
-# List all active tasks running locally on this node (optionally format with --json)
-legatus tasks list
-
-# Trigger termination of a specific task with optional audit reason
-legatus tasks kill tsk_01HXYZ... --reason "Operator manual abort"
-```
-
-### 3.4 Dynamically Tuning Log Levels and Viewing Logs
-Change the supervisor daemon's log verbosity at runtime without restarting the process:
-```bash
-# Dynamically switch logging filter level (trace, debug, info, warn, error)
-legatus log level debug
-legatus log level info
-
-# Display trailing lines from the daemon log file
-legatus log show --lines 100
-```
+### 3.2 Remote State & Task Governance
+All operational controls—including node renaming, active/inactive suspension toggle, auto-renew lease switch, and threshold governance—are administered centrally through **Legatus Studio** or the server REST API (`/api/v1/admin/workers/...`), avoiding the need for manual SSH or local CLI access on individual compute hosts.
 
 ---
 

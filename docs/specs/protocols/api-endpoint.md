@@ -247,14 +247,104 @@ Returns high-level cluster metrics for cockpit telemetry ribbons.
 
 #### Response (`200 OK`):
 ```json
+### 2.10 Rename Worker Node (`PUT /api/v1/admin/workers/{workerId}/name`)
+Updates the operator-friendly name for a worker compute node and pushes configuration update over LCTP.
+
+#### Request Payload:
+```json
 {
-  "total_workers": 42,
-  "online_workers": 38,
-  "draining_workers": 2,
-  "offline_workers": 2,
-  "total_allocatable_cores": 512,
-  "total_allocatable_memory_bytes": 1099511627776,
-  "queue_depth": 0
+  "friendly_name": "worker-prod-us-east-1a"
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "friendly_name": "worker-prod-us-east-1a"
+}
+```
+
+### 2.11 Update Worker Threshold Policies (`PUT /api/v1/admin/workers/{workerId}/thresholds`)
+Configures soft target thresholds (CPU %, RAM %, and max concurrent tasks) for auto-balancing.
+
+#### Request Payload:
+```json
+{
+  "target_cpu_pct": 75.0,
+  "target_ram_pct": 80.0,
+  "max_concurrent_tasks": 16
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "status": "UPDATED"
+}
+```
+
+### 2.12 Toggle Worker Active State (`POST /api/v1/admin/workers/{workerId}/toggle-active`)
+Suspends or resumes worker activity. Inactive workers are excluded from cluster-wide utilization metrics and scheduler task dispatch.
+
+#### Request Payload:
+```json
+{
+  "active": true
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "active": true
+}
+```
+
+### 2.13 Toggle Worker Automatic Lease Renewal (`POST /api/v1/admin/workers/{workerId}/lease/auto-renew`)
+Enables or disables automatic JWT lease renewal before expiration.
+
+#### Request Payload:
+```json
+{
+  "auto_renew": true
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "auto_renew_lease": true
+}
+```
+
+### 2.14 Quarantine Auto-Accept Mode (`POST /api/v1/admin/enrollment/auto-accept` & `GET /api/v1/admin/enrollment/auto-accept`)
+Admin-only toggle for automatic quarantine approval of enrolling worker compute nodes.
+
+#### Request Payload (`POST`):
+```json
+{
+  "auto_accept": true
+}
+```
+
+#### Response (`200 OK`):
+```json
+{
+  "auto_accept": true
+}
+```
+
+### 2.15 Graceful Worker Revocation & Deletion Cascade (`DELETE /api/v1/admin/workers/{workerId}`)
+Performs graceful 4-step revocation and deletion cascade: transitions to DECOMMISSIONING, halts dispatches, aborts in-flight tasks, closes LCTP session, and purges worker records.
+
+#### Response (`200 OK`):
+```json
+{
+  "worker_id": "compute-linux-east-042",
+  "status": "DELETED"
 }
 ```
 
