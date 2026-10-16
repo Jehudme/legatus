@@ -3,6 +3,7 @@ package dev.legatus.server.service.dto.lstcp;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -35,6 +36,43 @@ public record EventClusterMetricTickFrame(
         @JsonProperty("tasks_queued") int tasksQueued,
         @JsonProperty("tasks_executing") int tasksExecuting,
         @JsonProperty("tasks_completed_last_60s") int tasksCompletedLast60s,
-        @JsonProperty("tasks_failed_last_60s") int tasksFailedLast60s
-    ) {}
+        @JsonProperty("tasks_failed_last_60s") int tasksFailedLast60s,
+        @JsonProperty("threshold_breach_warning") Boolean thresholdBreachWarning,
+        @JsonProperty("queue_saturated_error") Boolean queueSaturatedError,
+        @JsonProperty("breached_worker_ids") List<String> breachedWorkerIds
+    ) {
+        public Payload(
+            int nodesOnline,
+            int nodesDraining,
+            int nodesOffline,
+            int totalAllocatableCores,
+            int activeAllocatedCores,
+            double clusterCpuLoadPct,
+            long totalAllocatableMemoryBytes,
+            long activeUsedMemoryBytes,
+            int tasksQueued,
+            int tasksExecuting,
+            int tasksCompletedLast60s,
+            int tasksFailedLast60s
+        ) {
+            this(
+                nodesOnline,
+                nodesDraining,
+                nodesOffline,
+                totalAllocatableCores,
+                activeAllocatedCores,
+                clusterCpuLoadPct,
+                totalAllocatableMemoryBytes,
+                activeUsedMemoryBytes,
+                tasksQueued,
+                tasksExecuting,
+                tasksCompletedLast60s,
+                tasksFailedLast60s,
+                false,
+                false,
+                List.of()
+            );
+        }
+    }
+
 }

@@ -67,6 +67,11 @@ public class WorkerEnrollmentService {
         .build();
 
     private final org.springframework.beans.factory.ObjectProvider<dev.legatus.server.service.studio.StudioEventPublisher> studioEventPublisherProvider;
+    private final org.springframework.beans.factory.ObjectProvider<dev.legatus.server.repository.ClusterSettingRepository> clusterSettingRepositoryProvider;
+    private final org.springframework.beans.factory.ObjectProvider<dev.legatus.server.repository.ComputeTaskRepository> computeTaskRepositoryProvider;
+    private final org.springframework.beans.factory.ObjectProvider<dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry> workerSessionRegistryProvider;
+    private final org.springframework.beans.factory.ObjectProvider<dev.legatus.server.orchestration.balancer.ThresholdScheduler> thresholdSchedulerProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.fasterxml.jackson.databind.ObjectMapper> objectMapperProvider;
 
     @org.springframework.beans.factory.annotation.Autowired
     public WorkerEnrollmentService(
@@ -76,7 +81,12 @@ public class WorkerEnrollmentService {
         TicketBrokerService ticketBrokerService,
         RateLimiterService rateLimiterService,
         WormAuditService wormAuditService,
-        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.service.studio.StudioEventPublisher> studioEventPublisherProvider
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.service.studio.StudioEventPublisher> studioEventPublisherProvider,
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.repository.ClusterSettingRepository> clusterSettingRepositoryProvider,
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.repository.ComputeTaskRepository> computeTaskRepositoryProvider,
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry> workerSessionRegistryProvider,
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.orchestration.balancer.ThresholdScheduler> thresholdSchedulerProvider,
+        org.springframework.beans.factory.ObjectProvider<com.fasterxml.jackson.databind.ObjectMapper> objectMapperProvider
     ) {
         this.workerNodeRepository = workerNodeRepository;
         this.fingerprintService = fingerprintService;
@@ -85,6 +95,23 @@ public class WorkerEnrollmentService {
         this.rateLimiterService = rateLimiterService;
         this.wormAuditService = wormAuditService;
         this.studioEventPublisherProvider = studioEventPublisherProvider;
+        this.clusterSettingRepositoryProvider = clusterSettingRepositoryProvider;
+        this.computeTaskRepositoryProvider = computeTaskRepositoryProvider;
+        this.workerSessionRegistryProvider = workerSessionRegistryProvider;
+        this.thresholdSchedulerProvider = thresholdSchedulerProvider;
+        this.objectMapperProvider = objectMapperProvider;
+    }
+
+    public WorkerEnrollmentService(
+        WorkerNodeRepository workerNodeRepository,
+        Ed25519FingerprintService fingerprintService,
+        Argon2idService argon2idService,
+        TicketBrokerService ticketBrokerService,
+        RateLimiterService rateLimiterService,
+        WormAuditService wormAuditService,
+        org.springframework.beans.factory.ObjectProvider<dev.legatus.server.service.studio.StudioEventPublisher> studioEventPublisherProvider
+    ) {
+        this(workerNodeRepository, fingerprintService, argon2idService, ticketBrokerService, rateLimiterService, wormAuditService, studioEventPublisherProvider, null, null, null, null, null);
     }
 
     public WorkerEnrollmentService(
@@ -95,8 +122,9 @@ public class WorkerEnrollmentService {
         RateLimiterService rateLimiterService,
         WormAuditService wormAuditService
     ) {
-        this(workerNodeRepository, fingerprintService, argon2idService, ticketBrokerService, rateLimiterService, wormAuditService, null);
+        this(workerNodeRepository, fingerprintService, argon2idService, ticketBrokerService, rateLimiterService, wormAuditService, null, null, null, null, null, null);
     }
+
 
     /**
      * DTO for incoming registration request.
@@ -292,6 +320,41 @@ public class WorkerEnrollmentService {
             });
         }
 
+        if (isAutoAcceptEnabled()) {
+            byte[] tokenBytes = new byte[32];
+            secureRandom.nextBytes(tokenBytes);
+            String secretToken = "wk_sec_" + HexFormat.of().formatHex(tokenBytes);
+            String secretHash = argon2idService.hash(secretToken);
+            worker.setSecretHash(secretHash);
+            worker.setState(WorkerState.APPROVED);
+            worker.setFriendlyName(worker.getWorkerId());
+            worker.setAssignedCluster(DEFAULT_CLUSTER_NAME);
+            workerNodeRepository.save(worker);
+            singleReadTokenCache.put(enrollmentId, secretToken);
+
+            wormAuditService.recordEvent(
+                "AUTO_ACCEPT",
+                "SYSTEM",
+                "WORKER_APPROVED",
+                "WORKER",
+                worker.getWorkerId(),
+                AuditActionStatus.SUCCESS,
+                String.format("{\"assigned_cluster\":\"%s\",\"auto_accepted\":true}", worker.getAssignedCluster()),
+                clientIp,
+                "SOC2_CC6.8"
+            );
+
+            LOG.info("Worker {} auto-approved under auto-accept policy", worker.getWorkerId());
+            return new RegisterResponse(
+                enrollmentId,
+                WorkerState.APPROVED.name(),
+                fpResult.fingerprintHex(),
+                fpResult.visualCode(),
+                DEFAULT_POLL_INTERVAL_MS,
+                expiresAt.toEpochMilli()
+            );
+        }
+
         return new RegisterResponse(
             enrollmentId,
             WorkerState.PENDING_APPROVAL.name(),
@@ -300,6 +363,7 @@ public class WorkerEnrollmentService {
             DEFAULT_POLL_INTERVAL_MS,
             expiresAt.toEpochMilli()
         );
+
     }
 
     /**
@@ -341,9 +405,18 @@ public class WorkerEnrollmentService {
      */
     @Transactional
     public String approveWorker(String idOrEnrollmentId, String operatorUsername, String assignedCluster) {
+        return approveWorker(idOrEnrollmentId, operatorUsername, assignedCluster, null);
+    }
+
+    @Transactional
+    public String approveWorker(String idOrEnrollmentId, String operatorUsername, String assignedCluster, String friendlyName) {
         WorkerNode worker = workerNodeRepository.findById(idOrEnrollmentId)
             .or(() -> workerNodeRepository.findByEnrollmentId(idOrEnrollmentId))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + idOrEnrollmentId));
+
+        if (friendlyName != null && !friendlyName.isBlank()) {
+            worker.setFriendlyName(friendlyName.trim());
+        }
 
         // Generate 256-bit secret token (64 hex characters)
         byte[] tokenBytes = new byte[32];
@@ -358,6 +431,7 @@ public class WorkerEnrollmentService {
         worker.setAssignedCluster(assignedCluster != null ? assignedCluster : DEFAULT_CLUSTER_NAME);
 
         workerNodeRepository.save(worker);
+
 
         // Put in single-read cache for the worker's next status poll
         if (worker.getEnrollmentId() != null) {
@@ -473,20 +547,119 @@ public class WorkerEnrollmentService {
             });
         }
 
-        LOG.info("Worker {} draining toggled to {} by {}", workerId, newDraining, operatorUsername);
         return newDraining;
     }
 
     /**
-     * Revokes a worker's credentials and marks state REVOKED.
+     * Graceful 4-step worker revocation and deletion cascade.
+     * Complies with MS-007 Section 3.3 [P2] and ADR-0010 Section 3.
+     */
+    @Transactional
+    public void deleteWorker(String workerId, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        String previousState = worker.getState() != null ? worker.getState().name() : "ONLINE";
+
+        // Step 1: Transition state to DECOMMISSIONING to halt all incoming task dispatches immediately
+        worker.setState(WorkerState.DECOMMISSIONING);
+        worker.setActive(false);
+        workerNodeRepository.save(worker);
+
+        // Step 2 & 3: Abort in-flight tasks and mark ABORTED (Worker Decommissioned)
+        if (computeTaskRepositoryProvider != null) {
+            var taskRepo = computeTaskRepositoryProvider.getIfAvailable();
+            if (taskRepo != null) {
+                var inFlight = taskRepo.findAllByAssignedWorkerWorkerIdAndStatusIn(
+                    workerId,
+                    List.of(dev.legatus.server.domain.enumeration.TaskStatus.DISPATCHED, dev.legatus.server.domain.enumeration.TaskStatus.EXECUTING)
+                );
+                for (var task : inFlight) {
+                    task.setStatus(dev.legatus.server.domain.enumeration.TaskStatus.FAILED);
+                    task.setErrorJson("{\"code\":\"ERR_ABORTED\",\"message\":\"Worker Decommissioned\"}");
+                    taskRepo.save(task);
+                }
+            }
+        }
+
+        // Send abort frame to active session if connected, then disconnect socket
+        if (workerSessionRegistryProvider != null) {
+            var reg = workerSessionRegistryProvider.getIfAvailable();
+            if (reg != null) {
+                reg.getByWorkerId(workerId).ifPresent(ws -> {
+                    try {
+                        if (objectMapperProvider != null) {
+                            var mapper = objectMapperProvider.getIfAvailable();
+                            if (mapper != null) {
+                                for (String tid : ws.getActiveTaskIds()) {
+                                    ws.sendText(mapper.writeValueAsString(new dev.legatus.server.service.dto.lctp.AbortTaskFrame(
+                                        UUID.randomUUID(),
+                                        System.currentTimeMillis(),
+                                        new dev.legatus.server.service.dto.lctp.AbortTaskFrame.Payload(tid, "Worker Decommissioned", 1000L)
+                                    )));
+                                }
+                            }
+                        }
+                        ws.getWebSocketSession().close(new org.springframework.web.socket.CloseStatus(1000, "WORKER_DECOMMISSIONED"));
+                    } catch (Exception e) {
+                        LOG.warn("Error terminating session during worker delete {}: {}", workerId, e.getMessage());
+                    }
+                });
+            }
+        }
+
+        // Step 4: Revoke cryptographic lease, purge database records, clear caches, and emit audit event
+        if (worker.getEnrollmentId() != null) {
+            singleReadTokenCache.invalidate(worker.getEnrollmentId());
+        }
+        if (thresholdSchedulerProvider != null) {
+            var sched = thresholdSchedulerProvider.getIfAvailable();
+            if (sched != null) {
+                sched.clearWorker(workerId);
+            }
+        }
+
+        workerNodeRepository.delete(worker);
+        workerNodeRepository.flush();
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "WORKER_DECOMMISSIONED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            "{\"action\":\"DECOMMISSION_AND_DELETE\"}",
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        if (studioEventPublisherProvider != null) {
+            studioEventPublisherProvider.ifAvailable(pub -> {
+                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
+                    workerId,
+                    previousState,
+                    "DELETED",
+                    0.0,
+                    0L,
+                    0
+                ));
+            });
+        }
+
+        LOG.info("Worker {} gracefully decommissioned and deleted by {}", workerId, operatorUsername);
+    }
+
+    /**
+     * Revokes worker credentials and transitions state to REVOKED.
      */
     @Transactional
     public void revokeWorker(String workerId, String operatorUsername) {
         WorkerNode worker = workerNodeRepository.findById(workerId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
 
-        String previousState = worker.getState() != null ? worker.getState().name() : "ONLINE";
         worker.setState(WorkerState.REVOKED);
+        worker.setActive(false);
         workerNodeRepository.save(worker);
 
         wormAuditService.recordEvent(
@@ -501,64 +674,244 @@ public class WorkerEnrollmentService {
             "SOC2_CC6.8"
         );
 
-        if (studioEventPublisherProvider != null) {
-            studioEventPublisherProvider.ifAvailable(pub -> {
-                pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
-                    worker.getWorkerId(),
-                    previousState,
-                    worker.getState().name(),
-                    0.0,
-                    0L,
-                    0
-                ));
-            });
-        }
-
-        LOG.info("Worker {} revoked by operator {}", workerId, operatorUsername);
+        notifyStudioStateChanged(worker);
+        LOG.info("Worker {} credentials revoked by {}", workerId, operatorUsername);
     }
 
     /**
-     * Deletes a dead, offline, or revoked worker from the fleet registry.
+     * Mutates friendly name for a worker compute node.
      */
     @Transactional
-    public void deleteWorker(String workerId, String operatorUsername) {
+    public void renameWorker(String workerId, String friendlyName, String operatorUsername) {
         WorkerNode worker = workerNodeRepository.findById(workerId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
 
-        if (worker.getState() == WorkerState.ONLINE) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete active ONLINE worker. Drain or revoke worker first.");
-        }
+        worker.setFriendlyName(friendlyName != null ? friendlyName.trim() : null);
+        worker.setConfigVersion(worker.getConfigVersion() != null ? worker.getConfigVersion() + 1 : 2L);
+        workerNodeRepository.save(worker);
 
-        workerNodeRepository.delete(worker);
-        workerNodeRepository.flush();
+        pushConfigUpdateToSession(worker);
 
         wormAuditService.recordEvent(
             operatorUsername,
             "OPERATOR",
-            "WORKER_DELETED",
+            "WORKER_RENAMED",
             "WORKER",
             workerId,
             AuditActionStatus.SUCCESS,
-            "{\"action\":\"DELETE\"}",
+            String.format("{\"friendly_name\":\"%s\"}", friendlyName),
             "127.0.0.1",
             "SOC2_CC6.8"
         );
 
+        notifyStudioStateChanged(worker);
+        LOG.info("Worker {} renamed to '{}' by {}", workerId, friendlyName, operatorUsername);
+    }
+
+    /**
+     * Dynamically updates soft balancing thresholds for a worker.
+     */
+    @Transactional
+    public void updateThresholds(String workerId, Double targetCpuPct, Double targetRamPct, Integer maxConcurrentTasks, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        if (targetCpuPct != null) worker.setTargetCpuPct(targetCpuPct);
+        if (targetRamPct != null) worker.setTargetRamPct(targetRamPct);
+        if (maxConcurrentTasks != null) worker.setMaxConcurrentTasks(maxConcurrentTasks);
+
+        worker.setConfigVersion(worker.getConfigVersion() != null ? worker.getConfigVersion() + 1 : 2L);
+        workerNodeRepository.save(worker);
+
+        pushConfigUpdateToSession(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "WORKER_THRESHOLDS_UPDATED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            String.format("{\"target_cpu\":%.1f,\"target_ram\":%.1f,\"max_tasks\":%d}",
+                worker.getTargetCpuPct(), worker.getTargetRamPct(), worker.getMaxConcurrentTasks()),
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        LOG.info("Worker {} thresholds updated by {}: cpu={}, ram={}, max_tasks={}",
+            workerId, operatorUsername, worker.getTargetCpuPct(), worker.getTargetRamPct(), worker.getMaxConcurrentTasks());
+    }
+
+    /**
+     * Toggles active/suspended state on a worker node.
+     */
+    @Transactional
+    public boolean toggleActive(String workerId, Boolean active, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        boolean newActive = active != null ? active : !Boolean.TRUE.equals(worker.getActive());
+        worker.setActive(newActive);
+
+        String previousState = worker.getState() != null ? worker.getState().name() : "ONLINE";
+        if (!newActive) {
+            if (worker.getState() == WorkerState.ONLINE) {
+                worker.setState(WorkerState.INACTIVE);
+            }
+        } else {
+            if (worker.getState() == WorkerState.INACTIVE) {
+                worker.setState(WorkerState.ONLINE);
+            }
+        }
+
+        worker.setConfigVersion(worker.getConfigVersion() != null ? worker.getConfigVersion() + 1 : 2L);
+        workerNodeRepository.save(worker);
+
+        pushConfigUpdateToSession(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            newActive ? "WORKER_ACTIVATED" : "WORKER_DEACTIVATED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            String.format("{\"active\":%b}", newActive),
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        notifyStudioStateChanged(worker);
+        LOG.info("Worker {} active toggled to {} by {}", workerId, newActive, operatorUsername);
+        return newActive;
+    }
+
+    /**
+     * Toggles automatic lease renewal for a worker node.
+     */
+    @Transactional
+    public boolean toggleAutoRenew(String workerId, Boolean autoRenew, String operatorUsername) {
+        WorkerNode worker = workerNodeRepository.findById(workerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found: " + workerId));
+
+        boolean newAutoRenew = autoRenew != null ? autoRenew : !Boolean.TRUE.equals(worker.getAutoRenewLease());
+        worker.setAutoRenewLease(newAutoRenew);
+        worker.setConfigVersion(worker.getConfigVersion() != null ? worker.getConfigVersion() + 1 : 2L);
+        workerNodeRepository.save(worker);
+
+        pushConfigUpdateToSession(worker);
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "WORKER_AUTO_RENEW_TOGGLED",
+            "WORKER",
+            workerId,
+            AuditActionStatus.SUCCESS,
+            String.format("{\"auto_renew_lease\":%b}", newAutoRenew),
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        LOG.info("Worker {} auto-renew lease toggled to {} by {}", workerId, newAutoRenew, operatorUsername);
+        return newAutoRenew;
+    }
+
+    /**
+     * Toggles cluster-wide quarantine auto-accept mode (Admin only).
+     */
+    @Transactional
+    public void setAutoAccept(boolean autoAccept, String operatorUsername) {
+        if (clusterSettingRepositoryProvider != null) {
+            var repo = clusterSettingRepositoryProvider.getIfAvailable();
+            if (repo != null) {
+                repo.save(new dev.legatus.server.domain.ClusterSetting("quarantine_auto_accept", String.valueOf(autoAccept)));
+            }
+        }
+
+        wormAuditService.recordEvent(
+            operatorUsername,
+            "OPERATOR",
+            "CLUSTER_AUTO_ACCEPT_TOGGLED",
+            "CLUSTER",
+            "quarantine_auto_accept",
+            AuditActionStatus.SUCCESS,
+            String.format("{\"auto_accept\":%b}", autoAccept),
+            "127.0.0.1",
+            "SOC2_CC6.8"
+        );
+
+        LOG.info("Cluster quarantine auto-accept set to {} by {}", autoAccept, operatorUsername);
+    }
+
+    /**
+     * Checks if quarantine auto-accept is enabled cluster-wide.
+     */
+    public boolean isAutoAcceptEnabled() {
+        if (clusterSettingRepositoryProvider != null) {
+            var repo = clusterSettingRepositoryProvider.getIfAvailable();
+            if (repo != null) {
+                return repo.findById("quarantine_auto_accept")
+                    .map(s -> Boolean.parseBoolean(s.getSettingValue()))
+                    .orElse(false);
+            }
+        }
+        return false;
+    }
+
+    private void pushConfigUpdateToSession(WorkerNode worker) {
+        if (workerSessionRegistryProvider == null || objectMapperProvider == null) return;
+        var reg = workerSessionRegistryProvider.getIfAvailable();
+        var mapper = objectMapperProvider.getIfAvailable();
+        if (reg == null || mapper == null) return;
+
+        reg.getByWorkerId(worker.getWorkerId()).ifPresent(session -> {
+            try {
+                long remainingSec = 0L;
+                if (worker.getLeaseExpiresAt() != null) {
+                    long diff = Duration.between(Instant.now(), worker.getLeaseExpiresAt()).toSeconds();
+                    remainingSec = Math.max(0L, diff);
+                }
+                var push = new dev.legatus.server.service.dto.lctp.ConfigUpdatePushFrame(
+                    UUID.randomUUID(),
+                    System.currentTimeMillis(),
+                    new dev.legatus.server.service.dto.lctp.ConfigUpdatePushFrame.Payload(
+                        worker.getWorkerId(),
+                        worker.getConfigVersion() != null ? worker.getConfigVersion() : 1L,
+                        worker.getFriendlyName() != null ? worker.getFriendlyName() : worker.getHostname(),
+                        Boolean.TRUE.equals(worker.getActive()),
+                        worker.getTargetCpuPct() != null ? worker.getTargetCpuPct() : 75.0,
+                        worker.getTargetRamPct() != null ? worker.getTargetRamPct() : 80.0,
+                        worker.getMaxConcurrentTasks() != null ? worker.getMaxConcurrentTasks() : 16,
+                        Boolean.TRUE.equals(worker.getAutoRenewLease()),
+                        remainingSec,
+                        5000L,
+                        "info",
+                        worker.getRuntimeConfigJson()
+                    )
+                );
+                session.sendText(mapper.writeValueAsString(push));
+            } catch (Exception e) {
+                LOG.warn("Failed to push config update to worker {}: {}", worker.getWorkerId(), e.getMessage());
+            }
+        });
+    }
+
+    private void notifyStudioStateChanged(WorkerNode worker) {
         if (studioEventPublisherProvider != null) {
             studioEventPublisherProvider.ifAvailable(pub -> {
                 pub.publishWorkerStateChanged(new dev.legatus.server.service.dto.lstcp.EventWorkerStateChangedFrame.Payload(
-                    workerId,
-                    worker.getState() != null ? worker.getState().name() : "OFFLINE",
-                    "DELETED",
+                    worker.getWorkerId(),
+                    worker.getState() != null ? worker.getState().name() : "ONLINE",
+                    worker.getState() != null ? worker.getState().name() : "ONLINE",
                     0.0,
                     0L,
                     0
                 ));
             });
         }
-
-        LOG.info("Worker {} deleted from registry by operator {}", workerId, operatorUsername);
     }
+
 
     /**
      * Authenticates worker and issues 30-second single-use ticket (POST /api/v1/auth/worker).

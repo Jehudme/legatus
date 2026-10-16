@@ -41,6 +41,7 @@ public class TaskSchedulerService {
     private final TaskDispatcher taskDispatcher;
     private final WorkerEligibilityFilter workerEligibilityFilter;
     private final LegatusProperties legatusProperties;
+    private final dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler;
     private final AtomicInteger roundRobinCursor = new AtomicInteger(0);
 
     public TaskSchedulerService(
@@ -50,12 +51,26 @@ public class TaskSchedulerService {
         WorkerEligibilityFilter workerEligibilityFilter,
         LegatusProperties legatusProperties
     ) {
+        this(workerNodeRepository, computeTaskRepository, taskDispatcher, workerEligibilityFilter, legatusProperties, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public TaskSchedulerService(
+        WorkerNodeRepository workerNodeRepository,
+        ComputeTaskRepository computeTaskRepository,
+        TaskDispatcher taskDispatcher,
+        WorkerEligibilityFilter workerEligibilityFilter,
+        LegatusProperties legatusProperties,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler
+    ) {
         this.workerNodeRepository = workerNodeRepository;
         this.computeTaskRepository = computeTaskRepository;
         this.taskDispatcher = taskDispatcher;
         this.workerEligibilityFilter = workerEligibilityFilter;
         this.legatusProperties = legatusProperties;
+        this.thresholdScheduler = thresholdScheduler;
     }
+
 
     /**
      * Resolves the configured scheduling strategy from application properties.
@@ -97,6 +112,10 @@ public class TaskSchedulerService {
         if (eligible.isEmpty()) {
             LOG.debug("No eligible worker available for candidate task {}", candidateTask.getTaskId());
             return Optional.empty();
+        }
+
+        if (thresholdScheduler != null) {
+            return thresholdScheduler.selectWorkerWithThresholds(candidateTask, eligible, strategy);
         }
 
         if (eligible.size() == 1) {
@@ -147,7 +166,8 @@ public class TaskSchedulerService {
      * Assembles a snapshot of active candidate workers with their current capacity and active tasks.
      */
     public List<WorkerSnapshot> buildWorkerSnapshots() {
-        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndDrainingFalse(WorkerState.ONLINE);
+        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndActiveTrueAndDrainingFalse(WorkerState.ONLINE);
+
         List<WorkerSnapshot> snapshots = new ArrayList<>(onlineWorkers.size());
 
         for (WorkerNode worker : onlineWorkers) {

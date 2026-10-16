@@ -164,11 +164,47 @@ public class WorkerNode implements Serializable, Persistable<String> {
     @Column(name = "version")
     private Long version;
 
+    @Size(max = 255)
+    @Column(name = "friendly_name", length = 255)
+    private String friendlyName;
+
+    @NotNull
+    @Column(name = "active", nullable = false)
+    private Boolean active = true;
+
+    @NotNull
+    @Column(name = "target_cpu_pct", nullable = false)
+    private Double targetCpuPct = 75.0;
+
+    @NotNull
+    @Column(name = "target_ram_pct", nullable = false)
+    private Double targetRamPct = 80.0;
+
+    @NotNull
+    @Column(name = "max_concurrent_tasks", nullable = false)
+    private Integer maxConcurrentTasks = 16;
+
+    @NotNull
+    @Column(name = "auto_renew_lease", nullable = false)
+    private Boolean autoRenewLease = true;
+
+    @Column(name = "lease_expires_at")
+    private Instant leaseExpiresAt;
+
+    @NotNull
+    @Column(name = "config_version", nullable = false)
+    private Long configVersion = 1L;
+
+    @Lob
+    @Column(name = "runtime_config_json")
+    private String runtimeConfigJson;
+
     @org.springframework.data.annotation.Transient
     @Transient
     private boolean isPersisted;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
+
 
     public String getWorkerId() {
         return this.workerId;
@@ -507,6 +543,124 @@ public class WorkerNode implements Serializable, Persistable<String> {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    public String getFriendlyName() {
+        return this.friendlyName;
+    }
+
+    public void setFriendlyName(String friendlyName) {
+        this.friendlyName = friendlyName;
+    }
+
+    public WorkerNode friendlyName(String friendlyName) {
+        this.friendlyName = friendlyName;
+        return this;
+    }
+
+    public Boolean getActive() {
+        return this.active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    public WorkerNode active(Boolean active) {
+        this.active = active;
+        return this;
+    }
+
+    public Double getTargetCpuPct() {
+        return this.targetCpuPct;
+    }
+
+    public void setTargetCpuPct(Double targetCpuPct) {
+        this.targetCpuPct = targetCpuPct;
+    }
+
+    public WorkerNode targetCpuPct(Double targetCpuPct) {
+        this.targetCpuPct = targetCpuPct;
+        return this;
+    }
+
+    public Double getTargetRamPct() {
+        return this.targetRamPct;
+    }
+
+    public void setTargetRamPct(Double targetRamPct) {
+        this.targetRamPct = targetRamPct;
+    }
+
+    public WorkerNode targetRamPct(Double targetRamPct) {
+        this.targetRamPct = targetRamPct;
+        return this;
+    }
+
+    public Integer getMaxConcurrentTasks() {
+        return this.maxConcurrentTasks;
+    }
+
+    public void setMaxConcurrentTasks(Integer maxConcurrentTasks) {
+        this.maxConcurrentTasks = maxConcurrentTasks;
+    }
+
+    public WorkerNode maxConcurrentTasks(Integer maxConcurrentTasks) {
+        this.maxConcurrentTasks = maxConcurrentTasks;
+        return this;
+    }
+
+    public Boolean getAutoRenewLease() {
+        return this.autoRenewLease;
+    }
+
+    public void setAutoRenewLease(Boolean autoRenewLease) {
+        this.autoRenewLease = autoRenewLease;
+    }
+
+    public WorkerNode autoRenewLease(Boolean autoRenewLease) {
+        this.autoRenewLease = autoRenewLease;
+        return this;
+    }
+
+    public Instant getLeaseExpiresAt() {
+        return this.leaseExpiresAt;
+    }
+
+    public void setLeaseExpiresAt(Instant leaseExpiresAt) {
+        this.leaseExpiresAt = leaseExpiresAt;
+    }
+
+    public WorkerNode leaseExpiresAt(Instant leaseExpiresAt) {
+        this.leaseExpiresAt = leaseExpiresAt;
+        return this;
+    }
+
+    public Long getConfigVersion() {
+        return this.configVersion;
+    }
+
+    public void setConfigVersion(Long configVersion) {
+        this.configVersion = configVersion;
+    }
+
+    public WorkerNode configVersion(Long configVersion) {
+        this.configVersion = configVersion;
+        return this;
+    }
+
+    public String getRuntimeConfigJson() {
+        return this.runtimeConfigJson;
+    }
+
+    public void setRuntimeConfigJson(String runtimeConfigJson) {
+        this.runtimeConfigJson = runtimeConfigJson;
+    }
+
+    public WorkerNode runtimeConfigJson(String runtimeConfigJson) {
+        this.runtimeConfigJson = runtimeConfigJson;
+        return this;
+    }
+
 
     @PostLoad
     @PostPersist

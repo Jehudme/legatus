@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261016000000-1" author="legatus">
+        <addColumn tableName="workers">
+            <column name="friendly_name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_cpu_pct" type="double" defaultValueNumeric="75.0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_ram_pct" type="double" defaultValueNumeric="80.0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="max_concurrent_tasks" type="integer" defaultValueNumeric="16">
+                <constraints nullable="false"/>
+            </column>
+            <column name="auto_renew_lease" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lease_expires_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="config_version" type="bigint" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="runtime_config_json" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261016000000-2" author="legatus">
+        <createTable tableName="cluster_settings">
+            <column name="setting_key" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="setting_value" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <insert tableName="cluster_settings">
+            <column name="setting_key" value="quarantine_auto_accept"/>
+            <column name="setting_value" value="false"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

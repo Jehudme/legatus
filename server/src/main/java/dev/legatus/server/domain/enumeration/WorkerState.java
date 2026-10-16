@@ -9,7 +9,10 @@ public enum WorkerState {
     APPROVED,
     ONLINE,
     DRAINING,
+    INACTIVE,
+    DECOMMISSIONING,
     OFFLINE,
     REVOKED,
     EXPIRED,
 }
+

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "legatus/daemon/worker_config.hpp"
+#include "legatus/daemon/config_manager.hpp"
 #include "legatus/daemon/process_supervisor.hpp"
 #include <ixwebsocket/IXWebSocket.h>
 #include <nlohmann/json.hpp>
@@ -38,7 +39,8 @@ class LctpClient {
 public:
     LctpClient(
         WorkerConfig& config,
-        std::shared_ptr<ProcessSupervisor> supervisor);
+        std::shared_ptr<ProcessSupervisor> supervisor,
+        std::shared_ptr<ConfigManager> config_manager = nullptr);
     ~LctpClient();
 
     LctpClient(const LctpClient&) = delete;
@@ -50,6 +52,8 @@ public:
     bool is_connected() const;
     LctpState state() const;
     std::string session_id() const;
+
+    std::shared_ptr<ConfigManager> config_manager() const { return config_manager_; }
 
     void set_draining(bool draining);
     bool is_draining() const;
@@ -80,6 +84,8 @@ private:
     void send_session_init();
     void handle_session_ack(const LctpFrame& frame);
     void handle_heartbeat_ack(const LctpFrame& frame);
+    void handle_config_sync_resp(const LctpFrame& frame);
+    void handle_config_update_push(const LctpFrame& frame);
     void handle_dispatch_task(const LctpFrame& frame);
     void handle_abort_task(const LctpFrame& frame);
 
@@ -87,6 +93,7 @@ private:
 
     WorkerConfig& config_;
     std::shared_ptr<ProcessSupervisor> supervisor_;
+    std::shared_ptr<ConfigManager> config_manager_;
 
     std::string custom_ws_url_;
     std::atomic<bool> running_{false};

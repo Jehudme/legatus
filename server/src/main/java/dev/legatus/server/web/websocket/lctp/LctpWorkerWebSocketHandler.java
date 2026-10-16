@@ -51,6 +51,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
     private final WormAuditService wormAuditService;
     private final ObjectMapper objectMapper;
     private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
+    private final dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler;
 
     public LctpWorkerWebSocketHandler(
         WorkerSessionRegistry sessionRegistry,
@@ -59,7 +60,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         WormAuditService wormAuditService,
         ObjectMapper objectMapper
     ) {
-        this(sessionRegistry, workerNodeRepository, computeTaskRepository, wormAuditService, objectMapper, null);
+        this(sessionRegistry, workerNodeRepository, computeTaskRepository, wormAuditService, objectMapper, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -69,7 +70,8 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         ComputeTaskRepository computeTaskRepository,
         WormAuditService wormAuditService,
         ObjectMapper objectMapper,
-        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler
     ) {
         this.sessionRegistry = sessionRegistry;
         this.workerNodeRepository = workerNodeRepository;
@@ -77,7 +79,9 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         this.wormAuditService = wormAuditService;
         this.objectMapper = objectMapper;
         this.studioEventPublisher = studioEventPublisher;
+        this.thresholdScheduler = thresholdScheduler;
     }
+
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -127,6 +131,8 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
 
         switch (frame) {
             case SessionInitFrame init -> handleSessionInit(workerSession, init);
+
+            case ConfigSyncReqFrame syncReq -> handleConfigSyncReq(workerSession, syncReq);
             case HeartbeatFrame hb -> handleHeartbeat(workerSession, hb);
             case DrainNoticeFrame drain -> handleDrainNotice(workerSession, drain);
             case TaskProgressFrame progress -> handleTaskProgress(workerSession, progress);
@@ -136,6 +142,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             default -> LOG.warn("Unhandled or unexpected inbound frame type: {}", frame.type());
         }
     }
+
 
     private void handleSessionInit(LctpWorkerSession session, SessionInitFrame frame) throws IOException {
         String workerId = session.getWorkerId();
@@ -233,11 +240,104 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         );
     }
 
+    private void handleConfigSyncReq(LctpWorkerSession session, ConfigSyncReqFrame frame) throws IOException {
+        String workerId = session.getWorkerId();
+        Optional<WorkerNode> workerOpt = workerNodeRepository.findById(workerId);
+        if (workerOpt.isEmpty()) {
+            LOG.warn("Rejecting CONFIG_SYNC_REQ: Worker {} not registered in database", workerId);
+            return;
+        }
+
+        WorkerNode worker = workerOpt.get();
+        long remainingSec = 0L;
+        if (worker.getLeaseExpiresAt() != null) {
+            remainingSec = Math.max(0L, java.time.Duration.between(Instant.now(), worker.getLeaseExpiresAt()).toSeconds());
+        } else {
+            remainingSec = 86400L;
+        }
+
+        ConfigSyncRespFrame resp = new ConfigSyncRespFrame(
+            UUID.randomUUID(),
+            Instant.now().toEpochMilli(),
+            new ConfigSyncRespFrame.Payload(
+                worker.getWorkerId(),
+                worker.getConfigVersion() != null ? worker.getConfigVersion() : 1L,
+                worker.getFriendlyName() != null ? worker.getFriendlyName() : worker.getHostname(),
+                Boolean.TRUE.equals(worker.getActive()),
+                worker.getTargetCpuPct() != null ? worker.getTargetCpuPct() : 75.0,
+                worker.getTargetRamPct() != null ? worker.getTargetRamPct() : 80.0,
+                worker.getMaxConcurrentTasks() != null ? worker.getMaxConcurrentTasks() : 16,
+                Boolean.TRUE.equals(worker.getAutoRenewLease()),
+                remainingSec,
+                5000L,
+                "info",
+                worker.getRuntimeConfigJson()
+            )
+        );
+        session.sendText(objectMapper.writeValueAsString(resp));
+        LOG.info("Sent CONFIG_SYNC_RESP to worker {} (v{})", workerId, resp.payload().configVersion());
+    }
+
     private void handleHeartbeat(LctpWorkerSession session, HeartbeatFrame frame) throws IOException {
         session.setLastHeartbeatAt(Instant.now());
         session.setDraining(frame.payload().draining());
         if (frame.payload().hostMetrics() != null) {
             session.setLastHostMetrics(frame.payload().hostMetrics());
+            if (thresholdScheduler != null) {
+                workerNodeRepository.findById(session.getWorkerId()).ifPresent(w -> {
+                    double targetCpu = w.getTargetCpuPct() != null ? w.getTargetCpuPct() : 75.0;
+                    double targetRam = w.getTargetRamPct() != null ? w.getTargetRamPct() : 80.0;
+                    int maxTasks = w.getMaxConcurrentTasks() != null ? w.getMaxConcurrentTasks() : 16;
+                    long totalMem = w.getTotalMemoryBytes() != null && w.getTotalMemoryBytes() > 0 ? w.getTotalMemoryBytes() : (1024L * 1024 * 1024);
+                    double ramPct = ((double) frame.payload().hostMetrics().memoryUsedBytes() / totalMem) * 100.0;
+                    thresholdScheduler.recordTelemetry(
+                        w.getWorkerId(),
+                        frame.payload().hostMetrics().cpuLoadPct(),
+                        ramPct,
+                        session.getActiveTaskIds().size(),
+                        targetCpu,
+                        targetRam,
+                        maxTasks
+                    );
+                });
+            }
+        }
+
+        // Stale config version check on heartbeat
+        if (frame.payload().configVersion() != null) {
+            workerNodeRepository.findById(session.getWorkerId()).ifPresent(w -> {
+                long serverVer = w.getConfigVersion() != null ? w.getConfigVersion() : 1L;
+                if (frame.payload().configVersion() < serverVer) {
+                    LOG.info("Worker {} config_version {} is behind server {}, pushing update",
+                        w.getWorkerId(), frame.payload().configVersion(), serverVer);
+                    try {
+                        long remainingSec = w.getLeaseExpiresAt() != null
+                            ? Math.max(0L, java.time.Duration.between(Instant.now(), w.getLeaseExpiresAt()).toSeconds())
+                            : 86400L;
+                        ConfigUpdatePushFrame push = new ConfigUpdatePushFrame(
+                            UUID.randomUUID(),
+                            Instant.now().toEpochMilli(),
+                            new ConfigUpdatePushFrame.Payload(
+                                w.getWorkerId(),
+                                serverVer,
+                                w.getFriendlyName() != null ? w.getFriendlyName() : w.getHostname(),
+                                Boolean.TRUE.equals(w.getActive()),
+                                w.getTargetCpuPct() != null ? w.getTargetCpuPct() : 75.0,
+                                w.getTargetRamPct() != null ? w.getTargetRamPct() : 80.0,
+                                w.getMaxConcurrentTasks() != null ? w.getMaxConcurrentTasks() : 16,
+                                Boolean.TRUE.equals(w.getAutoRenewLease()),
+                                remainingSec,
+                                5000L,
+                                "info",
+                                w.getRuntimeConfigJson()
+                            )
+                        );
+                        session.sendText(objectMapper.writeValueAsString(push));
+                    } catch (Exception e) {
+                        LOG.warn("Failed pushing config sync from heartbeat: {}", e.getMessage());
+                    }
+                }
+            });
         }
 
         if (frame.payload().draining()) {
@@ -256,6 +356,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         );
         session.sendText(objectMapper.writeValueAsString(ack));
     }
+
 
     private void handleDrainNotice(LctpWorkerSession session, DrainNoticeFrame frame) {
         session.setDraining(true);

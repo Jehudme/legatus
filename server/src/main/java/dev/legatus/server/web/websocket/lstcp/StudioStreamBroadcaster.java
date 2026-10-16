@@ -29,6 +29,7 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
     private final ComputeTaskRepository computeTaskRepository;
     private final ObjectMapper objectMapper;
     private final dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry;
+    private final dev.legatus.server.service.ClusterMetricsService clusterMetricsService;
 
     public StudioStreamBroadcaster(
         StudioSessionRegistry sessionRegistry,
@@ -36,7 +37,7 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
         ComputeTaskRepository computeTaskRepository,
         ObjectMapper objectMapper
     ) {
-        this(sessionRegistry, workerNodeRepository, computeTaskRepository, objectMapper, null);
+        this(sessionRegistry, workerNodeRepository, computeTaskRepository, objectMapper, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -45,13 +46,15 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
         WorkerNodeRepository workerNodeRepository,
         ComputeTaskRepository computeTaskRepository,
         ObjectMapper objectMapper,
-        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.web.websocket.lctp.WorkerSessionRegistry workerSessionRegistry,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.ClusterMetricsService clusterMetricsService
     ) {
         this.sessionRegistry = sessionRegistry;
         this.workerNodeRepository = workerNodeRepository;
         this.computeTaskRepository = computeTaskRepository;
         this.objectMapper = objectMapper;
         this.workerSessionRegistry = workerSessionRegistry;
+        this.clusterMetricsService = clusterMetricsService;
     }
 
     /**
@@ -64,61 +67,91 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
         }
 
         try {
-            int online = (int) workerNodeRepository.countByState(WorkerState.ONLINE);
-            int draining = (int) workerNodeRepository.countByState(WorkerState.DRAINING);
-            int offline = (int) workerNodeRepository.countByState(WorkerState.OFFLINE);
+            EventClusterMetricTickFrame frame;
 
-            int queued = (int) computeTaskRepository.countByStatus(TaskStatus.QUEUED);
-            int executing = (int) computeTaskRepository.countByStatus(TaskStatus.EXECUTING);
+            if (clusterMetricsService != null) {
+                var stats = clusterMetricsService.computeClusterStats();
+                frame = new EventClusterMetricTickFrame(
+                    UUID.randomUUID(),
+                    System.currentTimeMillis(),
+                    new EventClusterMetricTickFrame.Payload(
+                        stats.nodesOnline(),
+                        stats.nodesDraining(),
+                        stats.nodesOffline(),
+                        stats.totalAllocatableCores(),
+                        stats.tasksExecuting(),
+                        stats.clusterCpuLoadPct(),
+                        stats.totalAllocatableMemoryBytes(),
+                        stats.activeUsedMemoryBytes(),
+                        stats.tasksQueued(),
+                        stats.tasksExecuting(),
+                        0,
+                        0,
+                        stats.thresholdBreachWarning(),
+                        stats.queueSaturatedError(),
+                        stats.breachedWorkerIds()
+                    )
+                );
+            } else {
+                int online = (int) workerNodeRepository.countByState(WorkerState.ONLINE);
+                int draining = (int) workerNodeRepository.countByState(WorkerState.DRAINING);
+                int offline = (int) workerNodeRepository.countByState(WorkerState.OFFLINE);
 
-            List<WorkerNode> onlineNodes = workerNodeRepository.findAllByState(WorkerState.ONLINE);
-            int totalCores = 0;
-            long totalMemory = 0L;
-            for (WorkerNode node : onlineNodes) {
-                totalCores += node.getAllocatableCores() != null ? node.getAllocatableCores() : 0;
-                totalMemory += node.getMaxMemoryBytes() != null ? node.getMaxMemoryBytes() : 0L;
-            }
+                int queued = (int) computeTaskRepository.countByStatus(TaskStatus.QUEUED);
+                int executing = (int) computeTaskRepository.countByStatus(TaskStatus.EXECUTING);
 
-            long usedMemory = 0L;
-            double totalCpu = 0.0;
-            int metricsCount = 0;
-            if (workerSessionRegistry != null) {
-                for (dev.legatus.server.web.websocket.lctp.LctpWorkerSession ws : workerSessionRegistry.getAllActiveSessions()) {
-                    dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics m = ws.getLastHostMetrics();
-                    if (m != null) {
-                        usedMemory += m.memoryUsedBytes();
-                        totalCpu += m.cpuLoadPct();
-                        metricsCount++;
+                List<WorkerNode> onlineNodes = workerNodeRepository.findAllByState(WorkerState.ONLINE);
+                int totalCores = 0;
+                long totalMemory = 0L;
+                for (WorkerNode node : onlineNodes) {
+                    totalCores += node.getAllocatableCores() != null ? node.getAllocatableCores() : 0;
+                    totalMemory += node.getMaxMemoryBytes() != null ? node.getMaxMemoryBytes() : 0L;
+                }
+
+                long usedMemory = 0L;
+                double totalCpu = 0.0;
+                int metricsCount = 0;
+                if (workerSessionRegistry != null) {
+                    for (dev.legatus.server.web.websocket.lctp.LctpWorkerSession ws : workerSessionRegistry.getAllActiveSessions()) {
+                        dev.legatus.server.service.dto.lctp.HeartbeatFrame.HostMetrics m = ws.getLastHostMetrics();
+                        if (m != null) {
+                            usedMemory += m.memoryUsedBytes();
+                            totalCpu += m.cpuLoadPct();
+                            metricsCount++;
+                        }
                     }
                 }
+
+                double clusterCpuPct = metricsCount > 0
+                    ? (totalCpu / metricsCount)
+                    : (online > 0 ? (double) executing / Math.max(1, totalCores) * 100.0 : 0.0);
+
+                if (usedMemory == 0L && online > 0 && totalMemory > 0L) {
+                    usedMemory = totalMemory / 4;
+                }
+
+                frame = new EventClusterMetricTickFrame(
+                    UUID.randomUUID(),
+                    System.currentTimeMillis(),
+                    new EventClusterMetricTickFrame.Payload(
+                        online,
+                        draining,
+                        offline,
+                        totalCores,
+                        executing,
+                        clusterCpuPct,
+                        totalMemory,
+                        usedMemory,
+                        queued,
+                        executing,
+                        0,
+                        0,
+                        false,
+                        false,
+                        List.of()
+                    )
+                );
             }
-
-            double clusterCpuPct = metricsCount > 0
-                ? (totalCpu / metricsCount)
-                : (online > 0 ? (double) executing / Math.max(1, totalCores) * 100.0 : 0.0);
-
-            if (usedMemory == 0L && online > 0 && totalMemory > 0L) {
-                usedMemory = totalMemory / 4;
-            }
-
-            EventClusterMetricTickFrame frame = new EventClusterMetricTickFrame(
-                UUID.randomUUID(),
-                System.currentTimeMillis(),
-                new EventClusterMetricTickFrame.Payload(
-                    online,
-                    draining,
-                    offline,
-                    totalCores,
-                    executing,
-                    clusterCpuPct,
-                    totalMemory,
-                    usedMemory,
-                    queued,
-                    executing,
-                    0,
-                    0
-                )
-            );
 
             String json = objectMapper.writeValueAsString(frame);
             for (LstcpStudioSession session : sessionRegistry.getAllSessions()) {
@@ -130,6 +163,7 @@ public class StudioStreamBroadcaster implements StudioEventPublisher {
             LOG.warn("Failed to broadcast metric tick: {}", e.getMessage());
         }
     }
+
 
     @Override
     public void publishMetricTick(EventClusterMetricTickFrame.Payload payload) {

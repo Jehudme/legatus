@@ -214,6 +214,7 @@ target_link_libraries(legatus_runner_core PUBLIC
 add_library(legatus_daemon_core
     src/daemon/process_supervisor.cpp
     src/daemon/worker_config.cpp
+    src/daemon/config_manager.cpp
     src/daemon/enrollment_client.cpp
     src/daemon/ipc_bus.cpp
     src/daemon/lctp_client.cpp
@@ -279,6 +280,8 @@ add_executable(legatus_tests
     tests/unit/test_ipc_bus.cpp
     tests/unit/test_lctp_client.cpp
     tests/unit/test_telemetry_and_cache.cpp
+    tests/unit/test_telemetry_normalized_cpu.cpp
+    tests/unit/test_config_manager.cpp
     tests/unit/test_cli_and_logging.cpp
     tests/unit/test_stdlib_sandbox.cpp
     tests/unit/test_stdlib_http.cpp

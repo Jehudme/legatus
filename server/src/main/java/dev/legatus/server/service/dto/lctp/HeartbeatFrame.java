@@ -28,8 +28,16 @@ public record HeartbeatFrame(
         @JsonProperty("session_id") String sessionId,
         @JsonProperty("draining") boolean draining,
         @JsonProperty("host_metrics") HostMetrics hostMetrics,
-        @JsonProperty("running_tasks") List<RunningTask> runningTasks
-    ) {}
+        @JsonProperty("running_tasks") List<RunningTask> runningTasks,
+        @JsonProperty("config_version") Long configVersion,
+        @JsonProperty("active") Boolean active,
+        @JsonProperty("remaining_lease_sec") Long remainingLeaseSec
+    ) {
+        public Payload(String sessionId, boolean draining, HostMetrics hostMetrics, List<RunningTask> runningTasks) {
+            this(sessionId, draining, hostMetrics, runningTasks, null, null, null);
+        }
+    }
+
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record HostMetrics(

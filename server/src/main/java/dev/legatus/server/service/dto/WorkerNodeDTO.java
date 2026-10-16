@@ -119,7 +119,33 @@ public class WorkerNodeDTO implements Serializable {
     @NotNull
     private Instant createdAt;
 
+    @Size(max = 255)
+    private String friendlyName;
+
+    @NotNull
+    private Boolean active = true;
+
+    @NotNull
+    private Double targetCpuPct = 75.0;
+
+    @NotNull
+    private Double targetRamPct = 80.0;
+
+    @NotNull
+    private Integer maxConcurrentTasks = 16;
+
+    @NotNull
+    private Boolean autoRenewLease = true;
+
+    private Instant leaseExpiresAt;
+
+    @NotNull
+    private Long configVersion = 1L;
+
+    private String runtimeConfigJson;
+
     public String getWorkerId() {
+
         return workerId;
     }
 
@@ -326,6 +352,79 @@ public class WorkerNodeDTO implements Serializable {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    public String getFriendlyName() {
+        return friendlyName;
+    }
+
+    public void setFriendlyName(String friendlyName) {
+        this.friendlyName = friendlyName;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    public Double getTargetCpuPct() {
+        return targetCpuPct;
+    }
+
+    public void setTargetCpuPct(Double targetCpuPct) {
+        this.targetCpuPct = targetCpuPct;
+    }
+
+    public Double getTargetRamPct() {
+        return targetRamPct;
+    }
+
+    public void setTargetRamPct(Double targetRamPct) {
+        this.targetRamPct = targetRamPct;
+    }
+
+    public Integer getMaxConcurrentTasks() {
+        return maxConcurrentTasks;
+    }
+
+    public void setMaxConcurrentTasks(Integer maxConcurrentTasks) {
+        this.maxConcurrentTasks = maxConcurrentTasks;
+    }
+
+    public Boolean getAutoRenewLease() {
+        return autoRenewLease;
+    }
+
+    public void setAutoRenewLease(Boolean autoRenewLease) {
+        this.autoRenewLease = autoRenewLease;
+    }
+
+    public Instant getLeaseExpiresAt() {
+        return leaseExpiresAt;
+    }
+
+    public void setLeaseExpiresAt(Instant leaseExpiresAt) {
+        this.leaseExpiresAt = leaseExpiresAt;
+    }
+
+    public Long getConfigVersion() {
+        return configVersion;
+    }
+
+    public void setConfigVersion(Long configVersion) {
+        this.configVersion = configVersion;
+    }
+
+    public String getRuntimeConfigJson() {
+        return runtimeConfigJson;
+    }
+
+    public void setRuntimeConfigJson(String runtimeConfigJson) {
+        this.runtimeConfigJson = runtimeConfigJson;
+    }
+
 
     @Override
     public boolean equals(Object o) {

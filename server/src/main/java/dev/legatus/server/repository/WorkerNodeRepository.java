@@ -24,4 +24,13 @@ public interface WorkerNodeRepository extends JpaRepository<WorkerNode, String>,
     List<WorkerNode> findAllByState(WorkerState state);
 
     List<WorkerNode> findAllByStateAndDrainingFalse(WorkerState state);
+
+    List<WorkerNode> findAllByStateAndActiveTrue(WorkerState state);
+
+    List<WorkerNode> findAllByStateAndActiveTrueAndDrainingFalse(WorkerState state);
+
+    long countByStateAndActiveTrue(WorkerState state);
+
+    Optional<WorkerNode> findByFriendlyName(String friendlyName);
 }
+

@@ -109,9 +109,15 @@ LctpFrame LctpFrame::create(const std::string& type, const nlohmann::json& paylo
 
 LctpClient::LctpClient(
     WorkerConfig& config,
-    std::shared_ptr<ProcessSupervisor> supervisor)
+    std::shared_ptr<ProcessSupervisor> supervisor,
+    std::shared_ptr<ConfigManager> config_manager)
     : config_(config),
-      supervisor_(std::move(supervisor)) {}
+      supervisor_(std::move(supervisor)),
+      config_manager_(std::move(config_manager)) {
+    if (!config_manager_) {
+        config_manager_ = std::make_shared<ConfigManager>();
+    }
+}
 
 LctpClient::~LctpClient() {
     stop();
@@ -242,6 +248,9 @@ void LctpClient::send_heartbeat() {
     nlohmann::json p = {
         {"session_id", current_sess},
         {"draining", draining_.load()},
+        {"config_version", config_manager_->config_version()},
+        {"active", config_manager_->is_active()},
+        {"remaining_lease_sec", config_manager_->remaining_lease_sec()},
         {"host_metrics", {
             {"cpu_load_pct", metrics.cpu_load_pct},
             {"gpu_load_pct", metrics.gpu_load_pct},
@@ -327,6 +336,15 @@ void LctpClient::handle_session_ack(const LctpFrame& frame) {
         }
 
         update_state(LctpState::OPERATIONAL);
+
+        // Request authoritative dynamic server configuration
+        std::string hostname = get_system_hostname();
+        std::string wid = config_.identity.worker_id.empty() ? hostname : config_.identity.worker_id;
+        nlohmann::json sync_p = {
+            {"worker_id", wid},
+            {"known_config_version", config_manager_->config_version()}
+        };
+        send_frame(LctpFrame::create("CONFIG_SYNC_REQ", sync_p));
     } else {
         // Rejection
         if (ws_) {
@@ -343,6 +361,28 @@ void LctpClient::handle_heartbeat_ack(const LctpFrame& /*frame*/) {
 
 void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
     if (!supervisor_) return;
+
+    if (!config_manager_->is_active()) {
+        std::string tid = frame.payload.value("task_id", "");
+        spdlog::warn("Rejecting task {} because worker node is marked INACTIVE in server control plane", tid);
+        nlohmann::json p = {
+            {"task_id", tid},
+            {"status", "FAILED"},
+            {"exit_code", 1},
+            {"metrics", {
+                {"instructions_consumed", 0},
+                {"peak_memory_bytes", 0},
+                {"execution_wall_time_ms", 0}
+            }},
+            {"output", nullptr},
+            {"error", {
+                {"code", "ERR_WORKER_INACTIVE"},
+                {"message", "Worker is marked INACTIVE in server control plane"}
+            }}
+        };
+        send_frame(LctpFrame::create("TASK_RESULT", p));
+        return;
+    }
 
     runner::ExecutionEnvelope envelope;
     envelope.task_id = frame.payload.value("task_id", "");
@@ -487,6 +527,20 @@ void LctpClient::handle_abort_task(const LctpFrame& frame) {
     }
 }
 
+void LctpClient::handle_config_sync_resp(const LctpFrame& frame) {
+    spdlog::info("Received CONFIG_SYNC_RESP: applying authoritative server configuration");
+    config_manager_->apply_server_config(frame.payload);
+    std::lock_guard<std::mutex> lock(session_mutex_);
+    heartbeat_interval_ms_ = config_manager_->heartbeat_interval_ms();
+}
+
+void LctpClient::handle_config_update_push(const LctpFrame& frame) {
+    spdlog::info("Received CONFIG_UPDATE_PUSH: applying dynamic configuration update");
+    config_manager_->apply_server_config(frame.payload);
+    std::lock_guard<std::mutex> lock(session_mutex_);
+    heartbeat_interval_ms_ = config_manager_->heartbeat_interval_ms();
+}
+
 void LctpClient::handle_inbound_frame(const LctpFrame& frame) {
     if (on_frame_received_) {
         on_frame_received_(frame);
@@ -496,6 +550,10 @@ void LctpClient::handle_inbound_frame(const LctpFrame& frame) {
         handle_session_ack(frame);
     } else if (frame.type == "HEARTBEAT_ACK") {
         handle_heartbeat_ack(frame);
+    } else if (frame.type == "CONFIG_SYNC_RESP") {
+        handle_config_sync_resp(frame);
+    } else if (frame.type == "CONFIG_UPDATE_PUSH") {
+        handle_config_update_push(frame);
     } else if (frame.type == "DISPATCH_TASK") {
         handle_dispatch_task(frame);
     } else if (frame.type == "ABORT_TASK") {
@@ -536,11 +594,12 @@ void LctpClient::connection_loop() {
             EnrollmentClient enroll_client(config_);
             auto ticket_res = enroll_client.exchange_ticket();
             if (!ticket_res.success) {
-                // Exponential backoff
-                attempt = std::min(attempt + 1, 5);
-                double backoff_sec = std::min(30.0, std::pow(2.0, attempt)) + jitter_dist(rng);
+                // Exponential backoff via ConfigManager
+                attempt = std::min(attempt + 1, 10);
+                auto backoff_ms = ConfigManager::compute_backoff(attempt);
+                auto jitter_ms = std::chrono::milliseconds(static_cast<int>(jitter_dist(rng) * 1000.0));
                 std::unique_lock<std::mutex> lock(cv_mutex_);
-                cv_.wait_for(lock, std::chrono::milliseconds(static_cast<int>(backoff_sec * 1000)), [&]() {
+                cv_.wait_for(lock, backoff_ms + jitter_ms, [&]() {
                     return !running_.load();
                 });
                 continue;

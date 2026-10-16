@@ -1,5 +1,6 @@
 #include "legatus/version.hpp"
 #include "legatus/daemon/worker_config.hpp"
+#include "legatus/daemon/config_manager.hpp"
 #include "legatus/daemon/process_supervisor.hpp"
 #include "legatus/daemon/enrollment_client.hpp"
 #include "legatus/daemon/ipc_bus.hpp"
@@ -42,9 +43,19 @@ public:
         auto now = std::chrono::steady_clock::now();
         int64_t uptime_sec = std::chrono::duration_cast<std::chrono::seconds>(now - start_time_).count();
 
+        auto cfg_mgr = lctp_client_ ? lctp_client_->config_manager() : nullptr;
+        std::string friendly_name = cfg_mgr ? cfg_mgr->friendly_name() : config_.identity.worker_id;
+        bool active = cfg_mgr ? cfg_mgr->is_active() : true;
+        uint64_t cfg_ver = cfg_mgr ? cfg_mgr->config_version() : 1;
+        uint64_t rem_lease = cfg_mgr ? cfg_mgr->remaining_lease_sec() : 0;
+
         nlohmann::json d = {
             {"version", legatus::VERSION},
             {"uptime_seconds", uptime_sec},
+            {"friendly_name", friendly_name},
+            {"active", active},
+            {"config_version", cfg_ver},
+            {"remaining_lease_sec", rem_lease},
             {"server_endpoint", config_.server.endpoint},
             {"websocket_connected", lctp_client_ ? lctp_client_->is_connected() : false},
             {"assigned_cluster", lctp_client_ ? lctp_client_->session_id() : "none"},
@@ -197,7 +208,8 @@ int main(int argc, char* argv[]) {
     std::string runner_path = legatus::common::PathResolver::get_runner_path().string();
     spdlog::info("Resolved runner binary path: {}", runner_path);
     auto supervisor = std::make_shared<legatus::daemon::ProcessSupervisor>(runner_path);
-    auto lctp_client = std::make_shared<legatus::daemon::LctpClient>(config, supervisor);
+    auto config_manager = std::make_shared<legatus::daemon::ConfigManager>();
+    auto lctp_client = std::make_shared<legatus::daemon::LctpClient>(config, supervisor, config_manager);
 
     std::string ipc_endpoint = legatus::common::PathResolver::get_default_ipc_path().string();
     auto ipc_server = std::make_unique<legatus::daemon::IpcServer>(ipc_endpoint);

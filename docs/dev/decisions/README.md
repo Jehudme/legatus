@@ -33,4 +33,6 @@ Every ADR in this directory **MUST** conform to the 7-section MADR schema define
 | **[ADR-0007](0007-adopt-nng-for-local-daemon-ipc.md)** | Adopt `nng` (nanomsg-next-gen) for Cross-Platform Local CLI-Daemon IPC | `worker` / `cli` | `ACCEPTED` | 2026-10-14 |
 | **[ADR-0008](0008-adopt-reproc-for-worker-task-isolation.md)** | Adopt `reproc++` for Worker Child Process Isolation & Two-Stage Kill Escalation | `worker` / `runner` | `ACCEPTED` | 2026-10-14 |
 | **[ADR-0009](0009-worker-sandboxed-standard-library.md)** | Sandboxed Standard Library Architecture & Pure In-Memory Security Model | `worker` / `runner` / `server` | `ACCEPTED` | 2026-10-15 |
+| **[ADR-0010](0010-server-centric-worker-control-plane.md)** | Server-Centric Worker Control Plane, Dynamic Configuration & Threshold Auto-Balancing | `worker` / `server` / `protocols/worker-wire` | `ACCEPTED` | 2026-10-16 |
+
 

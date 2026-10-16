@@ -32,7 +32,10 @@ import java.util.UUID;
     @JsonSubTypes.Type(value = TaskResultAckFrame.class, name = "TASK_RESULT_ACK"),
     @JsonSubTypes.Type(value = DrainNoticeFrame.class, name = "DRAIN_NOTICE"),
     @JsonSubTypes.Type(value = AbortTaskFrame.class, name = "ABORT_TASK"),
-    @JsonSubTypes.Type(value = ProtocolErrorFrame.class, name = "PROTOCOL_ERROR")
+    @JsonSubTypes.Type(value = ProtocolErrorFrame.class, name = "PROTOCOL_ERROR"),
+    @JsonSubTypes.Type(value = ConfigSyncReqFrame.class, name = "CONFIG_SYNC_REQ"),
+    @JsonSubTypes.Type(value = ConfigSyncRespFrame.class, name = "CONFIG_SYNC_RESP"),
+    @JsonSubTypes.Type(value = ConfigUpdatePushFrame.class, name = "CONFIG_UPDATE_PUSH")
 })
 public sealed interface LctpFrame permits
     SessionInitFrame,
@@ -46,7 +49,11 @@ public sealed interface LctpFrame permits
     TaskResultAckFrame,
     DrainNoticeFrame,
     AbortTaskFrame,
-    ProtocolErrorFrame {
+    ProtocolErrorFrame,
+    ConfigSyncReqFrame,
+    ConfigSyncRespFrame,
+    ConfigUpdatePushFrame {
+
 
     String type();
     UUID id();

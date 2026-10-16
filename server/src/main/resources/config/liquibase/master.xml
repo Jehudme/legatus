@@ -27,4 +27,6 @@
     <include file="config/liquibase/changelog/20261014100000_add_version_to_tasks_and_workers.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261014200000_add_performance_indexes.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261015180000_cleanup_legacy_fake_data.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261016000000_add_worker_control_plane_fields.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>
+
