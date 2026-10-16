@@ -124,7 +124,7 @@ public class AccountAdminResource {
      * {@code POST /api/v1/admin/accounts/{accountId}/reset-password} : Resets password for specified account (write-only).
      */
     @PostMapping("/{accountId}/reset-password")
-    public ResponseEntity<Void> resetPassword(
+    public ResponseEntity<java.util.Map<String, String>> resetPassword(
         @PathVariable("accountId") UUID accountId,
         @Valid @RequestBody ResetPasswordRequest request,
         Authentication authentication,
@@ -134,7 +134,7 @@ public class AccountAdminResource {
         String clientIp = resolveClientIp(httpRequest);
         LOG.debug("REST request by {} to reset password for account {} from IP {}", actorId, accountId, clientIp);
         operatorAccountService.resetPassword(accountId, request.newPassword(), actorId, clientIp);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("status", "PASSWORD_RESET", "account_id", accountId.toString()));
     }
 
     private String resolveActorId(Authentication authentication) {

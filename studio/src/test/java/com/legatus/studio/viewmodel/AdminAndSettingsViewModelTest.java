@@ -55,6 +55,7 @@ public class AdminAndSettingsViewModelTest {
             }
         });
         server.createContext("/api/v1/admin/accounts/acc-1/status", ex -> sendJson(ex, 200, null));
+        server.createContext("/api/v1/admin/accounts/acc-1/reset-password", ex -> sendJson(ex, 200, null));
         server.createContext("/api/v1/admin/accounts/acc-1", ex -> sendJson(ex, 200, null));
 
         // Audit logs
@@ -116,6 +117,26 @@ public class AdminAndSettingsViewModelTest {
         boolean toggled = vm.toggleStatus().get();
         assertTrue(toggled);
         assertEquals("SUSPENDED", vm.getSelectedAccount().getStatus());
+
+        boolean usernameUpdated = vm.updateUsername("user1_updated").get();
+        assertTrue(usernameUpdated);
+        assertEquals("user1_updated", vm.getSelectedAccount().getUsername());
+
+        boolean emailUpdated = vm.updateEmail("u1_updated@corp.internal").get();
+        assertTrue(emailUpdated);
+        assertEquals("u1_updated@corp.internal", vm.getSelectedAccount().getEmail());
+
+        boolean roleUpdated = vm.updateRole("CLUSTER_ADMIN").get();
+        assertTrue(roleUpdated);
+        assertEquals("CLUSTER_ADMIN", vm.getSelectedAccount().getRole());
+
+        // Password policy test: < 12 characters rejected
+        boolean resetShort = vm.resetPassword("short").get();
+        assertFalse(resetShort);
+
+        // Valid password reset
+        boolean resetValid = vm.resetPassword("ComplexAdminPass2026!").get();
+        assertTrue(resetValid);
     }
 
     @Test

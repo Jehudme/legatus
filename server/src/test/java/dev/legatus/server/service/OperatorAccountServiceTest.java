@@ -491,4 +491,63 @@ class OperatorAccountServiceTest {
             eq("SOC2_CC6.1")
         );
     }
+
+    @Test
+    @DisplayName("Should reset account password and hash with Argon2id")
+    void testResetPassword() {
+        UUID accountId = UUID.randomUUID();
+        Account account = new Account()
+            .accountId(accountId)
+            .username("managed-user")
+            .status(AccountStatus.ACTIVE)
+            .passwordHash("oldHash");
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(argon2idService.hash("NewSecretPassword2026!")).thenReturn("newArgonHash");
+        when(accountRepository.save(any(Account.class))).thenAnswer(i -> i.getArgument(0));
+
+        operatorAccountService.resetPassword(accountId, "NewSecretPassword2026!", "admin-actor", "127.0.0.1");
+
+        assertThat(account.getPasswordHash()).isEqualTo("newArgonHash");
+        verify(accountRepository).save(account);
+        verify(wormAuditService).recordEvent(
+            eq("admin-actor"),
+            eq("CLUSTER_ADMIN"),
+            eq("ACCOUNT_PASSWORD_RESET"),
+            eq("ACCOUNT"),
+            eq(accountId.toString()),
+            eq(AuditActionStatus.SUCCESS),
+            anyString(),
+            eq("127.0.0.1"),
+            eq("SOC2_CC6.1")
+        );
+    }
+
+    @Test
+    @DisplayName("Should reject password reset when password is too short")
+    void testResetPasswordTooShort() {
+        UUID accountId = UUID.randomUUID();
+        assertThatThrownBy(() -> operatorAccountService.resetPassword(accountId, "short", "admin-actor", "127.0.0.1"))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("ERR_PASSWORD_POLICY");
+    }
+
+    @Test
+    @DisplayName("Should prevent self-lockout when admin attempts to demote own account")
+    void testSelfDemotionPrevented() {
+        UUID accountId = UUID.randomUUID();
+        Account admin = new Account()
+            .accountId(accountId)
+            .username("admin")
+            .role(OperatorRole.CLUSTER_ADMIN)
+            .status(AccountStatus.ACTIVE);
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(admin));
+
+        UpdateAccountRequest req = new UpdateAccountRequest("admin@legatus.internal", OperatorRole.OPERATOR);
+
+        assertThatThrownBy(() -> operatorAccountService.updateAccount(accountId, req, "admin", "127.0.0.1"))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("Cannot modify status or demote the currently logged-in administrator account.");
+    }
 }

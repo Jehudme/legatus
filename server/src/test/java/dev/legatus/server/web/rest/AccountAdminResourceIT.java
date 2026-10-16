@@ -191,4 +191,81 @@ class AccountAdminResourceIT {
         Account preserved = accountRepository.findById(accountId).orElseThrow();
         assertThat(preserved.getStatus()).isEqualTo(AccountStatus.DEACTIVATED);
     }
+
+    @Test
+    @WithMockUser(username = "admin_user", roles = { "CLUSTER_ADMIN" })
+    @DisplayName("Should reset operator password via write-only endpoint")
+    void testResetPasswordSuccess() throws Exception {
+        UUID accountId = managedAccount.getAccountId();
+        dev.legatus.server.service.dto.ResetPasswordRequest req = new dev.legatus.server.service.dto.ResetPasswordRequest(
+            "BrandNewResetPass2026!"
+        );
+
+        mockMvc.perform(post("/api/v1/admin/accounts/" + accountId + "/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsBytes(req)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status", is("PASSWORD_RESET")))
+            .andExpect(jsonPath("$.password").doesNotExist())
+            .andExpect(jsonPath("$.password_hash").doesNotExist());
+
+        Account updated = accountRepository.findById(accountId).orElseThrow();
+        assertThat(argon2idService.verify("BrandNewResetPass2026!", updated.getPasswordHash())).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = "managed-operator", roles = { "CLUSTER_ADMIN" })
+    @DisplayName("Should prevent self-lockout when admin attempts to suspend their own account")
+    void testSelfLockoutStatusPrevention() throws Exception {
+        UUID accountId = managedAccount.getAccountId();
+        MutateAccountStatusRequest req = new MutateAccountStatusRequest(
+            AccountStatus.SUSPENDED,
+            "Self deactivation attempt"
+        );
+
+        mockMvc.perform(patch("/api/v1/admin/accounts/" + accountId + "/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsBytes(req)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "managed-operator", roles = { "CLUSTER_ADMIN" })
+    @DisplayName("Should prevent self-lockout when admin attempts to demote their own account")
+    void testSelfLockoutDemotionPrevention() throws Exception {
+        UUID accountId = managedAccount.getAccountId();
+        UpdateAccountRequest req = new UpdateAccountRequest(
+            "managed@legatus.corp",
+            OperatorRole.OPERATOR
+        );
+
+        mockMvc.perform(put("/api/v1/admin/accounts/" + accountId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsBytes(req)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "admin_user", roles = { "CLUSTER_ADMIN" })
+    @DisplayName("Should accept account creation with 'password' JSON field alias")
+    void testCreateAccountPasswordAlias() throws Exception {
+        String jsonPayload = """
+            {
+                "username": "alias-user-1",
+                "email": "alias1@corp.legatus",
+                "role": "OPERATOR",
+                "password": "ValidComplexPass2026!"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/admin/accounts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonPayload))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.username", is("alias-user-1")))
+            .andExpect(jsonPath("$.role", is("OPERATOR")));
+
+        Account created = accountRepository.findOneByUsernameIgnoreCase("alias-user-1").orElseThrow();
+        assertThat(argon2idService.verify("ValidComplexPass2026!", created.getPasswordHash())).isTrue();
+    }
 }

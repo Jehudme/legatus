@@ -588,6 +588,9 @@ public class OperatorAccountService {
         account.setStatus(AccountStatus.DEACTIVATED);
         account.setUpdatedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
         Account saved = accountRepository.save(account);
+        if (saved == null) {
+            saved = account;
+        }
 
         wormAuditService.recordEvent(
             adminActorId,

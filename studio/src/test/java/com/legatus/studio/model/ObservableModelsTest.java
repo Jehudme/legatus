@@ -60,17 +60,26 @@ public class ObservableModelsTest {
     void testTaskRecordModel() {
         TaskRecord task = new TaskRecord(
                 "task-01", "matrix-mult", "EXECUTING", null, "w-01",
-                500000L, 8000000L, 1200L, "2026-10-15T15:00:00Z", null
+                500000L, 8000000L, 3420L, "2026-10-15T15:00:00Z",
+                "1774886400000", "1774886403420", "worker-alpha", "perf-profile"
         );
 
         assertEquals("task-01", task.getTaskId());
+        assertEquals("matrix-mult", task.getName());
+        assertEquals("matrix-mult", task.getFunctionName());
         assertEquals("EXECUTING", task.getStatus());
         assertEquals(500000L, task.getInstructionsConsumed());
+        assertEquals("worker-alpha", task.getWorkerFriendlyName());
+        assertEquals("perf-profile", task.getProfileName());
+        assertEquals("3.42s", task.getFormattedDuration());
+        assertNotNull(task.getFormattedStartTime());
+        assertEquals("--", task.getFormattedEndTime()); // Executing tasks have '--' end time
 
         task.setStatus("COMPLETED");
         task.setExitCode(0);
         assertEquals("COMPLETED", task.getStatus());
         assertEquals(0, task.getExitCode());
+        assertNotEquals("--", task.getFormattedEndTime());
     }
 
     @Test
