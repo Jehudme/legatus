@@ -1,6 +1,7 @@
 #include "legatus/daemon/lctp_client.hpp"
 #include "legatus/daemon/process_supervisor.hpp"
 #include "legatus/common/base64.hpp"
+#include "legatus/common/crypto_utils.hpp"
 #include <ixwebsocket/IXWebSocketServer.h>
 #include <solix/compilation.hpp>
 #include <catch2/catch_all.hpp>
@@ -143,8 +144,13 @@ TEST_CASE("LCTP Client - In-Process Mock Broker Full Lifecycle", "[worker][daemo
 
     // 3. DISPATCH_TASK launches child process and returns TASK_RESULT
     const std::string solix_src = R"(
+        class Console {
+            public static native void native_print_string(char[] str);
+        }
+
         public class Main {
             public static int32 main(char[][] args) {
+                Console.native_print_string("Task log chunk test output\n");
                 return 0;
             }
         }
@@ -152,7 +158,7 @@ TEST_CASE("LCTP Client - In-Process Mock Broker Full Lifecycle", "[worker][daemo
     auto bytecode = compile_solix_to_bytecode(solix_src);
     REQUIRE(!bytecode.empty());
 
-    std::string test_sha256 = "mock-sha256-dedup-key";
+    std::string test_sha256 = legatus::common::sha256_hex(bytecode.data(), bytecode.size());
     nlohmann::json dispatch_payload = {
         {"task_id", "task-ws-integration-99"},
         {"entry_point", "main"},

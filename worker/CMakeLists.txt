@@ -289,6 +289,8 @@ add_executable(legatus_tests
     tests/unit/test_stdlib_crypto.cpp
     tests/unit/test_stdlib_regex.cpp
     tests/unit/test_stdlib_encoding_and_kv.cpp
+    tests/integration/test_runner_isolation.cpp
+    tests/integration/test_bytecode_cache_fallback.cpp
 )
 
 target_compile_definitions(legatus_tests PRIVATE

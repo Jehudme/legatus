@@ -77,20 +77,47 @@ std::vector<uint8_t> BytecodeCache::get_or_fetch(
     const std::string& base64_str,
     const std::string& bytecode_url) {
 
-    if (has(sha256_hex)) {
+    if (!sha256_hex.empty() && has(sha256_hex)) {
         return get(sha256_hex);
     }
 
     if (!base64_str.empty()) {
         auto bytes = common::base64_decode(base64_str);
         if (!bytes.empty()) {
-            store(sha256_hex, bytes);
+            if (!sha256_hex.empty()) {
+                store(sha256_hex, bytes);
+            }
             return bytes;
         }
     }
 
-    if (!bytecode_url.empty() && !server_endpoint_.empty()) {
-        std::string full_url = server_endpoint_ + bytecode_url;
+    std::string target_path = bytecode_url;
+    if (target_path.empty() && !sha256_hex.empty()) {
+        target_path = "/api/v1/bytecode/" + sha256_hex;
+    }
+
+    if (!target_path.empty() && !server_endpoint_.empty()) {
+        std::string ep = server_endpoint_;
+        if (ep.rfind("ws://", 0) == 0) {
+            ep = "http://" + ep.substr(5);
+        } else if (ep.rfind("wss://", 0) == 0) {
+            ep = "https://" + ep.substr(6);
+        }
+        while (!ep.empty() && ep.back() == '/') {
+            ep.pop_back();
+        }
+
+        std::string full_url;
+        if (target_path.rfind("http://", 0) == 0 || target_path.rfind("https://", 0) == 0) {
+            full_url = target_path;
+        } else {
+            if (target_path.front() != '/') {
+                full_url = ep + "/" + target_path;
+            } else {
+                full_url = ep + target_path;
+            }
+        }
+
         ix::HttpClient client;
 
         ix::SocketTLSOptions tlsOptions;
@@ -113,7 +140,9 @@ std::vector<uint8_t> BytecodeCache::get_or_fetch(
         if (resp && resp->statusCode == 200 && !resp->body.empty()) {
             const auto* data = reinterpret_cast<const uint8_t*>(resp->body.data());
             std::vector<uint8_t> bytes(data, data + resp->body.size());
-            store(sha256_hex, bytes);
+            if (!sha256_hex.empty()) {
+                store(sha256_hex, bytes);
+            }
             return bytes;
         }
     }

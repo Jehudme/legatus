@@ -3,6 +3,7 @@
 #include "legatus/daemon/worker_config.hpp"
 #include "legatus/daemon/config_manager.hpp"
 #include "legatus/daemon/process_supervisor.hpp"
+#include "legatus/daemon/bytecode_cache.hpp"
 #include <ixwebsocket/IXWebSocket.h>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -54,6 +55,8 @@ public:
     std::string session_id() const;
 
     std::shared_ptr<ConfigManager> config_manager() const { return config_manager_; }
+    std::shared_ptr<BytecodeCache> bytecode_cache() const { return bytecode_cache_; }
+    void set_bytecode_cache(std::shared_ptr<BytecodeCache> cache) { bytecode_cache_ = std::move(cache); }
 
     void set_draining(bool draining);
     bool is_draining() const;
@@ -114,7 +117,7 @@ private:
     std::condition_variable cv_;
 
     std::mutex bytecode_cache_mutex_;
-    std::unordered_map<std::string, std::string> bytecode_cache_;
+    std::shared_ptr<BytecodeCache> bytecode_cache_;
 
     std::function<void(LctpState)> on_state_change_;
     std::function<void(const LctpFrame&)> on_frame_received_;

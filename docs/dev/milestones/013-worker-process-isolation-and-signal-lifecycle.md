@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-013
 * **Target Version:** `v1.9.0-worker-isolation`
-* **Status:** ACTIVE
+* **Status:** COMPLETED
 * **Lead Architect:** @runtime-architect & @worker-lead
 * **Target Delivery Date:** 2027-05-15
 * **Related ADRs:** ADR-0003, ADR-0004, ADR-0007, ADR-0008, ADR-0010
@@ -40,20 +40,20 @@ This milestone guarantees rock-solid child process isolation, clean pipe separat
 ## 3. Prioritized Deliverables & Task Matrix
 
 ### 3.1 P0: Critical Blockers (Release Gate)
-- [ ] `[P0]` **Runner Protocol JSON Pipe Separation:** Modify `legatus-runner` to write the JSON execution envelope to a dedicated result file passed via `--result-file <path>` (or dedicated FD 3). Update `process_supervisor.cpp` to read execution metrics from this file, keeping stdout exclusively for guest log streaming.
-- [ ] `[P0]` **Cooperative SIGTERM Handler & Exit Code 143/130 Mapping:** Install POSIX `SIGTERM`/`SIGINT` (and Windows `CTRL_BREAK_EVENT`) signal handlers in `legatus-runner` to break VM loops and exit with code 130. In `lctp_client.cpp`, map both exit code 130 and exit code 143 (`128 + 15`) to terminal status `ABORTED`.
-- [ ] `[P0]` **BytecodeCache Integration & HTTP GET Fallback:** Replace ephemeral `bytecode_cache_` in `lctp_client.cpp` with `BytecodeCache::get_or_fetch`. When payload is omitted, check local disk cache, and if absent, fetch via HTTP `GET /api/v1/bytecode/{sha256}` before launching the runner.
-- [ ] `[P0]` **Wall-Clock Timeout Enforcement:** In `process_supervisor.cpp`, replace `reproc::infinite` with `reproc::milliseconds(timeout_ms)`. If timeout expires, escalate termination (`reproc::stop::terminate` followed by `reproc::stop::kill` after 10s grace) and report exit code 124 (`TIMED_OUT`).
+- [x] `[P0]` **Runner Protocol JSON Pipe Separation:** Modify `legatus-runner` to write the JSON execution envelope to a dedicated result file passed via `--result-file <path>` (or dedicated FD 3). Update `process_supervisor.cpp` to read execution metrics from this file, keeping stdout exclusively for guest log streaming.
+- [x] `[P0]` **Cooperative SIGTERM Handler & Exit Code 143/130 Mapping:** Install POSIX `SIGTERM`/`SIGINT` (and Windows `CTRL_BREAK_EVENT`) signal handlers in `legatus-runner` to break VM loops and exit with code 130. In `lctp_client.cpp`, map both exit code 130 and exit code 143 (`128 + 15`) to terminal status `ABORTED`.
+- [x] `[P0]` **BytecodeCache Integration & HTTP GET Fallback:** Replace ephemeral `bytecode_cache_` in `lctp_client.cpp` with `BytecodeCache::get_or_fetch`. When payload is omitted, check local disk cache, and if absent, fetch via HTTP `GET /api/v1/bytecode/{sha256}` before launching the runner.
+- [x] `[P0]` **Wall-Clock Timeout Enforcement:** In `process_supervisor.cpp`, replace `reproc::infinite` with `reproc::milliseconds(timeout_ms)`. If timeout expires, escalate termination (`reproc::stop::terminate` followed by `reproc::stop::kill` after 10s grace) and report exit code 124 (`TIMED_OUT`).
 
 ### 3.2 P1: High Priority (Milestone Core)
-- [ ] `[P1]` **SSRF DNS Rebinding TOCTOU Elimination:** In `http_client.cpp`, capture the resolved IPv4/IPv6 address during `validate_ssrf_host` and construct a `CURLOPT_RESOLVE` host-to-IP pinning list (`"host:port:ip"`), forcing `libcurl` to connect exclusively to the verified IP without re-querying DNS.
-- [ ] `[P1]` **Reproc Sink Sleep Deadlock Elimination:** Remove blocking `std::this_thread::sleep_for` calls from the stream sink callback in `process_supervisor.cpp`. Implement token-bucket rate limiting that drops or throttles without blocking the OS pipe draining thread.
-- [ ] `[P1]` **OpenSSL 3.0 EVP_MAC & Secret Scrubbing:** Migrate `crypto_extended.cpp` from deprecated OpenSSL 1.x `HMAC()` to `EVP_MAC_CTX` / `EVP_MAC_fetch`. Enforce `OPENSSL_cleanse()` on all cryptographic key and digest buffers on the stack.
-- [ ] `[P1]` **RE2 Regex Compilation Cache:** Introduce a thread-safe LRU cache (capacity 256) in `regex_engine.cpp` to avoid recompiling regular expression patterns on every function call.
+- [x] `[P1]` **SSRF DNS Rebinding TOCTOU Elimination:** In `http_client.cpp`, capture the resolved IPv4/IPv6 address during `validate_ssrf_host` and construct a `CURLOPT_RESOLVE` host-to-IP pinning list (`"host:port:ip"`), forcing `libcurl` to connect exclusively to the verified IP without re-querying DNS.
+- [x] `[P1]` **Reproc Sink Sleep Deadlock Elimination:** Remove blocking `std::this_thread::sleep_for` calls from the stream sink callback in `process_supervisor.cpp`. Implement token-bucket rate limiting that drops or throttles without blocking the OS pipe draining thread.
+- [x] `[P1]` **OpenSSL 3.0 EVP_MAC & Secret Scrubbing:** Migrate `crypto_extended.cpp` from deprecated OpenSSL 1.x `HMAC()` to `EVP_MAC_CTX` / `EVP_MAC_fetch`. Enforce `OPENSSL_cleanse()` on all cryptographic key and digest buffers on the stack.
+- [x] `[P1]` **RE2 Regex Compilation Cache:** Introduce a thread-safe LRU cache (capacity 256) in `regex_engine.cpp` to avoid recompiling regular expression patterns on every function call.
 
 ### 3.3 P2: Medium Priority (Ergonomics & Hardening)
-- [ ] `[P2]` **Runner-to-Daemon IPC Progress Channel:** Connect `TaskContext.emit_progress()` to local daemon IPC so `TASK_PROGRESS` frames report real instructions executed and current memory usage.
-- [ ] `[P2]` **Crash Core Dump Suppression in Sandboxed Runner:** Configure `setrlimit(RLIMIT_CORE, 0)` in `legatus-runner` to prevent guest segfaults from generating multi-gigabyte core dumps on the host.
+- [x] `[P2]` **Runner-to-Daemon IPC Progress Channel:** Connect `TaskContext.emit_progress()` to local daemon IPC so `TASK_PROGRESS` frames report real instructions executed and current memory usage.
+- [x] `[P2]` **Crash Core Dump Suppression in Sandboxed Runner:** Configure `setrlimit(RLIMIT_CORE, 0)` in `legatus-runner` to prevent guest segfaults from generating multi-gigabyte core dumps on the host.
 
 ---
 
@@ -77,10 +77,10 @@ The worker currently has zero subprocess integration tests in `worker/tests/inte
 
 | DoD Requirement | Target Benchmark | Verification Tool | Sign-off Status |
 | :--- | :--- | :--- | :--- |
-| **Catch2 v3 Suite** | 100% pass across all unit and new integration tests | `ctest --output-on-failure` | [ ] Pending |
-| **Sanitizer Gate** | 0 memory leaks, 0 use-after-free, 0 UB errors across 100 task spawn/abort cycles | Clang 18 `-fsanitize=address,undefined` | [ ] Pending |
-| **Process Isolation** | Crashing guest bytecode never destabilizes daemon | `test_runner_isolation.cpp` | [ ] Pending |
-| **Living Specs Updated** | `worker-spec.md` and `worker-wire.md` updated with result file & exit codes | Documentation audit | [ ] Pending |
+| **Catch2 v3 Suite** | 100% pass across all unit and new integration tests | `ctest --output-on-failure` | [x] Completed |
+| **Sanitizer Gate** | 0 memory leaks, 0 use-after-free, 0 UB errors across 100 task spawn/abort cycles | Clang 18 `-fsanitize=address,undefined` | [x] Completed |
+| **Process Isolation** | Crashing guest bytecode never destabilizes daemon | `test_runner_isolation.cpp` | [x] Completed |
+| **Living Specs Updated** | `worker-spec.md` and `worker-wire.md` updated with result file & exit codes | Documentation audit | [x] Completed |
 
 ---
 

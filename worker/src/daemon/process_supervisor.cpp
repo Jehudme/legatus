@@ -3,6 +3,13 @@
 #include <reproc++/drain.hpp>
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <cstring>
+#if !defined(_WIN32)
+#include <sys/types.h>
+#include <signal.h>
+#endif
 
 namespace legatus::daemon {
 
@@ -43,11 +50,24 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
     j["secrets"] = envelope.secrets;
     j["instruction_budget"] = envelope.instruction_budget;
     j["memory_limit_bytes"] = envelope.memory_limit_bytes;
+    j["timeout_ms"] = envelope.timeout_ms;
     std::string input_payload = j.dump();
 
     auto proc = std::make_shared<reproc::process>();
 
-    std::vector<std::string> args = { runner_path_ };
+    std::filesystem::path result_file_path = std::filesystem::temp_directory_path() /
+        ("legatus_res_" + envelope.task_id + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".json");
+
+    struct ResultFileGuard {
+        std::filesystem::path path;
+        ~ResultFileGuard() {
+            std::error_code ignore_ec;
+            std::filesystem::remove(path, ignore_ec);
+        }
+    } file_guard{result_file_path};
+
+    std::vector<std::string> args = { runner_path_, "--result-file", result_file_path.string() };
     reproc::options opts;
     opts.stop = {
         { reproc::stop::terminate, reproc::milliseconds(grace_period_.count()) },
@@ -103,16 +123,17 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
     }
     proc->close(reproc::stream::in);
 
-    // Drain stdout and stderr with real-time chunk streaming and backpressure
+    // Drain stdout and stderr with real-time chunk streaming and non-blocking rate limiting
     std::string stdout_str;
     std::string stderr_str;
     constexpr size_t MAX_LOG_VOLUME_BYTES = 8 * 1024 * 1024; // 8MB ceiling
     size_t total_volume_bytes = 0;
     bool ceiling_reached = false;
 
-    // Rate limiter: max 1,000 chunks/second per task
+    // Rate limiter: max 1,000 chunks/second per task (no blocking sleep)
     auto rate_window_start = std::chrono::steady_clock::now();
     size_t chunks_in_window = 0;
+    bool rate_warning_emitted = false;
 
     auto make_sink = [&](const std::string& stream_name, std::string& full_str) {
         return [&](reproc::stream /*stream*/, const uint8_t* buffer, size_t size) -> std::error_code {
@@ -121,6 +142,21 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
             // Accumulate in buffer for final execution result parsing (bounded)
             if (full_str.size() + size <= MAX_LOG_VOLUME_BYTES) {
                 full_str.append(reinterpret_cast<const char*>(buffer), size);
+            }
+
+            // Check for progress checkpoint pattern: [PROGRESS:<inst>:<checkpoint>]
+            const char* buf_str = reinterpret_cast<const char*>(buffer);
+            const char* prog_tag = "[PROGRESS:";
+            const char* found = std::strstr(buf_str, prog_tag);
+            if (found) {
+                try {
+                    uint64_t inst = std::strtoull(found + 10, nullptr, 10);
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    auto it = active_processes_.find(envelope.task_id);
+                    if (it != active_processes_.end()) {
+                        it->second.instructions_consumed = inst;
+                    }
+                } catch (...) {}
             }
 
             if (ceiling_reached) {
@@ -138,20 +174,22 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
             total_volume_bytes += size;
 
             if (on_log_chunk) {
-                // Rate-limiting backpressure: max 1000 chunks per 1 second
-                chunks_in_window++;
-                if (chunks_in_window > 1000) {
-                    auto now = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - rate_window_start).count();
-                    if (elapsed < 1000) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1000 - elapsed));
-                    }
-                    rate_window_start = std::chrono::steady_clock::now();
-                    chunks_in_window = 1;
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - rate_window_start).count();
+                if (elapsed_ms >= 1000) {
+                    rate_window_start = now;
+                    chunks_in_window = 0;
+                    rate_warning_emitted = false;
                 }
 
-                std::string chunk(reinterpret_cast<const char*>(buffer), size);
-                on_log_chunk(stream_name, chunk);
+                chunks_in_window++;
+                if (chunks_in_window <= 1000) {
+                    std::string chunk(reinterpret_cast<const char*>(buffer), size);
+                    on_log_chunk(stream_name, chunk);
+                } else if (!rate_warning_emitted) {
+                    rate_warning_emitted = true;
+                    on_log_chunk(stream_name, "\n[Output throttled: rate limit of 1000 chunks/sec exceeded]\n");
+                }
             }
             return {};
         };
@@ -159,45 +197,194 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
 
     auto out_sink = make_sink("stdout", stdout_str);
     auto err_sink = make_sink("stderr", stderr_str);
-    ec = reproc::drain(*proc, out_sink, err_sink);
+
+    auto start_time = std::chrono::steady_clock::now();
+    bool has_timeout = (envelope.timeout_ms > 0);
+    auto deadline = start_time + std::chrono::milliseconds(envelope.timeout_ms);
+
+    constexpr size_t BUFFER_SIZE = 4096;
+    uint8_t drain_buffer[BUFFER_SIZE] = {};
+
+    bool timed_out = false;
+    for (;;) {
+        reproc::milliseconds poll_timeout = reproc::milliseconds(50);
+        if (has_timeout) {
+            auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) {
+                timed_out = true;
+                break;
+            }
+            auto rem_ms = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+            poll_timeout = reproc::milliseconds(static_cast<int>(std::max<int64_t>(1, std::min<int64_t>(rem_ms, 50))));
+        }
+
+        int events = 0;
+        std::tie(events, ec) = proc->poll(reproc::event::out | reproc::event::err | reproc::event::exit, poll_timeout);
+
+        if (has_timeout && std::chrono::steady_clock::now() >= deadline) {
+            timed_out = true;
+            break;
+        }
+
+        if (ec) {
+            // Broken pipe or error -> process finished or closed output
+            break;
+        }
+
+        if (events & reproc::event::exit) {
+            break;
+        }
+
+        if (events == 0) {
+            continue;
+        }
+
+        if (events & reproc::event::out) {
+            size_t bytes_read = 0;
+            std::tie(bytes_read, ec) = proc->read(reproc::stream::out, drain_buffer, BUFFER_SIZE);
+            if (bytes_read > 0) {
+                out_sink(reproc::stream::out, drain_buffer, bytes_read);
+            }
+            if (ec) break;
+        }
+
+        if (events & reproc::event::err) {
+            size_t bytes_read = 0;
+            std::tie(bytes_read, ec) = proc->read(reproc::stream::err, drain_buffer, BUFFER_SIZE);
+            if (bytes_read > 0) {
+                err_sink(reproc::stream::err, drain_buffer, bytes_read);
+            }
+            if (ec) break;
+        }
+    }
+
+    if (timed_out) {
+        // Escalate termination
+        proc->stop({
+            { reproc::stop::terminate, reproc::milliseconds(grace_period_.count()) },
+            { reproc::stop::kill, reproc::milliseconds(kill_timeout_.count()) },
+            { reproc::stop::noop, reproc::milliseconds(0) }
+        });
+        result.exit_code = 124; // TIMED_OUT standard exit code
+        result.error_message = "Task execution timed out after " + std::to_string(envelope.timeout_ms) + " ms";
+        result.stdout_output = stdout_str;
+        return result;
+    }
+
+    // Flush any remaining data from pipes
+    while (true) {
+        size_t b_out = 0;
+        std::tie(b_out, ec) = proc->read(reproc::stream::out, drain_buffer, BUFFER_SIZE);
+        if (!ec && b_out > 0) {
+            out_sink(reproc::stream::out, drain_buffer, b_out);
+        } else {
+            break;
+        }
+    }
+    while (true) {
+        size_t b_err = 0;
+        std::tie(b_err, ec) = proc->read(reproc::stream::err, drain_buffer, BUFFER_SIZE);
+        if (!ec && b_err > 0) {
+            err_sink(reproc::stream::err, drain_buffer, b_err);
+        } else {
+            break;
+        }
+    }
 
     int status = 0;
-    std::tie(status, ec) = proc->wait(reproc::infinite);
+    std::tie(status, ec) = proc->wait(reproc::milliseconds(5000));
+    if (ec) {
+        auto [stop_status, _] = proc->stop({
+            { reproc::stop::terminate, reproc::milliseconds(grace_period_.count()) },
+            { reproc::stop::kill, reproc::milliseconds(kill_timeout_.count()) },
+            { reproc::stop::noop, reproc::milliseconds(0) }
+        });
+        status = stop_status;
+    }
 
-    // Try parsing stdout as JSON ExecutionResult
-    try {
-        if (!stdout_str.empty()) {
+    // 1. Try reading from dedicated result file first
+    bool result_parsed = false;
+    if (std::filesystem::exists(result_file_path)) {
+        try {
+            std::ifstream rfs(result_file_path);
+            if (rfs.is_open()) {
+                std::string file_content((std::istreambuf_iterator<char>(rfs)), std::istreambuf_iterator<char>());
+                rfs.close();
+                if (!file_content.empty()) {
+                    nlohmann::json res_j = nlohmann::json::parse(file_content);
+                    result.exit_code = res_j.value("exit_code", status);
+                    result.instructions_executed = res_j.value("instructions_executed", 0ULL);
+                    result.peak_memory_bytes = res_j.value("peak_memory_bytes", 0ULL);
+                    result.stdout_output = res_j.value("stdout_output", stdout_str);
+                    result.error_message = res_j.value("error_message", stderr_str);
+                    result_parsed = true;
+                }
+            }
+        } catch (...) {}
+    }
+
+    // 2. Fallback to trying to parse stdout as JSON (backward compatibility)
+    if (!result_parsed && !stdout_str.empty()) {
+        try {
             nlohmann::json res_j = nlohmann::json::parse(stdout_str);
             result.exit_code = res_j.value("exit_code", status);
             result.instructions_executed = res_j.value("instructions_executed", 0ULL);
             result.peak_memory_bytes = res_j.value("peak_memory_bytes", 0ULL);
             result.stdout_output = res_j.value("stdout_output", "");
             result.error_message = res_j.value("error_message", "");
-            return result;
-        }
-    } catch (...) {
-        // Fallback to raw output
+            result_parsed = true;
+        } catch (...) {}
     }
 
-    result.exit_code = status;
-    result.stdout_output = stdout_str;
-    result.error_message = stderr_str;
+    if (!result_parsed) {
+        result.exit_code = status;
+        result.stdout_output = stdout_str;
+        result.error_message = stderr_str;
+    }
+
+    // Progress checkpoint parsing fallback if instructions_executed is 0
+    if (result.instructions_executed == 0 && !stdout_str.empty()) {
+        size_t p_pos = stdout_str.rfind("[PROGRESS:");
+        if (p_pos != std::string::npos) {
+            size_t next_colon = stdout_str.find(':', p_pos + 10);
+            if (next_colon != std::string::npos) {
+                try {
+                    uint64_t inst = std::stoull(stdout_str.substr(p_pos + 10, next_colon - (p_pos + 10)));
+                    result.instructions_executed = inst;
+                } catch (...) {}
+            }
+        }
+    }
+
+    if ((result.exit_code == 143 || result.exit_code == 130) && result.error_message.empty()) {
+        result.error_message = "Task execution aborted by signal";
+    }
+
     return result;
 }
 
 bool ProcessSupervisor::abort_task(const std::string& task_id) {
     std::shared_ptr<reproc::process> proc;
+    int child_pid = 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = active_processes_.find(task_id);
         if (it != active_processes_.end()) {
             proc = it->second.proc;
+            child_pid = it->second.pid;
         }
     }
 
-    if (!proc) {
+    if (!proc && child_pid <= 0) {
         return false;
     }
+
+#if !defined(_WIN32)
+    if (child_pid > 0) {
+        ::kill(child_pid, SIGTERM);
+        return true;
+    }
+#endif
 
     // Two-stage kill escalation: SIGTERM (10s) -> SIGKILL (2s)
     proc->stop({

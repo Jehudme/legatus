@@ -17,6 +17,7 @@ struct ExecutionEnvelope {
     std::map<std::string, std::string> environment_variables;
     std::uint64_t instruction_budget = 1'000'000;
     std::uint64_t memory_limit_bytes = 128 * 1024 * 1024; // 128 MB default
+    std::uint64_t timeout_ms = 0; // 0 = unlimited / default
 };
 
 struct ExecutionResult {
@@ -73,6 +74,7 @@ inline ExecutionEnvelope parse_envelope(const std::string& json_str) {
 
     env.instruction_budget = j.value("instruction_budget", 1'000'000ULL);
     env.memory_limit_bytes = j.value("memory_limit_bytes", 128ULL * 1024ULL * 1024ULL);
+    env.timeout_ms = j.value("timeout_ms", 0ULL);
     return env;
 }
 

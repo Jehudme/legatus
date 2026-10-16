@@ -8,6 +8,6 @@ namespace legatus::runner {
 
 ExecutionResult execute_task(ExecutionEnvelope& envelope, SecretZeroizer& zeroizer);
 
-int run_task_runner(std::istream& in, std::ostream& out);
+int run_task_runner(std::istream& in, std::ostream& out, const std::string& result_file_path = "");
 
 } // namespace legatus::runner

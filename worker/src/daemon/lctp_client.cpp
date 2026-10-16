@@ -1,6 +1,8 @@
 #include "legatus/daemon/lctp_client.hpp"
 #include "legatus/daemon/enrollment_client.hpp"
 #include "legatus/common/telemetry_collector.hpp"
+#include "legatus/common/paths.hpp"
+#include "legatus/common/base64.hpp"
 #include "legatus/version.hpp"
 #include <openssl/rand.h>
 #include <spdlog/spdlog.h>
@@ -89,9 +91,15 @@ std::string LctpFrame::serialize() const {
 LctpFrame LctpFrame::deserialize(const std::string& json_str) {
     LctpFrame frame;
     auto j = nlohmann::json::parse(json_str);
-    frame.type = j.value("type", "");
-    frame.id = j.value("id", "");
-    frame.timestamp = j.value("timestamp", 0LL);
+    if (j.contains("type") && j["type"].is_string()) {
+        frame.type = j["type"].get<std::string>();
+    }
+    if (j.contains("id") && j["id"].is_string()) {
+        frame.id = j["id"].get<std::string>();
+    }
+    if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        frame.timestamp = j["timestamp"].get<int64_t>();
+    }
     if (j.contains("payload") && j["payload"].is_object()) {
         frame.payload = j["payload"];
     }
@@ -116,6 +124,14 @@ LctpClient::LctpClient(
       config_manager_(std::move(config_manager)) {
     if (!config_manager_) {
         config_manager_ = std::make_shared<ConfigManager>();
+    }
+    if (!bytecode_cache_) {
+        bytecode_cache_ = std::make_shared<BytecodeCache>(
+            common::PathResolver::get_bytecode_cache_dir(),
+            config_.server.endpoint,
+            config_.server.tls_verify_peer,
+            config_.server.ca_cert_path
+        );
     }
 }
 
@@ -387,23 +403,39 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
     std::string sha256;
     if (frame.payload.contains("bytecode") && frame.payload["bytecode"].is_object()) {
         const auto& bc = frame.payload["bytecode"];
-        sha256 = bc.value("sha256", "");
-        if (bc.contains("payload") && bc["payload"].is_string() && !bc["payload"].get<std::string>().empty()) {
-            envelope.bytecode_base64 = bc["payload"].get<std::string>();
-            if (!sha256.empty()) {
-                std::lock_guard<std::mutex> lock(bytecode_cache_mutex_);
-                bytecode_cache_[sha256] = envelope.bytecode_base64;
-            }
-        } else if (!sha256.empty()) {
-            // Deduplication hit: resolve from local worker cache
+        if (bc.contains("sha256") && bc["sha256"].is_string()) {
+            sha256 = bc["sha256"].get<std::string>();
+        }
+        std::string payload_b64;
+        if (bc.contains("payload") && bc["payload"].is_string()) {
+            payload_b64 = bc["payload"].get<std::string>();
+        }
+        std::string bytecode_url;
+        if (bc.contains("url") && bc["url"].is_string()) {
+            bytecode_url = bc["url"].get<std::string>();
+        }
+        if (bytecode_url.empty() && !sha256.empty()) {
+            bytecode_url = "/api/v1/bytecode/" + sha256;
+        }
+
+        std::shared_ptr<BytecodeCache> cache_to_use;
+        {
             std::lock_guard<std::mutex> lock(bytecode_cache_mutex_);
-            auto it = bytecode_cache_.find(sha256);
-            if (it != bytecode_cache_.end()) {
-                envelope.bytecode_base64 = it->second;
-                spdlog::info("Resolved bytecode for task {} from worker cache (SHA-256: {})", envelope.task_id, sha256);
+            cache_to_use = bytecode_cache_;
+        }
+
+        if (cache_to_use) {
+            auto bytes = cache_to_use->get_or_fetch(sha256, payload_b64, bytecode_url);
+            if (!bytes.empty()) {
+                envelope.bytecode_base64 = common::base64_encode(bytes);
+                envelope.bytecode_path = cache_to_use->get_path(sha256).string();
+                spdlog::info("Resolved bytecode for task {} (size: {} bytes, SHA-256: {})",
+                             envelope.task_id, bytes.size(), sha256);
             } else {
-                spdlog::error("Bytecode SHA-256 {} not found in local worker cache and no payload sent", sha256);
+                spdlog::error("Bytecode SHA-256 {} not resolved from payload, local cache, or HTTP fallback", sha256);
             }
+        } else if (!payload_b64.empty()) {
+            envelope.bytecode_base64 = payload_b64;
         }
     }
 
@@ -418,6 +450,9 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             envelope.memory_limit_bytes = c["max_memory_bytes"].get<uint64_t>();
         } else {
             envelope.memory_limit_bytes = 67108864ULL;
+        }
+        if (c.contains("timeout_ms") && c["timeout_ms"].is_number()) {
+            envelope.timeout_ms = c["timeout_ms"].get<uint64_t>();
         }
     }
 
@@ -441,16 +476,33 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
         std::shared_ptr<std::atomic<bool>> task_running = std::make_shared<std::atomic<bool>>(true);
 
         // Background progress ticker thread (TASK_PROGRESS emitted every 1000ms while running)
-        std::thread progress_thread([this, task_id = envelope.task_id, task_running]() {
+        std::thread progress_thread([this, task_id = envelope.task_id, instruction_budget = envelope.instruction_budget, task_running]() {
             while (task_running->load()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 if (!task_running->load()) break;
 
+                uint64_t inst = 0;
+                uint64_t mem = 0;
+                if (supervisor_) {
+                    auto active_info = supervisor_->get_active_tasks_info();
+                    for (const auto& info : active_info) {
+                        if (info.task_id == task_id) {
+                            inst = info.instructions_consumed;
+                            mem = info.memory_used_bytes;
+                            break;
+                        }
+                    }
+                }
+                double pct = 0.0;
+                if (instruction_budget > 0) {
+                    pct = std::min(100.0, (static_cast<double>(inst) / instruction_budget) * 100.0);
+                }
+
                 nlohmann::json progress_payload = {
                     {"task_id", task_id},
-                    {"progress_pct", 0.0},
-                    {"instructions_consumed", 0},
-                    {"memory_used_bytes", 0},
+                    {"progress_pct", pct},
+                    {"instructions_consumed", inst},
+                    {"memory_used_bytes", mem},
                     {"log_chunk", nullptr}
                 };
                 send_frame(LctpFrame::create("TASK_PROGRESS", progress_payload));
@@ -486,7 +538,7 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
             terminal_status = "ERR_OUT_OF_MEMORY";
         } else if (result.exit_code == 124) {
             terminal_status = "ERR_TIMEOUT";
-        } else if (result.exit_code == 130) {
+        } else if (result.exit_code == 130 || result.exit_code == 143) {
             terminal_status = "ABORTED";
         } else if (result.exit_code == 137) {
             terminal_status = "KILLED_FORCIBLY";

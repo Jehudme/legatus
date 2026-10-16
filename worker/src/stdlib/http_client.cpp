@@ -89,7 +89,7 @@ bool is_ip_blocked(const struct sockaddr* sa) {
     return true; // Unknown family -> block by default
 }
 
-bool validate_ssrf_host(const std::string& host, std::string& err_msg) {
+bool validate_ssrf_host_and_pin(const std::string& host, std::string& err_msg, std::string& pinned_ip) {
     struct addrinfo hints;
     std::memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -103,10 +103,23 @@ bool validate_ssrf_host(const std::string& host, std::string& err_msg) {
     }
 
     bool blocked = false;
+    std::string first_valid_ip;
     for (struct addrinfo* p = res; p != nullptr; p = p->ai_next) {
         if (is_ip_blocked(p->ai_addr)) {
             blocked = true;
             break;
+        }
+        if (first_valid_ip.empty()) {
+            char ip_str[INET6_ADDRSTRLEN] = {0};
+            if (p->ai_family == AF_INET) {
+                auto* sin = reinterpret_cast<const struct sockaddr_in*>(p->ai_addr);
+                inet_ntop(AF_INET, &(sin->sin_addr), ip_str, sizeof(ip_str));
+                first_valid_ip = ip_str;
+            } else if (p->ai_family == AF_INET6) {
+                auto* sin6 = reinterpret_cast<const struct sockaddr_in6*>(p->ai_addr);
+                inet_ntop(AF_INET6, &(sin6->sin6_addr), ip_str, sizeof(ip_str));
+                first_valid_ip = ip_str;
+            }
         }
     }
 
@@ -115,22 +128,70 @@ bool validate_ssrf_host(const std::string& host, std::string& err_msg) {
         err_msg = "Egress to restricted IP or cloud metadata blocked by SSRF policy (host: " + host + ")";
         return false;
     }
+    pinned_ip = first_valid_ip;
     return true;
 }
 
-std::string extract_host_from_url(const std::string& url) {
-    size_t start = url.find("://");
-    if (start == std::string::npos) {
-        start = 0;
+[[maybe_unused]] static bool validate_ssrf_host(const std::string& host, std::string& err_msg) {
+    std::string ip;
+    return validate_ssrf_host_and_pin(host, err_msg, ip);
+}
+
+struct ParsedUrl {
+    std::string scheme;
+    std::string host;
+    int port{80};
+};
+
+ParsedUrl parse_url_host_port(const std::string& url) {
+    ParsedUrl res;
+    size_t scheme_end = url.find("://");
+    if (scheme_end != std::string::npos) {
+        res.scheme = url.substr(0, scheme_end);
+        if (res.scheme == "https") {
+            res.port = 443;
+        } else {
+            res.port = 80;
+        }
     } else {
-        start += 3;
+        res.scheme = "http";
+        res.port = 80;
     }
 
-    size_t end = url.find_first_of("/?#:", start);
-    if (end == std::string::npos) {
-        return url.substr(start);
+    size_t host_start = (scheme_end != std::string::npos) ? scheme_end + 3 : 0;
+    size_t host_end = url.find_first_of("/?#", host_start);
+    std::string host_port = (host_end == std::string::npos)
+        ? url.substr(host_start)
+        : url.substr(host_start, host_end - host_start);
+
+    if (!host_port.empty() && host_port.front() == '[') {
+        size_t close_bracket = host_port.find(']');
+        if (close_bracket != std::string::npos) {
+            res.host = host_port.substr(1, close_bracket - 1);
+            if (close_bracket + 1 < host_port.size() && host_port[close_bracket + 1] == ':') {
+                try {
+                    res.port = std::stoi(host_port.substr(close_bracket + 2));
+                } catch (...) {}
+            }
+            return res;
+        }
     }
-    return url.substr(start, end - start);
+
+    size_t colon = host_port.find(':');
+    if (colon != std::string::npos) {
+        res.host = host_port.substr(0, colon);
+        try {
+            res.port = std::stoi(host_port.substr(colon + 1));
+        } catch (...) {}
+    } else {
+        res.host = host_port;
+    }
+
+    return res;
+}
+
+[[maybe_unused]] static std::string extract_host_from_url(const std::string& url) {
+    return parse_url_host_port(url).host;
 }
 
 struct MemoryBuffer {
@@ -161,14 +222,15 @@ static uint64_t http_native_send(solix::RuntimeContext &vm, uint64_t self, uint6
     std::string headers_json_str = read_solix_chars(vm, args[2]);
     std::string body = read_solix_chars(vm, args[3]);
 
-    std::string host = extract_host_from_url(url);
-    if (host.empty()) {
+    auto parsed = parse_url_host_port(url);
+    if (parsed.host.empty()) {
         nlohmann::json err = {{"error", "Malformed URL: missing host"}, {"status", 0}};
         return allocate_solix_chars(vm, err.dump());
     }
 
     std::string ssrf_err;
-    if (!validate_ssrf_host(host, ssrf_err)) {
+    std::string pinned_ip;
+    if (!validate_ssrf_host_and_pin(parsed.host, ssrf_err, pinned_ip)) {
         nlohmann::json err = {{"error", ssrf_err}, {"status", 403}};
         return allocate_solix_chars(vm, err.dump());
     }
@@ -181,6 +243,7 @@ static uint64_t http_native_send(solix::RuntimeContext &vm, uint64_t self, uint6
 
     MemoryBuffer response_buffer;
     struct curl_slist* chunk = nullptr;
+    struct curl_slist* resolve_list = nullptr;
 
     if (!headers_json_str.empty()) {
         try {
@@ -192,6 +255,13 @@ static uint64_t http_native_send(solix::RuntimeContext &vm, uint64_t self, uint6
                 }
             }
         } catch (...) {}
+    }
+
+    // Pin DNS resolution to validated IP to prevent DNS rebinding attacks
+    if (!pinned_ip.empty()) {
+        std::string resolve_entry = parsed.host + ":" + std::to_string(parsed.port) + ":" + pinned_ip;
+        resolve_list = curl_slist_append(resolve_list, resolve_entry.c_str());
+        curl_easy_setopt(curl, CURLOPT_RESOLVE, resolve_list);
     }
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -216,6 +286,7 @@ static uint64_t http_native_send(solix::RuntimeContext &vm, uint64_t self, uint6
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 
     if (chunk) curl_slist_free_all(chunk);
+    if (resolve_list) curl_slist_free_all(resolve_list);
     curl_easy_cleanup(curl);
 
     nlohmann::json result;

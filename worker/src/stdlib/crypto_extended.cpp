@@ -1,7 +1,9 @@
 #include "legatus/stdlib/sandbox.hpp"
 #include "legatus/stdlib/solix_memory_helpers.hpp"
 #include <openssl/evp.h>
-#include <openssl/hmac.h>
+#include <openssl/core_names.h>
+#include <openssl/params.h>
+#include <openssl/crypto.h>
 #include <openssl/rand.h>
 #include <string>
 #include <vector>
@@ -22,18 +24,44 @@ static std::string to_hex(const uint8_t* data, size_t len) {
     return oss.str();
 }
 
+static bool compute_hmac_evp(const char* digest_name, const uint8_t* key, size_t key_len,
+                             const uint8_t* data, size_t data_len, uint8_t* out, size_t* out_len, size_t max_out) {
+    EVP_MAC* mac = EVP_MAC_fetch(nullptr, "HMAC", nullptr);
+    if (!mac) return false;
+    EVP_MAC_CTX* ctx = EVP_MAC_CTX_new(mac);
+    EVP_MAC_free(mac);
+    if (!ctx) return false;
+
+    OSSL_PARAM params[2];
+    params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_DIGEST, const_cast<char*>(digest_name), 0);
+    params[1] = OSSL_PARAM_construct_end();
+
+    bool ok = (EVP_MAC_init(ctx, key, key_len, params) == 1) &&
+              (EVP_MAC_update(ctx, data, data_len) == 1) &&
+              (EVP_MAC_final(ctx, out, out_len, max_out) == 1);
+
+    EVP_MAC_CTX_free(ctx);
+    return ok;
+}
+
 static uint64_t hmac_native_sha256(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
     (void)self; (void)argc;
     std::string key = read_solix_chars(vm, args[0]);
     std::string data = read_solix_chars(vm, args[1]);
 
-    unsigned int len = 32;
-    uint8_t out[32];
-    HMAC(EVP_sha256(), key.data(), static_cast<int>(key.size()),
-         reinterpret_cast<const unsigned char*>(data.data()), data.size(),
-         out, &len);
+    size_t len = 32;
+    uint8_t out[32] = {0};
+    bool ok = compute_hmac_evp("SHA256",
+                               reinterpret_cast<const uint8_t*>(key.data()), key.size(),
+                               reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+                               out, &len, sizeof(out));
 
-    return allocate_solix_chars(vm, to_hex(out, len));
+    std::string hex_res = ok ? to_hex(out, len) : "";
+    OPENSSL_cleanse(out, sizeof(out));
+    if (!key.empty()) {
+        OPENSSL_cleanse(key.data(), key.size());
+    }
+    return allocate_solix_chars(vm, hex_res);
 }
 
 static uint64_t hmac_native_sha512(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
@@ -41,13 +69,19 @@ static uint64_t hmac_native_sha512(solix::RuntimeContext &vm, uint64_t self, uin
     std::string key = read_solix_chars(vm, args[0]);
     std::string data = read_solix_chars(vm, args[1]);
 
-    unsigned int len = 64;
-    uint8_t out[64];
-    HMAC(EVP_sha512(), key.data(), static_cast<int>(key.size()),
-         reinterpret_cast<const unsigned char*>(data.data()), data.size(),
-         out, &len);
+    size_t len = 64;
+    uint8_t out[64] = {0};
+    bool ok = compute_hmac_evp("SHA512",
+                               reinterpret_cast<const uint8_t*>(key.data()), key.size(),
+                               reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+                               out, &len, sizeof(out));
 
-    return allocate_solix_chars(vm, to_hex(out, len));
+    std::string hex_res = ok ? to_hex(out, len) : "";
+    OPENSSL_cleanse(out, sizeof(out));
+    if (!key.empty()) {
+        OPENSSL_cleanse(key.data(), key.size());
+    }
+    return allocate_solix_chars(vm, hex_res);
 }
 
 static uint64_t aes_gcm_native_encrypt(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
@@ -55,6 +89,21 @@ static uint64_t aes_gcm_native_encrypt(solix::RuntimeContext &vm, uint64_t self,
     auto key = read_solix_bytes(vm, args[0]);   // 32 bytes
     auto iv = read_solix_bytes(vm, args[1]);    // 12 bytes
     auto plaintext = read_solix_bytes(vm, args[2]);
+
+    struct CleanseGuard {
+        std::vector<uint8_t>& k;
+        std::vector<uint8_t>& i;
+        uint8_t* t;
+        size_t t_len;
+        ~CleanseGuard() {
+            if (!k.empty()) OPENSSL_cleanse(k.data(), k.size());
+            if (!i.empty()) OPENSSL_cleanse(i.data(), i.size());
+            if (t) OPENSSL_cleanse(t, t_len);
+        }
+    };
+
+    uint8_t tag[16] = {0};
+    CleanseGuard guard{key, iv, tag, sizeof(tag)};
 
     if (key.size() != 32 || iv.size() != 12) {
         return 0ULL; // Error: invalid key or IV size
@@ -66,7 +115,6 @@ static uint64_t aes_gcm_native_encrypt(solix::RuntimeContext &vm, uint64_t self,
     std::vector<uint8_t> ciphertext(plaintext.size() + 16);
     int out_len = 0;
     int final_len = 0;
-    uint8_t tag[16];
 
     bool ok = EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) == 1 &&
               EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) == 1 &&
@@ -91,6 +139,15 @@ static uint64_t aes_gcm_native_decrypt(solix::RuntimeContext &vm, uint64_t self,
     auto key = read_solix_bytes(vm, args[0]);   // 32 bytes
     auto iv = read_solix_bytes(vm, args[1]);    // 12 bytes
     auto payload = read_solix_bytes(vm, args[2]); // ciphertext + 16-byte tag
+
+    struct CleanseGuard {
+        std::vector<uint8_t>& k;
+        std::vector<uint8_t>& i;
+        ~CleanseGuard() {
+            if (!k.empty()) OPENSSL_cleanse(k.data(), k.size());
+            if (!i.empty()) OPENSSL_cleanse(i.data(), i.size());
+        }
+    } guard{key, iv};
 
     if (key.size() != 32 || iv.size() != 12 || payload.size() < 16) {
         return 0ULL;
@@ -126,6 +183,15 @@ static uint64_t ed25519_native_verify(solix::RuntimeContext &vm, uint64_t self, 
     auto pubkey_bytes = read_solix_bytes(vm, args[0]); // 32 bytes
     auto message_bytes = read_solix_bytes(vm, args[1]);
     auto sig_bytes = read_solix_bytes(vm, args[2]);    // 64 bytes
+
+    struct CleanseGuard {
+        std::vector<uint8_t>& pk;
+        std::vector<uint8_t>& sig;
+        ~CleanseGuard() {
+            if (!pk.empty()) OPENSSL_cleanse(pk.data(), pk.size());
+            if (!sig.empty()) OPENSSL_cleanse(sig.data(), sig.size());
+        }
+    } guard{pubkey_bytes, sig_bytes};
 
     if (pubkey_bytes.size() != 32 || sig_bytes.size() != 64) {
         return 0ULL;

@@ -69,4 +69,10 @@ TEST_CASE("Standard Library - SSRF Guardrails and Egress Security", "[stdlib][ht
 
         REQUIRE(j.contains("error"));
     }
+
+    SECTION("DNS Rebinding & SSRF: IPv6 link-local and mapped IPv4 blocked") {
+        test_url_blocked("http://[fe80::1]:8080/secret");
+        test_url_blocked("http://[::ffff:127.0.0.1]:8080/admin");
+        test_url_blocked("http://[::ffff:169.254.169.254]/latest");
+    }
 }
