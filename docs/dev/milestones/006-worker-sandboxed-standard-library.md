@@ -120,9 +120,9 @@ graph TD
 * **`worker/stdlib/` (New Repository Subtree):**
   * `worker/stdlib/src/solix/`: Source files (`.slx`) for inherited safe libraries (`core`, `collections`, `math`, `time`, `crypto`, `exceptions`, `streams`).
   * `worker/stdlib/src/legatus/`: Source files (`.slx`) for new serverless libraries (`net/http`, `json`, `runtime`, `crypto/extended`, `encoding`, `regex`, `uuid`, `storage/kv`, `concurrency`).
-  * `worker/stdlib/native/`: Modern C++20 native FFI implementation library (`liblegatus_stdlib_native.a`) linking `libcurl` (HTTP), `simdjson`/`yyjson` (JSON), `libsodium`/`OpenSSL` (crypto), and `re2` (regex).
+  * `worker/stdlib/native/`: Modern C++20 native FFI implementation library (`legatus_stdlib_native`) statically linked into `legatus_runner_core`, using `libcurl` (HTTP egress), `nlohmann_json` (JSON parsing/serialization), `OpenSSL 3.0` (HMAC, AES-GCM, Ed25519, hashing), and `re2` (linear-time regex). Eliminates redundant dependencies (`simdjson`, `yyjson`, `libsodium`) and requires zero dynamic library loading from host disk at runtime.
 * **`worker/runner` (`legatus-runner`):**
-  * Integration of `legatus_register_stdlib_natives(solix::NativeRegistry &registry, const TaskSandboxConfig &config)`.
+  * Integration of `legatus::stdlib::register_sandboxed_stdlib(solix::NativeRegistry &registry, const TaskSandboxContext &context)` called during runner context creation.
   * Complete omission and rejection of host filesystem or OS process syscalls.
   * Ingress injection of task parameters and decrypted secrets into `TaskContext`.
   * Egress network security filter enforcing SSRF rules and IP blacklists.
@@ -175,13 +175,13 @@ A single open P0 task blocks production release and halts milestone validation.
 
 Mandatory capabilities required for full standard library usability.
 
-- [ ] `[P1]` **High-Speed Native JSON Engine (`legatus.json`):** Author `legatus.json` (`JsonDocument`, `JsonObject`, `JsonArray`, `JsonValue`, `JsonException`) in `worker/stdlib/src/legatus/json/`. Back with an ultra-fast C++20 native parser (`simdjson` or `yyjson`). Provide fluent JSON query APIs (`doc.get_string("key")`, `doc.get_int("count")`, `doc.get_object("nested")`), direct serialization to Solix strings, and automatic deserialization of task invocation parameters (`task.parameters`).
+- [ ] `[P1]` **High-Speed Native JSON Engine (`legatus.json`):** Author `legatus.json` (`JsonDocument`, `JsonObject`, `JsonArray`, `JsonValue`, `JsonException`) in `worker/stdlib/src/legatus/json/`. Back with modern C++20 native parser using `nlohmann_json` (integrated into `legatus_common`). Enforce recursion depth ceiling (maximum 32 nested levels) and string length limit (8MB) to prevent parser stack overflow and memory exhaustion. Provide fluent JSON query APIs (`doc.get_string("key")`, `doc.get_int("count")`, `doc.get_object("nested")`), direct serialization to Solix strings, and automatic deserialization of task invocation parameters (`task.parameters`).
 - [ ] `[P1]` **Safe Console & Incremental Log Streaming:** Implement `legatus.console.Console` (and safe `solix.system.Console` compatibility wrapper). Redirect all `print` and `println` calls to the supervisor's streaming stdout pipe, emitting incremental `TASK_LOG_CHUNK` frames over LCTP. Enforce a rate limit (maximum 1,000 lines/second and 8MB total output) to protect worker and Studio buffers from spam exhaustion.
 - [ ] `[P1]` **Extended Enterprise Cryptography (`legatus.crypto.extended`):** Implement `legatus.crypto.extended` providing:
   1. `Hmac`: Constant-time HMAC-SHA256 and HMAC-SHA512 generation and verification for webhook signatures.
   2. `AesGcm`: AES-256-GCM authenticated encryption and decryption for secure payload processing.
   3. `Ed25519`: Public key digital signature verification.
-  Implement using OpenSSL 3.0 / libsodium native bindings with zero memory leaks.
+  Implement using OpenSSL 3.0 EVP APIs (`EVP_MAC`, `EVP_CIPHER_CTX`, `EVP_PKEY`) with zero memory leaks.
 - [ ] `[P1]` **Safe Ingestion of Cryptographic Hashes & In-Memory Streams:** Copy and integrate `solix.crypto` (`Base64`, `Hex`, `Hash` with SHA-256/512/MD5) and `solix.io.streams` (`MemoryStream`, `StreamReader`, `StreamWriter`, `BufferedReader`). Verify that all buffer allocations operate entirely in-memory and respect the Solix VM memory arena boundaries.
 
 ---
