@@ -1,3 +1,4 @@
 {
-  "cmake.sourceDirectory": "/home/jehud/Projects/legatus/worker"
+  "cmake.sourceDirectory": "/home/jehud/Projects/legatus/worker",
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

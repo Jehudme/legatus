@@ -11,13 +11,15 @@
       "release-type": "maven",
       "package-name": "server",
       "component": "server",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "snapshot": false
     },
     "studio": {
       "release-type": "maven",
       "package-name": "studio",
       "component": "studio",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "snapshot": false
     }
   }
 }
