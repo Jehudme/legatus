@@ -155,12 +155,25 @@ When a new worker daemon launches, it enters quarantine until attested and autho
    * Click **[Execute Function]** to submit the task.
    * The live console automatically connects to the task's WebSocket log stream, rendering real-time instruction cycle progress meter updates and streaming standard output chunks in real time without leaving the workbench.
 
-### 4.3 Inspecting Active Tasks & Two-Stage Abort
+### 4.3 Inspecting Active Tasks, Time Ledger & Two-Stage Abort
 1. Navigate to **Task Explorer** in the left rail.
-2. **Task Ledger Sync & Refresh:**
-   * The Task Ledger automatically synchronizes all historical and active cluster tasks from `GET /api/v1/tasks` upon entering the view and initial session startup.
-   * Operators can click **[Refresh]** in the Task Ledger header at any time to re-query the cluster task state.
-   * Filter tasks by state (`ALL`, `QUEUED`, `EXECUTING`, `COMPLETED`, `FAILED`, `ABORTED`) via the status filter dropdown.
+2. **Task Time Ledger Columns:**
+   * **Task ID:** Unique identifier for the execution unit.
+   * **Function / Profile:** Function entry point name and associated Execution Profile tag (e.g. `matrix-mult [high-throughput]`).
+   * **Status:** Color-coded status pills:
+     * `QUEUED`: Slate badge (`#475569`) indicating the task is buffered waiting for compute capacity.
+     * `EXECUTING`: Cyan badge (`#0284c7`) indicating active execution on an assigned worker node.
+     * `COMPLETED`: Emerald green badge (`#15803d`) indicating successful termination with exit code 0.
+     * `FAILED`: Red badge (`#b91c1c`) indicating runtime error or non-zero exit code.
+     * `ABORTED`: Amber badge (`#b45309`) indicating operator-initiated cancellation.
+   * **Execution Duration:** High-precision adaptive run time formatted according to duration thresholds:
+     * Milliseconds for sub-second tasks (e.g., `124ms`).
+     * Fractional seconds for medium tasks (e.g., `3.42s`).
+     * Minutes and seconds for long-running batch jobs (e.g., `1m 15s`).
+     * For tasks currently in `EXECUTING` state, durations stream and increment live on each 60Hz telemetry tick.
+   * **Start Time:** Absolute timestamp (`HH:mm:ss.SSS`) recording when execution began on the worker.
+   * **End Time:** Absolute completion timestamp (`HH:mm:ss.SSS`), showing `--` while tasks remain queued or running.
+   * **Worker Node:** Friendly node name (or raw Worker UUID) executing the task.
 3. Select any running task from the table to open the live inspector.
 4. Observe real-time Solix instruction cycle consumption against the allocated instruction budget, peak memory usage, and execution duration.
 5. **Triggering Two-Stage Abort:**
@@ -175,6 +188,28 @@ When a new worker daemon launches, it enters quarantine until attested and autho
 2. The audit ledger automatically loads the complete cryptographically linked sequence of cluster events (`GET /api/v1/admin/audit-logs`) upon display.
 3. Operators can filter ledger entries by **Actor** or **Action** via real-time search inputs, or click **[Refresh Ledger]** to fetch new entries.
 4. Clicking **[Verify Hash Chain]** triggers an end-to-end cryptographic integrity verification (`POST /api/v1/admin/audit-logs/verify`). The server walks the SHA-256 chain from the genesis record to the current head record, updating the status badge to `VALID_CHAIN` (or `CORRUPTED_CHAIN` if tampering occurred) and reloading verified records.
+
+### 4.5 Operator Account Administration & RBAC Security (Admin Only)
+1. **RBAC Gating & Access Control:**
+   * The **User Administration** navigation tab is rendered exclusively for authenticated operators with `ROLE_ADMIN` / `ROLE_CLUSTER_ADMIN`.
+   * If an unprivileged operator attempts to load the view, Studio displays a full-screen **Access Denied** lock screen.
+   * Server REST endpoints (`/api/v1/admin/accounts/**`) enforce `@PreAuthorize("hasAnyAuthority(...)")`, returning HTTP 403 Forbidden to unauthorized requests.
+2. **Context-Aware Master-Detail Inspector:**
+   * When no operator account is selected, the inspector pane is completely concealed (`visible=false, managed=false`).
+   * Selecting an account displays:
+     * **Username:** Editable field with **[Save]** button to update handle with uniqueness validation.
+     * **Email Address:** Editable field with **[Save]** button to update operator notification email.
+     * **Account Status Toggle:** Transitions state between `ACTIVE` (green badge) and `SUSPENDED` (red badge).
+     * **Role Toggle:** Toggles privileges between `OPERATOR` and `CLUSTER_ADMIN`.
+     * **Self-Lockout Protection:** If the currently active administrator selects their own account, status deactivation and role demotion buttons are strictly disabled, and an amber warning banner is displayed.
+3. **Write-Only Password Reset Modal:**
+   * Click **[Reset Password...]** to open the dedicated credential reset modal dialog.
+   * Enter the new password and confirmation. Passwords must satisfy enterprise complexity (min 12 characters, mixed case, numbers, and symbols).
+   * Observe the real-time **Password Strength Bar** indicating complexity rating (Weak, Moderate, Strong).
+   * Plaintext passwords are never returned by the cluster, never cached in memory, and hashed with Argon2id ($m=64\text{MB}, t=3, p=4$) on the server.
+4. **Universal WebSocket Reactive Synchronization:**
+   * Creating an account, modifying status, changing roles, or resetting passwords triggers an instant `EVENT_USER_STATE_CHANGED` LSTCP WebSocket broadcast.
+   * All connected Studio client sessions synchronize their account lists reactively without manual page refreshes.
 
 ---
 
