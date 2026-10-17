@@ -128,7 +128,13 @@ FetchContent_Declare(
     GIT_TAG        v3.5.2
 )
 
-FetchContent_MakeAvailable(fmt spdlog nlohmann_json cli11 tomlplusplus nng reproc ixwebsocket Catch2 solix)
+FetchContent_MakeAvailable(fmt spdlog nlohmann_json cli11 tomlplusplus nng reproc ixwebsocket Catch2)
+
+FetchContent_GetProperties(solix)
+if(NOT solix_POPULATED)
+    FetchContent_Populate(solix)
+    add_subdirectory(${solix_SOURCE_DIR} ${solix_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
 
 # -----------------------------------------------------------------------------
 # Common Library: legatus_common

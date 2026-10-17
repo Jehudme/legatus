@@ -78,7 +78,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Worker Targets
-        run: cmake --build worker/build --config Release
+        run: cmake --build worker/build --config Release --target legatus legatusd legatus-runner legatus_tests
 
       - name: Run Catch2 Test Suite
         run: ctest --test-dir worker/build -C Release --output-on-failure
@@ -219,7 +219,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Release Binaries
-        run: cmake --build worker/build --config Release
+        run: cmake --build worker/build --config Release --target legatus legatusd legatus-runner
 
       - name: Package CPack Installers & Archives
         shell: bash
