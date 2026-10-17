@@ -411,6 +411,7 @@ public class TaskGatewayService {
         }
 
         LOG.info("Aborted executing task {} on worker {} (deadline: {})", taskId, workerId, deadline);
+        taskSchedulerService.scheduleQueuedTasks();
         return new AbortTaskResponse(taskId, "ABORTING", workerId, deadline);
     }
 

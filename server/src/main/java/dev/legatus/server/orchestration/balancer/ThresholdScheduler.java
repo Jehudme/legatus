@@ -105,6 +105,17 @@ public class ThresholdScheduler {
             System.currentTimeMillis()
         );
         metricsStateMap.put(workerId, updated);
+
+        if (prevSaturated != newSaturated) {
+            LOG.info("Worker {} saturation transitioned: saturated={} -> {} (smoothedCpu={}% smoothedRam={}% tasks={})",
+                workerId, prevSaturated, newSaturated, Math.round(smoothedCpu * 10.0) / 10.0, Math.round(smoothedRam * 10.0) / 10.0, concurrentTasks);
+        }
+
+        boolean anyBreached = metricsStateMap.values().stream().anyMatch(WorkerMetricsState::saturated);
+        if (!anyBreached) {
+            thresholdBreachWarning.set(false);
+            queueSaturatedError.set(false);
+        }
     }
 
     /**

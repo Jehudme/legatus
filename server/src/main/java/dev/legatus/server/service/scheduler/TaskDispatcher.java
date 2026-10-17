@@ -36,6 +36,16 @@ public interface TaskDispatcher {
     Set<String> getActiveTaskIds(String workerId);
 
     /**
+     * Checks whether the specified worker currently has an active, connected transport session.
+     *
+     * @param workerId worker node identifier
+     * @return true if an active transport session exists
+     */
+    default boolean hasActiveSession(String workerId) {
+        return true;
+    }
+
+    /**
      * Transmits an ABORT_TASK frame to cancel an in-flight task on a worker node.
      *
      * @param workerId worker node identifier

@@ -43,6 +43,7 @@ public class TaskSchedulerService {
     private final LegatusProperties legatusProperties;
     private final dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler;
     private final AtomicInteger roundRobinCursor = new AtomicInteger(0);
+    private final java.util.concurrent.locks.ReentrantLock schedulingLock = new java.util.concurrent.locks.ReentrantLock();
 
     public TaskSchedulerService(
         WorkerNodeRepository workerNodeRepository,
@@ -166,7 +167,9 @@ public class TaskSchedulerService {
      * Assembles a snapshot of active candidate workers with their current capacity and active tasks.
      */
     public List<WorkerSnapshot> buildWorkerSnapshots() {
-        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndActiveTrueAndDrainingFalse(WorkerState.ONLINE);
+        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndActiveTrueAndDrainingFalse(WorkerState.ONLINE).stream()
+            .filter(w -> taskDispatcher.hasActiveSession(w.getWorkerId()))
+            .toList();
 
         List<WorkerSnapshot> snapshots = new ArrayList<>(onlineWorkers.size());
 
@@ -235,7 +238,9 @@ public class TaskSchedulerService {
             return Optional.empty();
         }
 
-        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndDrainingFalse(WorkerState.ONLINE);
+        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndDrainingFalse(WorkerState.ONLINE).stream()
+            .filter(w -> taskDispatcher.hasActiveSession(w.getWorkerId()))
+            .toList();
         if (onlineWorkers.isEmpty()) {
             LOG.debug("No ONLINE worker nodes available in cluster for task {}", taskId);
             return Optional.empty();
@@ -281,8 +286,13 @@ public class TaskSchedulerService {
             LOG.info("Successfully scheduled and dispatched task {} to worker {}", taskId, selectedWorker.getWorkerId());
             return Optional.of(selectedWorker);
         } else {
-            LOG.warn("Worker {} failed to accept task {} dispatch (socket unreachable). Re-queueing.",
+            LOG.warn("Worker {} failed to accept task {} dispatch. Re-queueing.",
                 selectedWorker.getWorkerId(), taskId);
+            if (!taskDispatcher.hasActiveSession(selectedWorker.getWorkerId())) {
+                LOG.warn("Worker {} has no active transport session. Marking OFFLINE.", selectedWorker.getWorkerId());
+                selectedWorker.setState(WorkerState.OFFLINE);
+                workerNodeRepository.saveAndFlush(selectedWorker);
+            }
             task.setAssignedWorker(null);
             task.setStatus(TaskStatus.QUEUED);
             computeTaskRepository.saveAndFlush(task);
@@ -296,23 +306,44 @@ public class TaskSchedulerService {
      * @return number of successfully dispatched tasks
      */
     public int scheduleQueuedTasks() {
-        int batchSize = (legatusProperties != null && legatusProperties.getScheduler() != null)
-            ? legatusProperties.getScheduler().getDispatchBatchSize()
-            : 64;
-
-        List<ComputeTask> queuedTasks = computeTaskRepository.findAllByStatusOrderByPriorityWeightDescCreatedAtAsc(
-            TaskStatus.QUEUED,
-            PageRequest.of(0, batchSize)
-        );
-
-        int dispatchedCount = 0;
-        for (ComputeTask task : queuedTasks) {
-            Optional<WorkerNode> assigned = assignAndDispatchTaskWithRetry(task.getTaskId());
-            if (assigned.isPresent()) {
-                dispatchedCount++;
-            }
+        if (!schedulingLock.tryLock()) {
+            LOG.debug("Task scheduling already in progress on another thread. Skipping concurrent execution.");
+            return 0;
         }
+        try {
+            int batchSize = (legatusProperties != null && legatusProperties.getScheduler() != null)
+                ? legatusProperties.getScheduler().getDispatchBatchSize()
+                : 64;
 
-        return dispatchedCount;
+            List<ComputeTask> queuedTasks = computeTaskRepository.findAllByStatusOrderByPriorityWeightDescCreatedAtAsc(
+                TaskStatus.QUEUED,
+                PageRequest.of(0, batchSize)
+            );
+
+            int dispatchedCount = 0;
+            for (ComputeTask task : queuedTasks) {
+                Optional<WorkerNode> assigned = assignAndDispatchTaskWithRetry(task.getTaskId());
+                if (assigned.isPresent()) {
+                    dispatchedCount++;
+                }
+            }
+
+            return dispatchedCount;
+        } finally {
+            schedulingLock.unlock();
+        }
+    }
+
+    /**
+     * Periodic background queue-draining sweeper to ensure queued tasks are promptly dispatched
+     * when workers have capacity or reconnect.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 1000)
+    public void processQueuedTasksPeriodically() {
+        try {
+            scheduleQueuedTasks();
+        } catch (Exception e) {
+            LOG.error("Error in periodic task scheduling sweep: {}", e.getMessage(), e);
+        }
     }
 }

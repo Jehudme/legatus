@@ -16,12 +16,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import dev.legatus.server.service.scheduler.TaskSchedulerService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -52,6 +54,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher;
     private final dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler;
+    private final ObjectProvider<TaskSchedulerService> taskSchedulerServiceProvider;
 
     public LctpWorkerWebSocketHandler(
         WorkerSessionRegistry sessionRegistry,
@@ -60,7 +63,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         WormAuditService wormAuditService,
         ObjectMapper objectMapper
     ) {
-        this(sessionRegistry, workerNodeRepository, computeTaskRepository, wormAuditService, objectMapper, null, null);
+        this(sessionRegistry, workerNodeRepository, computeTaskRepository, wormAuditService, objectMapper, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -71,7 +74,8 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         WormAuditService wormAuditService,
         ObjectMapper objectMapper,
         @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.service.studio.StudioEventPublisher studioEventPublisher,
-        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler
+        @org.springframework.beans.factory.annotation.Autowired(required = false) dev.legatus.server.orchestration.balancer.ThresholdScheduler thresholdScheduler,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) ObjectProvider<TaskSchedulerService> taskSchedulerServiceProvider
     ) {
         this.sessionRegistry = sessionRegistry;
         this.workerNodeRepository = workerNodeRepository;
@@ -80,6 +84,7 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         this.objectMapper = objectMapper;
         this.studioEventPublisher = studioEventPublisher;
         this.thresholdScheduler = thresholdScheduler;
+        this.taskSchedulerServiceProvider = taskSchedulerServiceProvider;
     }
 
 
@@ -206,14 +211,26 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
         if (worker.getLeaseExpiresAt() == null) {
             worker.setLeaseExpiresAt(Instant.now().plus(24, ChronoUnit.HOURS));
         }
+        if (frame.payload().hardware() != null) {
+            if (frame.payload().hardware().physicalCores() > 0) {
+                worker.setPhysicalCores(frame.payload().hardware().physicalCores());
+            }
+            if (frame.payload().hardware().logicalCores() > 0) {
+                worker.setLogicalCores(frame.payload().hardware().logicalCores());
+            }
+            if (frame.payload().hardware().totalMemoryBytes() > 0) {
+                worker.setTotalMemoryBytes(frame.payload().hardware().totalMemoryBytes());
+            }
+        }
         if (frame.payload().allocatableCapacity() != null) {
             worker.setAllocatableCores(frame.payload().allocatableCapacity().allocatableCores());
             worker.setMaxMemoryBytes(frame.payload().allocatableCapacity().maxMemoryBytes());
             worker.setMaxInstructionBudget(frame.payload().allocatableCapacity().maxInstructionBudgetPerTask());
-            if (worker.getTotalMemoryBytes() == null || worker.getTotalMemoryBytes() <= (1024L * 1024 * 1024)) {
-                if (frame.payload().allocatableCapacity().maxMemoryBytes() > 0) {
-                    worker.setTotalMemoryBytes(frame.payload().allocatableCapacity().maxMemoryBytes());
-                }
+            if (worker.getMaxConcurrentTasks() == null || worker.getMaxConcurrentTasks() < frame.payload().allocatableCapacity().allocatableCores()) {
+                worker.setMaxConcurrentTasks(Math.max(16, frame.payload().allocatableCapacity().allocatableCores() * 2));
+            }
+            if (worker.getTotalMemoryBytes() == null || worker.getTotalMemoryBytes() < frame.payload().allocatableCapacity().maxMemoryBytes()) {
+                worker.setTotalMemoryBytes(frame.payload().allocatableCapacity().maxMemoryBytes());
             }
         }
         workerNodeRepository.save(worker);
@@ -249,6 +266,10 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             "127.0.0.1",
             "SOC2_CC6.8"
         );
+
+        if (taskSchedulerServiceProvider != null) {
+            taskSchedulerServiceProvider.ifAvailable(TaskSchedulerService::scheduleQueuedTasks);
+        }
     }
 
     private void handleConfigSyncReq(LctpWorkerSession session, ConfigSyncReqFrame frame) throws IOException {
@@ -314,10 +335,22 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
                     double targetCpu = w.getTargetCpuPct() != null ? w.getTargetCpuPct() : 75.0;
                     double targetRam = w.getTargetRamPct() != null ? w.getTargetRamPct() : 80.0;
                     int maxTasks = w.getMaxConcurrentTasks() != null ? w.getMaxConcurrentTasks() : 16;
-                    long totalMem = (w.getTotalMemoryBytes() != null && w.getTotalMemoryBytes() > 0)
-                        ? w.getTotalMemoryBytes()
-                        : ((w.getMaxMemoryBytes() != null && w.getMaxMemoryBytes() > 0) ? w.getMaxMemoryBytes() : (1024L * 1024 * 1024));
-                    double ramPct = ((double) frame.payload().hostMetrics().memoryUsedBytes() / totalMem) * 100.0;
+                    long totalMem = Math.max(
+                        w.getTotalMemoryBytes() != null ? w.getTotalMemoryBytes() : 0L,
+                        w.getMaxMemoryBytes() != null ? w.getMaxMemoryBytes() : 0L
+                    );
+                    if (frame.payload().hostMetrics().memoryFreeBytes() > 0) {
+                        long measuredHostTotal = frame.payload().hostMetrics().memoryUsedBytes() + frame.payload().hostMetrics().memoryFreeBytes();
+                        totalMem = Math.max(totalMem, measuredHostTotal);
+                    }
+                    if (totalMem <= 0) {
+                        totalMem = 1024L * 1024 * 1024;
+                    }
+                    if (w.getTotalMemoryBytes() == null || w.getTotalMemoryBytes() < totalMem) {
+                        w.setTotalMemoryBytes(totalMem);
+                        workerNodeRepository.save(w);
+                    }
+                    double ramPct = Math.min(100.0, Math.max(0.0, ((double) frame.payload().hostMetrics().memoryUsedBytes() / totalMem) * 100.0));
                     thresholdScheduler.recordTelemetry(
                         w.getWorkerId(),
                         frame.payload().hostMetrics().cpuLoadPct(),
@@ -628,6 +661,10 @@ public class LctpWorkerWebSocketHandler extends TextWebSocketHandler {
             new TaskResultAckFrame.Payload(taskId, "COMMITTED")
         );
         session.sendText(objectMapper.writeValueAsString(ack));
+
+        if (taskSchedulerServiceProvider != null) {
+            taskSchedulerServiceProvider.ifAvailable(TaskSchedulerService::scheduleQueuedTasks);
+        }
     }
 
     @Override

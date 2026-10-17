@@ -159,38 +159,43 @@ public class LctpTaskDispatcher implements TaskDispatcher {
                 session.sendText(json);
                 return null;
             });
-
-            // Transition task state to EXECUTING upon successful socket transmission
-            task.setStatus(TaskStatus.EXECUTING);
-            computeTaskRepository.saveAndFlush(task);
-
-            session.getActiveTaskIds().add(task.getTaskId());
-            LOG.info("Dispatched task {} over LCTP session {} to worker {}",
-                task.getTaskId(), session.getSessionId(), worker.getWorkerId());
-
-            if (studioEventPublisher != null) {
-                studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
-                    task.getTaskId(),
-                    task.getName(),
-                    TaskStatus.EXECUTING.name(),
-                    task.getExitCode(),
-                    worker.getWorkerId(),
-                    task.getInstructionsConsumed(),
-                    task.getPeakMemoryBytes(),
-                    task.getWallTimeMs(),
-                    task.getInstructionBudget(),
-                    task.getTimeoutMs(),
-                    task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
-                    task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
-                ));
-            }
-
-            return true;
         } catch (Exception e) {
             LOG.error("Failed to transmit DISPATCH_TASK frame for task {} to worker {}",
                 task.getTaskId(), worker.getWorkerId(), e);
             return false;
         }
+
+        // Socket transmission succeeded! Worker is now running the task.
+        session.getActiveTaskIds().add(task.getTaskId());
+        try {
+            task.setStatus(TaskStatus.EXECUTING);
+            computeTaskRepository.saveAndFlush(task);
+        } catch (Exception e) {
+            LOG.warn("Task {} was dispatched to worker {} but saving EXECUTING status had a conflict: {}",
+                task.getTaskId(), worker.getWorkerId(), e.getMessage());
+        }
+
+        LOG.info("Dispatched task {} over LCTP session {} to worker {}",
+            task.getTaskId(), session.getSessionId(), worker.getWorkerId());
+
+        if (studioEventPublisher != null) {
+            studioEventPublisher.publishTaskLifecycle(new dev.legatus.server.service.dto.lstcp.EventTaskLifecycleFrame.Payload(
+                task.getTaskId(),
+                task.getName(),
+                TaskStatus.EXECUTING.name(),
+                task.getExitCode(),
+                worker.getWorkerId(),
+                task.getInstructionsConsumed(),
+                task.getPeakMemoryBytes(),
+                task.getWallTimeMs(),
+                task.getInstructionBudget(),
+                task.getTimeoutMs(),
+                task.getStartedAt() != null ? task.getStartedAt().toEpochMilli() : null,
+                task.getCreatedAt() != null ? task.getCreatedAt().toEpochMilli() : null
+            ));
+        }
+
+        return true;
     }
 
     @Override
@@ -204,6 +209,16 @@ public class LctpTaskDispatcher implements TaskDispatcher {
         return sessionRegistry.getByWorkerId(workerId)
             .map(LctpWorkerSession::getActiveTaskIds)
             .orElse(Set.of());
+    }
+
+    @Override
+    public boolean hasActiveSession(String workerId) {
+        if (workerId == null) {
+            return false;
+        }
+        return sessionRegistry.getByWorkerId(workerId)
+            .map(s -> s.getWebSocketSession() != null && s.getWebSocketSession().isOpen())
+            .orElse(false);
     }
 
     @Override

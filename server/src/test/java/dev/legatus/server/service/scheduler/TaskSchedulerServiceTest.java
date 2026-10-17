@@ -35,6 +35,7 @@ class TaskSchedulerServiceTest {
         workerNodeRepository = mock(WorkerNodeRepository.class);
         computeTaskRepository = mock(ComputeTaskRepository.class);
         taskDispatcher = mock(TaskDispatcher.class);
+        when(taskDispatcher.hasActiveSession(any())).thenReturn(true);
         workerEligibilityFilter = new WorkerEligibilityFilter();
         legatusProperties = new LegatusProperties();
 

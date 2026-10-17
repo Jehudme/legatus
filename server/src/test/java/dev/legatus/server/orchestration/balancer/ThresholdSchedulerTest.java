@@ -80,6 +80,15 @@ class ThresholdSchedulerTest {
         assertThat(scheduler.isThresholdBreachActive()).isTrue();
         assertThat(scheduler.isQueueSaturatedActive()).isFalse();
         assertThat(scheduler.getBreachedWorkerIds()).contains("w-1");
+
+        // When worker recovers below (50% target - 5% hysteresis = 45%), saturation and warning must clear
+        for (int i = 0; i < 10; i++) {
+            scheduler.recordTelemetry("w-1", 20.0, 20.0, 0, 50.0, 50.0, 10);
+        }
+        assertThat(scheduler.isBreaching("w-1")).isFalse();
+        assertThat(scheduler.getBreachedWorkerIds()).isEmpty();
+        assertThat(scheduler.isThresholdBreachActive()).isFalse();
+        assertThat(scheduler.isQueueSaturatedActive()).isFalse();
     }
 
     @Test

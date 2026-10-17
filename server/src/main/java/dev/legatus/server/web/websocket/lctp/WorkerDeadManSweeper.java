@@ -179,4 +179,21 @@ public class WorkerDeadManSweeper {
             }
         }
     }
+
+    /**
+     * Resets any stale ONLINE worker node records to OFFLINE on application startup
+     * if no active transport session exists in the session registry.
+     */
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    @Transactional
+    public void resetStaleWorkerStatesOnStartup() {
+        List<WorkerNode> onlineWorkers = workerNodeRepository.findAllByStateAndDrainingFalse(WorkerState.ONLINE);
+        for (WorkerNode worker : onlineWorkers) {
+            if (sessionRegistry.getByWorkerId(worker.getWorkerId()).isEmpty()) {
+                LOG.info("Resetting stale worker {} state from ONLINE to OFFLINE on server startup", worker.getWorkerId());
+                worker.setState(WorkerState.OFFLINE);
+                workerNodeRepository.save(worker);
+            }
+        }
+    }
 }
