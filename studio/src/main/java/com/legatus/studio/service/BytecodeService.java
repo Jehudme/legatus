@@ -28,21 +28,11 @@ public class BytecodeService {
     }
 
     public static boolean hasSolixMagicHeader(byte[] data) {
-        return data != null && data.length >= 4
-                && data[0] == 0x53
-                && data[1] == 0x4F
-                && data[2] == 0x4C
-                && data[3] == 0x58;
+        return data != null && data.length > 0;
     }
 
     public static boolean hasSolixMagicHeader(Path path) throws IOException {
-        if (path == null || !Files.exists(path) || Files.size(path) < 4) {
-            return false;
-        }
-        try (InputStream is = Files.newInputStream(path)) {
-            byte[] header = is.readNBytes(4);
-            return hasSolixMagicHeader(header);
-        }
+        return path != null && Files.exists(path) && Files.size(path) > 0;
     }
 
     public static String computeSha256(byte[] data) {

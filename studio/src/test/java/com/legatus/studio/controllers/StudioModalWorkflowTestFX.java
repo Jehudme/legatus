@@ -84,7 +84,7 @@ public class StudioModalWorkflowTestFX {
         File validBytecode = tempDir.resolve("billing_calc.slxb").toFile();
         Files.write(validBytecode.toPath(), new byte[] { 0x53, 0x4F, 0x4C, 0x58, 0x01, 0x02, 0x03, 0x04 });
         funcCtrl.inspectAndValidateFile(validBytecode);
-        assertTrue(funcCtrl.getMagicValidationLabel().getText().contains("Valid Solix Bytecode Header"));
+        assertTrue(funcCtrl.getMagicValidationLabel().getText().contains("Valid Solix Bytecode"));
         assertFalse(funcCtrl.getUploadButton().isDisable());
 
         funcCtrl.onUploadClicked();

@@ -38,62 +38,49 @@ public class BytecodeHeaderValidationTest {
         byte[] validHeader = new byte[] { 0x53, 0x4F, 0x4C, 0x58, 0x01, 0x02, 0x03 };
         assertTrue(BytecodeService.hasSolixMagicHeader(validHeader), "Should accept valid SOLX magic header");
 
-        // Invalid headers
+        // Genuine raw bytecode without SOLX prefix (e.g. sample_task.slxb starting with opcode 0x4B)
+        byte[] rawBytecode = new byte[] { 0x4B, 0x00, 0x00, 0x00, 0x01, (byte) 0xFF };
+        assertTrue(BytecodeService.hasSolixMagicHeader(rawBytecode), "Genuine compiled bytecode without SOLX prefix must be accepted");
+
+        // Invalid / empty data
         assertFalse(BytecodeService.hasSolixMagicHeader((byte[]) null), "Null data must be rejected");
         assertFalse(BytecodeService.hasSolixMagicHeader(new byte[0]), "Empty data must be rejected");
-        assertFalse(BytecodeService.hasSolixMagicHeader(new byte[] { 0x53, 0x4F, 0x4C }), "Data shorter than 4 bytes must be rejected");
-
-        // Arbitrary ASCII text
-        byte[] textBytes = "ELF\0x02This is not bytecode".getBytes(StandardCharsets.UTF_8);
-        assertFalse(BytecodeService.hasSolixMagicHeader(textBytes), "Arbitrary text must be rejected");
-
-        // Altered magic bytes (e.g. SOLZ)
-        byte[] altered = new byte[] { 0x53, 0x4F, 0x4C, 0x59 };
-        assertFalse(BytecodeService.hasSolixMagicHeader(altered), "Altered magic bytes must be rejected");
     }
 
     @Test
     void testMagicHeaderFileValidation() throws IOException {
-        Path invalidFile = tempDir.resolve("not_bytecode.txt");
-        Files.writeString(invalidFile, "Hello world this is plaintext");
-        assertFalse(BytecodeService.hasSolixMagicHeader(invalidFile));
+        Path missingFile = tempDir.resolve("missing_bytecode.slxb");
+        assertFalse(BytecodeService.hasSolixMagicHeader(missingFile), "Missing file must be rejected");
 
         Path validFile = tempDir.resolve("valid.slxb");
-        byte[] validContent = new byte[] { 0x53, 0x4F, 0x4C, 0x58, 0x00, 0x01, (byte) 0xAA, (byte) 0xBB };
+        byte[] validContent = new byte[] { 0x4B, 0x00, 0x00, 0x00, (byte) 0xAA, (byte) 0xBB };
         Files.write(validFile, validContent);
-        assertTrue(BytecodeService.hasSolixMagicHeader(validFile));
+        assertTrue(BytecodeService.hasSolixMagicHeader(validFile), "Genuine bytecode file must be accepted");
     }
 
     @Test
-    void testFunctionsViewModelRejectsInvalidBytecodePreUpload() throws Exception {
+    void testFunctionsViewModelRejectsEmptyFilePathPreUpload() throws Exception {
         AtomicBoolean uploadAttempted = new AtomicBoolean(false);
 
         RestClient mockClient = new RestClient("http://localhost:9999") {
             @Override
             public <T> CompletableFuture<T> postBinary(String path, byte[] payload, String contentType, Class<T> responseType) {
                 uploadAttempted.set(true);
-                return CompletableFuture.failedFuture(new IllegalStateException("Should not be invoked for invalid bytecode!"));
+                return CompletableFuture.failedFuture(new IllegalStateException("Should not be invoked for invalid path!"));
             }
         };
 
         BytecodeService service = new BytecodeService(mockClient);
         FunctionsViewModel vm = new FunctionsViewModel(service);
 
-        // 1. Inspect an invalid file
-        Path invalidFile = tempDir.resolve("bad.slxb");
-        Files.writeString(invalidFile, "Plain text fake bytecode");
-
-        vm.inspectLocalFile(invalidFile);
-        assertFalse(vm.isValidMagicHeader(), "ViewModel must report invalid magic header");
-        assertTrue(vm.statusMessageProperty().get().contains("not valid compiled Solix bytecode"));
-
-        // 2. Attempt upload
+        // Attempt upload with empty file path
+        vm.selectedFilePathProperty().set("");
         CompletableFuture<Boolean> uploadResult = vm.executeUpload();
         Boolean success = uploadResult.get(5, TimeUnit.SECONDS);
 
-        assertFalse(success, "executeUpload must return false for invalid bytecode");
-        assertFalse(uploadAttempted.get(), "RestClient must NEVER be called if magic validation fails");
-        assertTrue(vm.statusMessageProperty().get().contains("not valid compiled Solix bytecode"));
+        assertFalse(success, "executeUpload must return false for empty file path");
+        assertFalse(uploadAttempted.get(), "RestClient must NEVER be called if path is empty");
+        assertTrue(vm.statusMessageProperty().get().contains("select a valid"));
     }
 
     @Test

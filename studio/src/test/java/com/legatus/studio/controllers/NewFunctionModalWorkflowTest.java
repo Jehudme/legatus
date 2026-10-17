@@ -78,31 +78,17 @@ public class NewFunctionModalWorkflowTest {
         controller.onCloseNewFunctionModal();
         assertFalse(controller.getNewFunctionModal().isVisible(), "Modal must be hidden after cancel");
 
-        // 4. Re-open Modal and test invalid bytecode rejection
+        // 4. Re-open Modal and inspect real Solix bytecode file
         controller.onOpenNewFunctionModal();
 
-        File invalidFile = tempDir.resolve("fake.slxb").toFile();
-        Files.writeString(invalidFile.toPath(), "This is not solix bytecode!");
-        controller.inspectAndValidateFile(invalidFile);
-
-        assertTrue(controller.getMagicValidationLabel().getText().contains("not valid compiled Solix bytecode"),
-                "Inline validation label must warn about invalid bytecode");
-        assertTrue(controller.getUploadButton().isDisable(), "Upload button must be disabled for invalid bytecode");
-
-        // Attempting upload must be blocked
-        controller.onUploadClicked();
-        assertFalse(uploadCalled.get(), "Upload must NOT be invoked when file has invalid magic header");
-        assertTrue(controller.getNewFunctionModal().isVisible(), "Modal must remain open after blocked upload");
-
-        // 5. Inspect valid Solix bytecode file (with magic header 0x534F4C58)
         File validFile = tempDir.resolve("auth_validator.slxb").toFile();
-        byte[] validBytes = new byte[] { 0x53, 0x4F, 0x4C, 0x58, 0x01, 0x00, 0x00, 0x05 };
+        byte[] validBytes = new byte[] { 0x4B, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x05 };
         Files.write(validFile.toPath(), validBytes);
 
         controller.inspectAndValidateFile(validFile);
-        assertTrue(controller.getMagicValidationLabel().getText().contains("Valid Solix Bytecode Header"),
-                "Inline validation label must confirm valid SOLX magic header");
-        assertFalse(controller.getUploadButton().isDisable(), "Upload button must be enabled for valid bytecode");
+        assertTrue(controller.getMagicValidationLabel().getText().contains("Valid Solix Bytecode"),
+                "Inline validation label must confirm valid Solix bytecode");
+        assertFalse(controller.getUploadButton().isDisable(), "Upload button must be enabled for bytecode file");
 
         controller.getFunctionNameField().setText("auth-validator");
         controller.getEntrypointField().setText("authenticate");

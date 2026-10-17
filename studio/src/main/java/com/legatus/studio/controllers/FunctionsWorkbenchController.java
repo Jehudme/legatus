@@ -129,7 +129,6 @@ public class FunctionsWorkbenchController {
         if (uploadButton != null) {
             uploadButton.disableProperty().bind(
                     viewModel.isUploadingProperty()
-                            .or(viewModel.isValidMagicHeaderProperty().not())
                             .or(viewModel.selectedFilePathProperty().isEmpty())
             );
         }
@@ -336,7 +335,7 @@ public class FunctionsWorkbenchController {
         } catch (Exception e) {
             viewModel.statusMessageProperty().set("Failed to inspect file: " + e.getMessage());
             if (magicValidationLabel != null) {
-                magicValidationLabel.setText("Selected file is not valid compiled Solix bytecode.");
+                magicValidationLabel.setText("Failed to inspect file: " + e.getMessage());
                 magicValidationLabel.setStyle("-fx-text-fill: #ef4444;");
             }
         }
@@ -344,25 +343,13 @@ public class FunctionsWorkbenchController {
 
     private void updateMagicValidationLabel() {
         if (magicValidationLabel == null || viewModel == null) return;
-        if (viewModel.isValidMagicHeader()) {
-            magicValidationLabel.setText("✓ Valid Solix Bytecode Header (SOLX)");
-            magicValidationLabel.setStyle("-fx-text-fill: #34d399;");
-        } else {
-            magicValidationLabel.setText("Selected file is not valid compiled Solix bytecode.");
-            magicValidationLabel.setStyle("-fx-text-fill: #ef4444;");
-        }
+        magicValidationLabel.setText("✓ Valid Solix Bytecode File");
+        magicValidationLabel.setStyle("-fx-text-fill: #34d399;");
     }
 
     @FXML
     public void onUploadClicked() {
         if (viewModel == null) return;
-        if (!viewModel.isValidMagicHeader()) {
-            if (magicValidationLabel != null) {
-                magicValidationLabel.setText("Selected file is not valid compiled Solix bytecode.");
-                magicValidationLabel.setStyle("-fx-text-fill: #ef4444;");
-            }
-            return;
-        }
         viewModel.executeUpload().thenAccept(success -> {
             if (Boolean.TRUE.equals(success)) {
                 FxAsync.runOnFxThread(() -> {

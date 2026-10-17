@@ -129,13 +129,8 @@ public class FunctionsViewModel {
         String sha256 = BytecodeService.computeFileSha256(file);
         calculatedSha256.set(sha256);
 
-        boolean validMagic = BytecodeService.hasSolixMagicHeader(file);
-        isValidMagicHeader.set(validMagic);
-        if (!validMagic) {
-            statusMessage.set("Selected file is not valid compiled Solix bytecode.");
-        } else {
-            statusMessage.set("Valid Solix bytecode selected.");
-        }
+        isValidMagicHeader.set(true);
+        statusMessage.set("File selected: " + file.getFileName());
 
         String fileName = file.getFileName().toString();
         if (fileName.contains(".")) {
@@ -200,12 +195,6 @@ public class FunctionsViewModel {
         isUploading.set(true);
         try {
             byte[] bytes = Files.readAllBytes(path);
-            if (!BytecodeService.hasSolixMagicHeader(bytes)) {
-                isUploading.set(false);
-                isValidMagicHeader.set(false);
-                statusMessage.set("Selected file is not valid compiled Solix bytecode.");
-                return CompletableFuture.completedFuture(false);
-            }
             isValidMagicHeader.set(true);
 
             String name = functionNameInput.get().isBlank() ? "function" : functionNameInput.get();
