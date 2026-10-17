@@ -8,6 +8,9 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#ifdef ERROR
+#undef ERROR
+#endif
 #else
 #include <unistd.h>
 #endif
@@ -106,13 +109,13 @@ EnrollmentResult EnrollmentClient::register_node(const common::Ed25519KeyPair& k
 
     auto response = client.post(url, payload.dump(), args);
     if (!response) {
-        res.status = EnrollmentStatus::ERROR;
+        res.status = EnrollmentStatus::ERROR_STATE;
         res.error_message = "Null response from registration endpoint";
         return res;
     }
 
     if (response->statusCode != 200 && response->statusCode != 202) {
-        res.status = EnrollmentStatus::ERROR;
+        res.status = EnrollmentStatus::ERROR_STATE;
         res.error_message = "Registration failed with HTTP " + std::to_string(response->statusCode) +
                             ": " + response->body + " (" + response->errorMsg + ")";
         return res;
@@ -136,7 +139,7 @@ EnrollmentResult EnrollmentClient::register_node(const common::Ed25519KeyPair& k
             res.status = EnrollmentStatus::PENDING_APPROVAL;
         }
     } catch (const std::exception& e) {
-        res.status = EnrollmentStatus::ERROR;
+        res.status = EnrollmentStatus::ERROR_STATE;
         res.error_message = std::string("Failed to parse registration response JSON: ") + e.what();
     }
 
@@ -232,7 +235,7 @@ EnrollmentResult EnrollmentClient::enroll_and_persist(
     config_.identity.public_key = keypair.public_key_base64;
 
     auto reg_res = register_node(keypair);
-    if (reg_res.status == EnrollmentStatus::ERROR) {
+    if (reg_res.status == EnrollmentStatus::ERROR_STATE) {
         if (on_status) on_status(reg_res);
         return reg_res;
     }

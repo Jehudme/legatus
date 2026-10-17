@@ -8,16 +8,24 @@
 
 namespace legatus::daemon {
 
+#ifdef ERROR
+#undef ERROR
+#endif
+
 enum class EnrollmentStatus {
     PENDING_APPROVAL,
     APPROVED,
     REJECTED,
     EXPIRED,
-    ERROR
+    ERROR_STATE
 };
 
+#ifndef ERROR
+    static constexpr EnrollmentStatus ERROR = EnrollmentStatus::ERROR_STATE;
+#endif
+
 struct EnrollmentResult {
-    EnrollmentStatus status = EnrollmentStatus::ERROR;
+    EnrollmentStatus status = EnrollmentStatus::ERROR_STATE;
     std::string enrollment_id;
     std::string secret_token;
     std::string assigned_cluster;

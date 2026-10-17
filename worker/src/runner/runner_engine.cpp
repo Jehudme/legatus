@@ -93,12 +93,13 @@ ExecutionResult execute_task(ExecutionEnvelope& envelope, SecretZeroizer& zeroiz
         }
     }
 
+    task_zeroizer.zero_all();
     return result;
 }
 
 int run_task_runner(std::istream& in, std::ostream& out, const std::string& result_file_path) {
-    SecretZeroizer zeroizer;
     std::string input_json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    SecretZeroizer zeroizer;
     zeroizer.register_string(input_json);
 
     ExecutionResult result;
@@ -117,7 +118,7 @@ int run_task_runner(std::istream& in, std::ostream& out, const std::string& resu
 
     nlohmann::json out_j;
     to_json(out_j, result);
-    std::string dumped = out_j.dump();
+    std::string dumped = out_j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 
     if (!result_file_path.empty()) {
         std::ofstream rfs(result_file_path, std::ios::out | std::ios::trunc);
@@ -131,6 +132,7 @@ int run_task_runner(std::istream& in, std::ostream& out, const std::string& resu
         out << dumped << std::endl;
     }
 
+    zeroizer.zero_all();
     return result.exit_code;
 }
 
