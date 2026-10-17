@@ -288,14 +288,10 @@ jobs:
           done
 
   publish-studio:
-    name: Build & Publish Studio Installers (OpenJFX 21)
+    name: Build & Publish Studio Application JAR (OpenJFX 21)
     needs: release-please
     if: ${{ needs.release-please.outputs.studio_release_created == 'true' }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Tree
         uses: actions/checkout@v4
@@ -310,20 +306,15 @@ jobs:
       - name: Build Studio Application JAR
         run: mvn -f studio/pom.xml package -DskipTests
 
-      - name: Assemble Studio Native Distribution Archive
-        shell: bash
+      - name: Assemble Studio Release Assets
         run: |
           mkdir -p dist-studio
-          JAR_FILE=$(find studio/target -maxdepth 1 -name "studio-*.jar" | head -n 1)
-          cp "$JAR_FILE" dist-studio/legatus-studio.jar
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            7z a dist-studio/legatus-studio-windows.zip dist-studio/legatus-studio.jar
-          else
-            tar -czf dist-studio/legatus-studio-${{ matrix.os }}.tar.gz -C dist-studio legatus-studio.jar
-          fi
+          cp studio/target/legatus-studio.jar dist-studio/legatus-studio.jar
+          cp studio/target/legatus-studio.jar dist-studio/legatus-studio-1.0.0.jar
+          tar -czf dist-studio/legatus-studio-1.0.0.tar.gz -C dist-studio legatus-studio.jar
+          zip -j dist-studio/legatus-studio-1.0.0.zip dist-studio/legatus-studio.jar
 
       - name: Upload Studio Deliverables to GitHub Release
-        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -335,3 +326,4 @@ jobs:
               gh release upload "$TAG" "$file" --clobber
             fi
           done
+
