@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MSVC)
     add_compile_options(/W4 /permissive-)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN NOGDI)
 else()
     add_compile_options(-Wall -Wextra)
 endif()
@@ -161,6 +161,10 @@ target_link_libraries(legatus_common PUBLIC
     tomlplusplus::tomlplusplus
 )
 
+if(WIN32)
+    target_link_libraries(legatus_common PUBLIC ws2_32 crypt32)
+endif()
+
 # -----------------------------------------------------------------------------
 # Sandboxed Standard Library: legatus_stdlib_native
 # -----------------------------------------------------------------------------
@@ -203,6 +207,10 @@ target_link_libraries(legatus_stdlib_native PUBLIC
     OpenSSL::Crypto
     OpenSSL::SSL
 )
+
+if(WIN32)
+    target_link_libraries(legatus_stdlib_native PUBLIC ws2_32 crypt32)
+endif()
 
 # -----------------------------------------------------------------------------
 # Runner Library: legatus_runner_core

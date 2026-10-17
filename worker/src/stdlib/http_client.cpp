@@ -8,7 +8,10 @@
 #include <cstring>
 
 #if defined(_WIN32)
+#include <winsock2.h>
 #include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "crypt32.lib")
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
