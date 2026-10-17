@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-012
 * **Target Version:** `v1.8.0-server-integrity`
-* **Status:** ACTIVE
+* **Status:** CLOSED
 * **Lead Architect:** @runtime-architect & @server-lead
 * **Target Delivery Date:** 2027-05-01
 * **Related ADRs:** ADR-0001, ADR-0002, ADR-0005, ADR-0007, ADR-0010

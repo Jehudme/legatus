@@ -21,22 +21,23 @@ This specification establishes the mandatory **Eight-Stage Engineering Lifecycle
 
 All contributors **MUST** strictly adhere to the following lifecycle invariants:
 
-1. **The Eight-Stage Sequence:** Engineering work **MUST** proceed through the eight discrete stages in exact chronological order:
-   $$\text{Branch} \to \text{Spec Update} \to \text{Implementation} \to \text{Test Matrix} \to \text{Local Verification} \to \text{Doc Sync} \to \text{CI Matrix} \to \text{Merge}$$
-2. **Specification-First Principle:** Prior to writing production code, the engineer **MUST** document the architectural changes, wire frames, or schema alterations in `docs/specs/` or an ADR (`docs/dev/decisions/`). Implementing code without prior or concurrent specification updates is prohibited.
-3. **Mandatory Multi-Platform Green CI:** A pull request **SHALL NOT** be merged unless the complete GitHub Actions CI matrix passes cleanly across all tier-1 operating systems:
+2. **The Nine-Stage Sequence:** Engineering work **MUST** proceed through the nine discrete stages in exact chronological order:
+   $$\text{Branch} \to \text{Spec Update} \to \text{Implementation} \to \text{Test Matrix} \to \text{Local Verification} \to \text{Doc Sync} \to \text{CI Matrix} \to \text{Merge} \to \text{Release Publish}$$
+3. **Specification-First Principle:** Prior to writing production code, the engineer **MUST** document the architectural changes, wire frames, or schema alterations in `docs/specs/` or an ADR (`docs/dev/decisions/`). Implementing code without prior or concurrent specification updates is prohibited.
+4. **Mandatory Multi-Platform Green CI:** A pull request **SHALL NOT** be merged unless the complete GitHub Actions CI matrix passes cleanly across all tier-1 operating systems:
    * **Linux:** Ubuntu 22.04 LTS (GCC 13, Clang 18 with ASan/UBSan)
    * **macOS:** macOS 14 Sonoma (AppleClang 15)
    * **Windows:** Windows Server 2022 (MSVC v143 / Visual Studio 2022)
-4. **Non-Fast-Forward Merge Invariant:** All pull requests merged into `master` **MUST** use non-fast-forward merge commits (`git merge --no-ff`) to preserve branch topology and maintain atomic milestone histories. Rebasing and squashing at merge time that destroys discrete commit boundaries is strictly prohibited unless explicitly authorized for trivial chore branches.
-5. **Mandatory Two-Reviewer Approval:** PRs modifying core daemons (`legatusd`), process runners (`legatus-runner`), or wire protocols (`worker-wire.md`) **MUST** receive approval from at least two core maintainers.
-6. **No CI Bypassing:** Administrators **MUST NOT** use bypass permissions to force-merge PRs with failing checks or uncleared review comments.
+5. **Non-Fast-Forward Merge Invariant:** All pull requests merged into `master` **MUST** use non-fast-forward merge commits (`git merge --no-ff`) to preserve branch topology and maintain atomic milestone histories. Rebasing and squashing at merge time that destroys discrete commit boundaries is strictly prohibited unless explicitly authorized for trivial chore branches.
+6. **Mandatory Two-Reviewer Approval:** PRs modifying core daemons (`legatusd`), process runners (`legatus-runner`), or wire protocols (`worker-wire.md`) **MUST** receive approval from at least two core maintainers.
+7. **No CI Bypassing:** Administrators **MUST NOT** use bypass permissions to force-merge PRs with failing checks or uncleared review comments.
+8. **Automated Monorepo Release Invariant:** Releases **SHALL** be cut strictly via Google `release-please` by merging the automated Release PR into `master`. Manual tagging or manual editing of component changelogs without Conventional Commits is prohibited.
 
 ---
 
 ## 3. Structural Specification & Schema
 
-### 3.1 The Eight-Stage Engineering Lifecycle
+### 3.1 The Nine-Stage Engineering Lifecycle
 
 ```
 [1. BRANCH]            Create feat/<scope>-<desc> from master
@@ -61,6 +62,9 @@ All contributors **MUST** strictly adhere to the following lifecycle invariants:
      │
      ▼
 [8. MERGE (--no-ff)]   Merge into master preserving commit graph, delete branch
+     │
+     ▼
+[9. RELEASE PUBLISH]   Merge automated Release PR; tag cut & release assets built
 ```
 
 ### 3.2 Automated CI Matrix Gates
@@ -172,9 +176,72 @@ git push origin master
 git branch -d feat/worker-task-abort
 ```
 
+#### Step 9: Automated Release Staging & Publishing
+Upon pushing the merged commit to `master`:
+1. GitHub Actions workflow `.github/workflows/pipeline-publish.yml` executes.
+2. The `release-please` job scans the commit history since the previous tag.
+3. Because the commit was prefixed with `feat(worker):`, `release-please` updates the open Release PR (`chore(master): release worker X.Y.0`), bumping `worker` in `.release-please-manifest.json` and appending the changelog entry to `worker/CHANGELOG.md`.
+4. When maintainers merge the Release PR, Git tags are minted, GitHub Releases are published, and release artifacts (installers, JARs) are built and attached.
+
 ---
 
-## 6. Anti-Patterns & Counter-Examples (What NOT to Do)
+## 6. Automated Monorepo Release Standard Operating Procedure (SOP)
+
+Per **ADR-0003**, Legatus utilizes Google `release-please` to maintain independent, deterministic SemVer releases for each monorepo package:
+* `worker`: C++20 daemon, runner, and CLI (`worker/CHANGELOG.md`)
+* `server`: Java 21 / Spring Boot orchestration server (`server/CHANGELOG.md`)
+* `studio`: JavaFX desktop administrative cockpit (`studio/CHANGELOG.md`)
+
+### 6.1 The 4-Step Release Playbook
+
+Engineers and release maintainers **MUST** execute the following workflow to publish new versions:
+
+```
+[1. Commit Code] ──────► [2. Bot Maintains PR] ──────► [3. Review & Merge] ──────► [4. Automatic Publish]
+ conventional commits     chore(master): release...     merge commit (--no-ff)       tags & release assets
+```
+
+1. **Step 1: Commit with Conventional Commits**
+   Ensure all merged commits use canonical types (`feat`, `fix`, `perf`) and scopes (`(worker)`, `(server)`, `(studio)`).
+   * `fix(...)`: Triggers a **PATCH** release (e.g., `0.3.0` $\to$ `0.3.1`).
+   * `feat(...)`: Triggers a **MINOR** release (e.g., `0.3.0` $\to$ `0.4.0`).
+   * `feat!(...)` or `BREAKING CHANGE:`: Triggers a **MAJOR** release (e.g., `0.3.0` $\to$ `1.0.0`).
+
+2. **Step 2: Inspect the Automated Release PR**
+   Navigate to the repository's **Pull Requests** tab on GitHub.
+   Locate the open PR authored by `github-actions[bot]`, typically titled:
+   `chore(master): release server X.Y.Z, worker X.Y.Z`
+   * Review the version numbers bumped in `.release-please-manifest.json`.
+   * Review the auto-generated release notes in the respective `CHANGELOG.md` files.
+
+3. **Step 3: Merge the Release PR**
+   When the milestone is marked `FEATURE_COMPLETE` and `VALIDATED`:
+   * Click **Merge pull request** using a standard merge commit (`--no-ff`).
+   * **Do NOT squash** the Release PR, as squashing destroys the manifest commit metadata.
+
+4. **Step 4: Automated Tagging and Artifact Compilation**
+   The merge commit triggers `.github/workflows/pipeline-publish.yml`:
+   * `release-please` cuts the official Git tags (e.g., `server-v1.0.0`, `worker-v1.0.0`, `studio-v1.0.0`).
+   * GitHub Releases are published with the changelog.
+   * Downstream jobs (`publish-worker`, `publish-server`, `publish-studio`) compile release binaries, assemble native installers/JARs, and upload them to the GitHub Release.
+
+### 6.2 Hotfixes & Manual Version Overrides
+
+In exceptional circumstances where a version bump must be manually defined (e.g., promotional Major version `v1.0.0` milestone alignment):
+1. Update `.release-please-manifest.json` directly with the intended SemVer:
+   ```json
+   {
+     "worker": "1.0.0",
+     "server": "1.0.0",
+     "studio": "1.0.0"
+   }
+   ```
+2. Commit with conventional message: `chore: prepare v1.0.0 milestone release`.
+3. Push to `master`. `release-please` will synchronize its Release PR to the manifest version targets.
+
+---
+
+## 7. Anti-Patterns & Counter-Examples (What NOT to Do)
 
 ### Anti-Pattern 1: The "Code-First, Docs-Never" Workflow
 * **Flawed Practice:** Opening a PR with 2,000 lines of complex C++ IPC logic without touching a single document in `docs/specs/` or `docs/guides/`.
@@ -193,14 +260,15 @@ git branch -d feat/worker-task-abort
 
 ---
 
-## 7. Verification & Compliance Checklist
+## 8. Verification & Compliance Checklist
 
 Maintainers and PR authors **MUST** verify the following audit criteria prior to merging:
 
-- [ ] **Stage Order Maintained:** Development proceeded through the 8 stages in order.
+- [ ] **Stage Order Maintained:** Development proceeded through the 9 stages in order.
 - [ ] **Conventional Commit Title:** PR title conforms to `feat(scope): ...` format.
 - [ ] **Multi-Platform CI Green:** Linux, macOS, and Windows matrix jobs have passed.
 - [ ] **Sanitizers Clean:** Clang AddressSanitizer and UndefinedBehaviorSanitizer report zero issues.
 - [ ] **Two Maintainer Approvals:** Core subsystem code reviewed and approved by two maintainers.
 - [ ] **Non-Fast-Forward Merge:** Merged using `--no-ff` to preserve branch graph integrity.
 - [ ] **Branch Deleted:** Topic branch deleted from remote immediately upon merge.
+- [ ] **Release Publication Monitored:** Release PR merged and automated artifacts verified in GitHub Releases.

@@ -26,8 +26,14 @@ endif()
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 find_package(ZLIB REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(RE2 REQUIRED re2)
+find_package(re2 CONFIG QUIET)
+if(re2_FOUND)
+    set(RE2_TARGET re2::re2)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(RE2 REQUIRED re2)
+    set(RE2_TARGET ${RE2_LIBRARIES})
+endif()
 
 include(FetchContent)
 
@@ -184,7 +190,7 @@ target_link_libraries(legatus_stdlib_native PUBLIC
     solix_core
     CURL::libcurl
     ZLIB::ZLIB
-    ${RE2_LIBRARIES}
+    ${RE2_TARGET}
     OpenSSL::Crypto
     OpenSSL::SSL
 )

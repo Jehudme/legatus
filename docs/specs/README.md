@@ -23,6 +23,7 @@ All documents within this tree strictly adhere to the **Specification vs. Code S
 | Subsystem | Specification Document | Target Binaries | Host Language & Stack | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Worker Node** | [`worker-spec.md`](worker-spec.md) | `legatusd`, `legatus`, `legatus-runner` | C++20 (`reproc++`, `nng`, `IXWebSocket`, `Solix VM`) | Final (`v1.0.0-FINAL`) |
+| **Sandboxed Stdlib** | [`stdlib-spec.md`](stdlib-spec.md) | `legatus-runner` | C++20 (`Solixlib`, in-memory POSIX/REST/JSON) | Final (`v1.0.0-FINAL`) |
 | **Server Broker** | [`server-spec.md`](server-spec.md) | `legatus-server` | Java 21 LTS (Spring Boot 3, Loom, H2, Caffeine) | Final (`v1.0.0-FINAL`) |
 | **Studio Cockpit**| [`studio-spec.md`](studio-spec.md) | `legatus-studio` | Java 21 LTS (OpenJFX 21, AtlantaFX, Ikonli) | Final (`v1.0.0-FINAL`) |
 

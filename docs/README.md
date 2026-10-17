@@ -58,13 +58,13 @@ docs/
 ├── dev/                           # Internal engineering governance and developer standards
 │   ├── decisions/                 # Architecture Decision Records (ADRs, MADR schema)
 │   │   ├── README.md              # ADR index and immutability governance
-│   │   └── 0001–0008              # Technology selections (Spring Boot, JavaFX, Solix, etc.)
+│   │   └── 0001–0010              # Technology selections (Spring Boot, JavaFX, Solix, Stdlib, Control Plane)
 │   ├── guidelines/                # The 12-Document Master Engineering Guidelines Suite
 │   │   ├── README.md              # Master guidelines index (GL-0000)
 │   │   └── GL-0001 to GL-0011     # Commits, branching, workflows, specs, testing, etc.
 │   └── milestones/                # Phased delivery governance and definition of done (DoD)
 │       ├── README.md              # Milestone roadmap index
-│       └── 001 to 004             # Foundation, Server MVP, Worker MVP, Studio MVP
+│       └── 001 to 016             # Milestones from MVP through Military-Grade Cluster Verification
 ├── guides/                        # Operator and developer operational guides
 │   ├── README.md                  # Guides catalog and verification invariants
 │   ├── 01-getting-started.md      # Multi-binary local cluster quickstart
@@ -74,6 +74,7 @@ docs/
 └── specs/                         # Core Subsystem Specifications & Wire Protocols
     ├── README.md                  # Specifications catalog
     ├── server-spec.md             # Server subsystem specification (Loom, H2, Scheduler)
+    ├── stdlib-spec.md             # Sandboxed Standard Library Specification (Safe Solixlib)
     ├── studio-spec.md             # Studio subsystem specification (OpenJFX, AtlantaFX, 60Hz)
     ├── worker-spec.md             # Worker subsystem specification (reproc++, nng, Solix)
     └── protocols/                 # Layer 7 Wire Protocol Specifications

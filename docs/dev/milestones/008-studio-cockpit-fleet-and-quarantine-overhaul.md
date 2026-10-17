@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-008
 * **Target Version:** `v1.4.0-cockpit-fleet`
-* **Status:** COMPLETED
+* **Status:** CLOSED
 * **Lead Architect:** @studio-lead
 * **Target Delivery Date:** 2027-02-28
 * **Related ADRs:** ADR-0002, ADR-0003, ADR-0005, ADR-0010

@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-009
 * **Target Version:** `v1.5.0-workbench-profiles`
-* **Status:** COMPLETED
+* **Status:** CLOSED
 * **Lead Architect:** @studio-lead
 * **Target Delivery Date:** 2027-03-15
 * **Related ADRs:** ADR-0002, ADR-0004, ADR-0008, ADR-0010

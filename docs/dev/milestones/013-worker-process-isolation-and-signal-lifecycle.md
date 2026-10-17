@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-013
 * **Target Version:** `v1.9.0-worker-isolation`
-* **Status:** COMPLETED
+* **Status:** CLOSED
 * **Lead Architect:** @runtime-architect & @worker-lead
 * **Target Delivery Date:** 2027-05-15
 * **Related ADRs:** ADR-0003, ADR-0004, ADR-0007, ADR-0008, ADR-0010

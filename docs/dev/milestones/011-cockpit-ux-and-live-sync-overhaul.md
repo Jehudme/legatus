@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-011
 * **Target Version:** `v1.7.0-cockpit-sync`
-* **Status:** COMPLETED
+* **Status:** CLOSED
 * **Lead Architect:** @runtime-architect & @ux-lead
 * **Target Delivery Date:** 2027-04-15
 * **Related ADRs:** ADR-0001, ADR-0002, ADR-0003, ADR-0005, ADR-0008, ADR-0010

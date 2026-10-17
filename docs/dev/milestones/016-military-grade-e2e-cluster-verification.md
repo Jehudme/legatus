@@ -3,7 +3,7 @@
 ## Document Metadata
 * **Milestone ID:** MS-016
 * **Target Version:** `v2.0.0-cluster-verification`
-* **Status:** COMPLETED
+* **Status:** CLOSED
 * **Lead Architect:** @qa-lead & @runtime-architect
 * **Target Delivery Date:** 2027-07-01
 * **Related ADRs:** ADR-0001 through ADR-0010

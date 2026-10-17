@@ -64,6 +64,13 @@ The following GitHub branch protection rules **MUST** be permanently active on `
 * **Require linear history:** Disabled (to allow explicit `--no-ff` merge commits).
 * **Do not allow bypassing the above settings:** Enabled.
 
+### 3.4 Automated Release PR Branches (`release-please`)
+
+Per **ADR-0003** and **GL-0003**, automated release staging is performed on a dedicated system branch maintained exclusively by Google `release-please`:
+* **Branch Pattern:** `release-please--branches--master`
+* **Purpose:** Collects Conventional Commits from `master`, increments `.release-please-manifest.json`, and updates component `CHANGELOG.md` files.
+* **Invariant:** Engineers **MUST NOT** push manual commits directly to this bot branch. When milestone criteria are satisfied, maintainers merge the associated Release PR into `master` using standard `--no-ff` merge commits, which triggers the automated tagging and artifact publication pipeline.
+
 ---
 
 ## 4. Production-Ready Template

@@ -7,12 +7,13 @@
 * **Normative Conformance:** RFC 2119 / RFC 8174 (`MUST`, `MUST NOT`, `REQUIRED`, `SHALL`, `SHALL NOT`, `SHOULD`, `SHOULD NOT`, `RECOMMENDED`, `MAY`, `OPTIONAL`)
 * **Related Specifications:**
   * [`docs/specs/worker-spec.md`](../specs/worker-spec.md)
+  * [`docs/specs/stdlib-spec.md`](../specs/stdlib-spec.md)
   * [`docs/specs/server-spec.md`](../specs/server-spec.md)
   * [`docs/specs/studio-spec.md`](../specs/studio-spec.md)
   * [`docs/specs/protocols/worker-wire.md`](../specs/protocols/worker-wire.md)
   * [`docs/specs/protocols/studio-wire.md`](../specs/protocols/studio-wire.md)
   * [`docs/specs/protocols/api-endpoint.md`](../specs/protocols/api-endpoint.md)
-  * [`docs/dev/decisions/README.md`](../dev/decisions/README.md) (`ADR-0001` through `ADR-0008`)
+  * [`docs/dev/decisions/README.md`](../dev/decisions/README.md) (`ADR-0001` through `ADR-0010`)
 
 ---
 
