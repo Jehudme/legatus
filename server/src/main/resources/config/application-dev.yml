@@ -37,7 +37,7 @@ spring:
       indent-output: true
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:h2:file:./target/h2db/db/legatusServer;DB_CLOSE_DELAY=-1
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:~/.config/legatus/db/legatusServer;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE}
     hikari:
       poolName: Hikari
       auto-commit: false
