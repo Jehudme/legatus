@@ -2,6 +2,24 @@
 
 All notable changes to the Legatus Studio subsystem (`legatus-studio`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.0](https://github.com/Jehudme/legatus/compare/studio-v0.3.0...studio-v1.0.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* Promotion to v1.0.0 General Availability with unified multi-platform CI/CD and release publishing.
+
+### Features
+
+* promote Legatus to v1.0.0 General Availability ([7b4ef2c](https://github.com/Jehudme/legatus/commit/7b4ef2c4389d7fd54dcf2bac3777d153d352b209))
+
+
+### Bug Fixes
+
+* resolve process drain pipe bounds, SecretZeroizer lifetime, and multiplatform CI matrix ([30eb70e](https://github.com/Jehudme/legatus/commit/30eb70e37ecea0d7003c5139f9e0d3559a3e3ee1))
+* **studio:** completely remove artificial bytecode magic header validation ([cf0ea96](https://github.com/Jehudme/legatus/commit/cf0ea968aa0f1045e4441aa3a33cefaa56d46e1b))
+* **studio:** persist uploaded functions in catalog database to survive app restarts ([21e8e65](https://github.com/Jehudme/legatus/commit/21e8e6522c8edc0961cad1cdfb535c4cce92a92e))
+
 ## [0.3.0](https://github.com/Jehudme/legatus/compare/studio-v0.2.0...studio-v0.3.0) (2026-10-16)
 
 
