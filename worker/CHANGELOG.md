@@ -2,6 +2,28 @@
 
 All notable changes to the Legatus Worker subsystem (`legatusd`, `legatus`, `legatus-runner`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.0](https://github.com/Jehudme/legatus/compare/worker-v0.2.1...worker-v1.0.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* Promotion to v1.0.0 General Availability with unified multi-platform CI/CD and release publishing.
+
+### Features
+
+* promote Legatus to v1.0.0 General Availability ([7b4ef2c](https://github.com/Jehudme/legatus/commit/7b4ef2c4389d7fd54dcf2bac3777d153d352b209))
+
+
+### Bug Fixes
+
+* **ci:** exclude unused upstream solix targets and build explicit legatus binaries on Windows ([39b5931](https://github.com/Jehudme/legatus/commit/39b5931fb50ec97edc7368a40cd4e607a98609f1))
+* resolve process drain pipe bounds, SecretZeroizer lifetime, and multiplatform CI matrix ([30eb70e](https://github.com/Jehudme/legatus/commit/30eb70e37ecea0d7003c5139f9e0d3559a3e3ee1))
+* **worker:** adopt canonical reproc::drain and enforce OpenSSL on Windows CI ([7c18b92](https://github.com/Jehudme/legatus/commit/7c18b922e9d66cbf3f4888ca95f6b17bba3c4546))
+* **worker:** initialize Winsock for in-process servers and handle Windows task abort termination ([240acb4](https://github.com/Jehudme/legatus/commit/240acb443b296333b0412e9909b1cecf02d67eba))
+* **worker:** link ws2_32 and crypt32 for networking on Windows MSVC ([4b08277](https://github.com/Jehudme/legatus/commit/4b082773221a90d143fbed3dd0258d3a44ef0237))
+* **worker:** resolve cross-platform MSVC intrinsics, stream pipe draining, and signal safety ([deaa77d](https://github.com/Jehudme/legatus/commit/deaa77dbe8e7ca4abd082c086d54719f52e6cbad))
+* **worker:** resolve SecretZeroizer lifetime use-after-free and Windows ERROR macro collision ([4079d3a](https://github.com/Jehudme/legatus/commit/4079d3a22258d6a5edeeb74c0347ff981743cbf3))
+
 ## [0.2.1](https://github.com/Jehudme/legatus/compare/worker-v0.2.0...worker-v0.2.1) (2026-10-16)
 
 
