@@ -27,8 +27,8 @@ public class BytecodeHeaderValidationTest {
     static void initJavaFX() {
         try {
             Platform.startup(() -> {});
-        } catch (IllegalStateException ignored) {
-            // Already initialized
+        } catch (Throwable ignored) {
+            // Already initialized or headless environment
         }
     }
 

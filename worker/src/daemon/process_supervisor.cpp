@@ -145,12 +145,11 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
             }
 
             // Check for progress checkpoint pattern: [PROGRESS:<inst>:<checkpoint>]
-            const char* buf_str = reinterpret_cast<const char*>(buffer);
-            const char* prog_tag = "[PROGRESS:";
-            const char* found = std::strstr(buf_str, prog_tag);
-            if (found) {
+            std::string_view buf_sv(reinterpret_cast<const char*>(buffer), size);
+            auto pos = buf_sv.find("[PROGRESS:");
+            if (pos != std::string_view::npos) {
                 try {
-                    uint64_t inst = std::strtoull(found + 10, nullptr, 10);
+                    uint64_t inst = std::strtoull(buf_sv.data() + pos + 10, nullptr, 10);
                     std::lock_guard<std::mutex> lock(mutex_);
                     auto it = active_processes_.find(envelope.task_id);
                     if (it != active_processes_.end()) {
@@ -219,7 +218,7 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
         }
 
         int events = 0;
-        std::tie(events, ec) = proc->poll(reproc::event::out | reproc::event::err | reproc::event::exit, poll_timeout);
+        std::tie(events, ec) = proc->poll(reproc::event::out | reproc::event::err, poll_timeout);
 
         if (has_timeout && std::chrono::steady_clock::now() >= deadline) {
             timed_out = true;
@@ -227,11 +226,7 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
         }
 
         if (ec) {
-            // Broken pipe or error -> process finished or closed output
-            break;
-        }
-
-        if (events & reproc::event::exit) {
+            // Broken pipe or error -> process finished and closed output
             break;
         }
 
@@ -242,19 +237,19 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
         if (events & reproc::event::out) {
             size_t bytes_read = 0;
             std::tie(bytes_read, ec) = proc->read(reproc::stream::out, drain_buffer, BUFFER_SIZE);
-            if (bytes_read > 0) {
+            if (!ec && bytes_read > 0) {
                 out_sink(reproc::stream::out, drain_buffer, bytes_read);
             }
-            if (ec) break;
+            if (ec && ec != reproc::error::broken_pipe) break;
         }
 
         if (events & reproc::event::err) {
             size_t bytes_read = 0;
             std::tie(bytes_read, ec) = proc->read(reproc::stream::err, drain_buffer, BUFFER_SIZE);
-            if (bytes_read > 0) {
+            if (!ec && bytes_read > 0) {
                 err_sink(reproc::stream::err, drain_buffer, bytes_read);
             }
-            if (ec) break;
+            if (ec && ec != reproc::error::broken_pipe) break;
         }
     }
 

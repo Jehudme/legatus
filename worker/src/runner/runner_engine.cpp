@@ -9,14 +9,16 @@
 namespace legatus::runner {
 
 ExecutionResult execute_task(ExecutionEnvelope& envelope, SecretZeroizer& zeroizer) {
+    (void)zeroizer;
+    SecretZeroizer task_zeroizer;
     ExecutionResult result;
     result.task_id = envelope.task_id;
 
-    // Register secrets and input string for zeroing on scope exit
-    zeroizer.register_string(envelope.arguments_json);
+    // Register secrets and input string for zeroing on scope exit before envelope is destroyed
+    task_zeroizer.register_string(envelope.arguments_json);
     for (auto& [k, v] : envelope.secrets) {
         (void)k;
-        zeroizer.register_string(v);
+        task_zeroizer.register_string(v);
     }
 
     std::vector<std::uint8_t> bytecode;

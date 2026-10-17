@@ -43,5 +43,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    return legatus::runner::run_task_runner(std::cin, std::cout, result_file);
+    int code = legatus::runner::run_task_runner(std::cin, std::cout, result_file);
+    std::cout.flush();
+    std::cerr.flush();
+    return code;
 }
