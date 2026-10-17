@@ -23,6 +23,19 @@ namespace legatus::stdlib {
 
 namespace {
 
+#if defined(_WIN32)
+struct HttpWinsockInit {
+    HttpWinsockInit() {
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+    }
+    ~HttpWinsockInit() {
+        WSACleanup();
+    }
+};
+static HttpWinsockInit g_http_winsock_init;
+#endif
+
 constexpr size_t MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB ceiling
 
 bool is_ip_blocked(const struct sockaddr* sa) {

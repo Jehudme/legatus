@@ -9,6 +9,17 @@
 #include <filesystem>
 #include <random>
 
+#if defined(_WIN32)
+#include <ixwebsocket/IXNetSystem.h>
+namespace {
+struct NetSystemInit {
+    NetSystemInit() { ix::initNetSystem(); }
+    ~NetSystemInit() { ix::uninitNetSystem(); }
+};
+static NetSystemInit g_bytecode_fallback_winsock_init;
+} // namespace
+#endif
+
 #ifndef LEGATUS_RUNNER_PATH
 #define LEGATUS_RUNNER_PATH "./legatus-runner"
 #endif

@@ -13,6 +13,9 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#if defined(_WIN32)
+#include <ixwebsocket/IXNetSystem.h>
+#endif
 
 #ifndef LEGATUS_RUNNER_PATH
 #define LEGATUS_RUNNER_PATH "./legatus-runner"
@@ -141,6 +144,9 @@ private:
 } // namespace
 
 int main(int argc, char* argv[]) {
+#if defined(_WIN32)
+    ix::initNetSystem();
+#endif
     CLI::App app{"Legatus Worker Subsystem Daemon (legatusd)"};
     app.set_version_flag("--version,-v", std::string("legatusd v") + std::string(legatus::VERSION));
 
@@ -237,6 +243,9 @@ int main(int argc, char* argv[]) {
     spdlog::info("Shutting down legatusd gracefully...");
     lctp_client->stop();
     ipc_server->stop();
+#if defined(_WIN32)
+    ix::uninitNetSystem();
+#endif
     spdlog::info("legatusd stopped cleanly.");
     return 0;
 }

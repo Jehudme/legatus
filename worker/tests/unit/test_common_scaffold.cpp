@@ -4,6 +4,21 @@
 #include <catch2/catch_all.hpp>
 #include <vector>
 
+#if defined(_WIN32)
+#include <ixwebsocket/IXNetSystem.h>
+namespace {
+struct GlobalWinSockInit {
+    GlobalWinSockInit() {
+        ix::initNetSystem();
+    }
+    ~GlobalWinSockInit() {
+        ix::uninitNetSystem();
+    }
+};
+static GlobalWinSockInit g_global_winsock_init;
+} // namespace
+#endif
+
 TEST_CASE("WorkerScaffold - Common Utilities & Solix Linkage", "[worker][scaffold]") {
 
     SECTION("Version string is valid") {

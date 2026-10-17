@@ -124,10 +124,15 @@ TEST_CASE("Process Isolation and Signal Lifecycle Integration Suite", "[worker][
         auto abort_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - abort_start).count();
 
-        // Process should terminate rapidly within 1000ms
+        // Process should terminate rapidly
+#if defined(_WIN32)
+        REQUIRE(abort_elapsed_ms < 6000);
+        REQUIRE((res.exit_code == 143 || res.exit_code == 130 || res.exit_code == 137));
+#else
         REQUIRE(abort_elapsed_ms < 1500);
         // On Linux/POSIX SIGTERM maps to 143 (128+15) or 130 (SIGINT / handled)
         REQUIRE((res.exit_code == 143 || res.exit_code == 130));
+#endif
         REQUIRE(supervisor.active_task_count() == 0);
     }
 

@@ -9,6 +9,17 @@
 #if !defined(_WIN32)
 #include <sys/types.h>
 #include <signal.h>
+#else
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOGDI
+#define NOGDI
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 namespace legatus::daemon {
@@ -343,9 +354,18 @@ bool ProcessSupervisor::abort_task(const std::string& task_id) {
         ::kill(child_pid, SIGTERM);
         return true;
     }
+#else
+    if (child_pid > 0) {
+        HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, static_cast<DWORD>(child_pid));
+        if (hProc != nullptr) {
+            TerminateProcess(hProc, 130);
+            CloseHandle(hProc);
+            return true;
+        }
+    }
 #endif
 
-    // Two-stage kill escalation: SIGTERM (10s) -> SIGKILL (2s)
+    // Two-stage kill escalation fallback: SIGTERM (10s) -> SIGKILL (2s)
     proc->stop({
         { reproc::stop::terminate, reproc::milliseconds(grace_period_.count()) },
         { reproc::stop::kill, reproc::milliseconds(kill_timeout_.count()) },

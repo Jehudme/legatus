@@ -8,6 +8,17 @@
 #include <filesystem>
 #include <atomic>
 
+#if defined(_WIN32)
+#include <ixwebsocket/IXNetSystem.h>
+namespace {
+struct NetSystemInit {
+    NetSystemInit() { ix::initNetSystem(); }
+    ~NetSystemInit() { ix::uninitNetSystem(); }
+};
+static NetSystemInit g_crypto_enrollment_winsock_init;
+} // namespace
+#endif
+
 TEST_CASE("Ed25519 Key Generation & Visual Attestation", "[worker][crypto][ed25519]") {
     auto keypair = legatus::common::generate_ed25519_keypair();
 
