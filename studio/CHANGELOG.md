@@ -2,6 +2,14 @@
 
 All notable changes to the Legatus Studio subsystem (`legatus-studio`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.3.1](https://github.com/Jehudme/legatus/compare/studio-v0.3.0...studio-v0.3.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **studio:** completely remove artificial bytecode magic header validation ([cf0ea96](https://github.com/Jehudme/legatus/commit/cf0ea968aa0f1045e4441aa3a33cefaa56d46e1b))
+* **studio:** persist uploaded functions in catalog database to survive app restarts ([21e8e65](https://github.com/Jehudme/legatus/commit/21e8e6522c8edc0961cad1cdfb535c4cce92a92e))
+
 ## [0.3.0](https://github.com/Jehudme/legatus/compare/studio-v0.2.0...studio-v0.3.0) (2026-10-16)
 
 

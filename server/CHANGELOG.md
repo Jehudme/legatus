@@ -2,6 +2,15 @@
 
 All notable changes to the Legatus Server subsystem (`legatus-server`) will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.3.1](https://github.com/Jehudme/legatus/compare/server-v0.3.0...server-v0.3.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **server:** resolve task queue drain stalls and dynamic threshold breach clearing ([1ccf1fa](https://github.com/Jehudme/legatus/commit/1ccf1fac21c1289b7bc1537f150e7296ef68f731))
+* **server:** store dev database persistently in ~/.config/legatus/db/ with AUTO_SERVER ([a502777](https://github.com/Jehudme/legatus/commit/a5027775d195e4c3270f5c8586495ddb06f1ec62))
+* **studio:** persist uploaded functions in catalog database to survive app restarts ([21e8e65](https://github.com/Jehudme/legatus/commit/21e8e6522c8edc0961cad1cdfb535c4cce92a92e))
+
 ## [0.3.0](https://github.com/Jehudme/legatus/compare/server-v0.2.0...server-v0.3.0) (2026-10-16)
 
 
