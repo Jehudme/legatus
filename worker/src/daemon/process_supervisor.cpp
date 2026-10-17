@@ -140,67 +140,71 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
     size_t chunks_in_window = 0;
     bool rate_warning_emitted = false;
 
-    auto make_sink = [&](const std::string& stream_name, std::string& full_str) {
-        return [&](reproc::stream /*stream*/, const uint8_t* buffer, size_t size) -> std::error_code {
-            if (size == 0) return {};
+    auto process_stream_data = [&](const std::string& stream_name, std::string& full_str, const uint8_t* buffer, size_t size) -> std::error_code {
+        if (size == 0) return {};
 
-            // Accumulate in buffer for final execution result parsing (bounded)
-            if (full_str.size() + size <= MAX_LOG_VOLUME_BYTES) {
-                full_str.append(reinterpret_cast<const char*>(buffer), size);
-            }
+        // Accumulate in buffer for final execution result parsing (bounded)
+        if (full_str.size() + size <= MAX_LOG_VOLUME_BYTES) {
+            full_str.append(reinterpret_cast<const char*>(buffer), size);
+        }
 
-            // Check for progress checkpoint pattern: [PROGRESS:<inst>:<checkpoint>]
-            std::string_view buf_sv(reinterpret_cast<const char*>(buffer), size);
-            auto pos = buf_sv.find("[PROGRESS:");
-            if (pos != std::string_view::npos) {
-                try {
-                    uint64_t inst = std::strtoull(buf_sv.data() + pos + 10, nullptr, 10);
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    auto it = active_processes_.find(envelope.task_id);
-                    if (it != active_processes_.end()) {
-                        it->second.instructions_consumed = inst;
-                    }
-                } catch (...) {}
-            }
-
-            if (ceiling_reached) {
-                return {};
-            }
-
-            if (total_volume_bytes + size > MAX_LOG_VOLUME_BYTES) {
-                ceiling_reached = true;
-                if (on_log_chunk) {
-                    on_log_chunk(stream_name, "\n[Output truncated: 8MB log volume ceiling reached]\n");
+        // Check for progress checkpoint pattern: [PROGRESS:<inst>:<checkpoint>]
+        std::string_view buf_sv(reinterpret_cast<const char*>(buffer), size);
+        auto pos = buf_sv.find("[PROGRESS:");
+        if (pos != std::string_view::npos) {
+            try {
+                uint64_t inst = std::strtoull(buf_sv.data() + pos + 10, nullptr, 10);
+                std::lock_guard<std::mutex> lock(mutex_);
+                auto it = active_processes_.find(envelope.task_id);
+                if (it != active_processes_.end()) {
+                    it->second.instructions_consumed = inst;
                 }
-                return {};
-            }
+            } catch (...) {}
+        }
 
-            total_volume_bytes += size;
+        if (ceiling_reached) {
+            return {};
+        }
 
+        if (total_volume_bytes + size > MAX_LOG_VOLUME_BYTES) {
+            ceiling_reached = true;
             if (on_log_chunk) {
-                auto now = std::chrono::steady_clock::now();
-                auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - rate_window_start).count();
-                if (elapsed_ms >= 1000) {
-                    rate_window_start = now;
-                    chunks_in_window = 0;
-                    rate_warning_emitted = false;
-                }
-
-                chunks_in_window++;
-                if (chunks_in_window <= 1000) {
-                    std::string chunk(reinterpret_cast<const char*>(buffer), size);
-                    on_log_chunk(stream_name, chunk);
-                } else if (!rate_warning_emitted) {
-                    rate_warning_emitted = true;
-                    on_log_chunk(stream_name, "\n[Output throttled: rate limit of 1000 chunks/sec exceeded]\n");
-                }
+                on_log_chunk(stream_name, "\n[Output truncated: 8MB log volume ceiling reached]\n");
             }
             return {};
-        };
+        }
+
+        total_volume_bytes += size;
+
+        if (on_log_chunk) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - rate_window_start).count();
+            if (elapsed_ms >= 1000) {
+                rate_window_start = now;
+                chunks_in_window = 0;
+                rate_warning_emitted = false;
+            }
+
+            chunks_in_window++;
+            if (chunks_in_window <= 1000) {
+                std::string chunk(reinterpret_cast<const char*>(buffer), size);
+                on_log_chunk(stream_name, chunk);
+            } else if (!rate_warning_emitted) {
+                rate_warning_emitted = true;
+                on_log_chunk(stream_name, "\n[Output throttled: rate limit of 1000 chunks/sec exceeded]\n");
+            }
+        }
+        return {};
     };
 
-    auto out_sink = make_sink("stdout", stdout_str);
-    auto err_sink = make_sink("stderr", stderr_str);
+    auto out_sink = [&](reproc::stream s, const uint8_t* b, size_t sz) {
+        (void)s;
+        return process_stream_data("stdout", stdout_str, b, sz);
+    };
+    auto err_sink = [&](reproc::stream s, const uint8_t* b, size_t sz) {
+        (void)s;
+        return process_stream_data("stderr", stderr_str, b, sz);
+    };
 
     std::error_code drain_ec = reproc::drain(*proc, out_sink, err_sink);
     if (drain_ec == std::errc::timed_out) {
@@ -214,6 +218,36 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
         result.error_message = "Task execution timed out after " + std::to_string(envelope.timeout_ms) + " ms";
         result.stdout_output = stdout_str;
         return result;
+    }
+
+    // Flush any remaining unread bytes from stdout and stderr pipes.
+    // When a child process exits quickly, reproc::drain poll() can receive POLLHUP/broken_pipe
+    // before OS pipe buffers are exhausted. Read until EOF to guarantee full capture.
+    constexpr size_t DRAIN_BUFFER_SIZE = 4096;
+    uint8_t drain_buffer[DRAIN_BUFFER_SIZE] = {};
+
+    while (true) {
+        size_t b_out = 0;
+        std::error_code read_ec;
+        std::tie(b_out, read_ec) = proc->read(reproc::stream::out, drain_buffer, DRAIN_BUFFER_SIZE);
+        if (!read_ec && b_out > 0) {
+            out_sink(reproc::stream::out, drain_buffer, b_out);
+        }
+        if (read_ec || b_out == 0) {
+            break;
+        }
+    }
+
+    while (true) {
+        size_t b_err = 0;
+        std::error_code read_ec;
+        std::tie(b_err, read_ec) = proc->read(reproc::stream::err, drain_buffer, DRAIN_BUFFER_SIZE);
+        if (!read_ec && b_err > 0) {
+            err_sink(reproc::stream::err, drain_buffer, b_err);
+        }
+        if (read_ec || b_err == 0) {
+            break;
+        }
     }
 
     int status = 0;

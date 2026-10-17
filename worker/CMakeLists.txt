@@ -112,6 +112,7 @@ FetchContent_Declare(
 # IXWebSocket
 set(USE_TLS ON CACHE BOOL "Enable TLS in IXWebSocket" FORCE)
 set(USE_OPEN_SSL ON CACHE BOOL "Use OpenSSL in IXWebSocket" FORCE)
+set(USE_OPENSSL ON CACHE BOOL "Use OpenSSL in IXWebSocket" FORCE)
 set(USE_MBED_TLS OFF CACHE BOOL "Disable MbedTLS in IXWebSocket" FORCE)
 set(USE_ZLIB ON CACHE BOOL "Enable ZLIB in IXWebSocket" FORCE)
 FetchContent_Declare(

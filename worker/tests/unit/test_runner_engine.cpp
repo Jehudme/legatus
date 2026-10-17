@@ -6,6 +6,18 @@
 #include <catch2/catch_all.hpp>
 #include <sstream>
 
+#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
+#include <csignal>
+namespace {
+    struct TestSigpipeIgnorerEngine {
+        TestSigpipeIgnorerEngine() {
+            std::signal(SIGPIPE, SIG_IGN);
+        }
+    };
+    static TestSigpipeIgnorerEngine g_sigpipe_ignorer_engine;
+}
+#endif
+
 static std::vector<std::uint8_t> compile_solix_to_bytecode(const std::string& source) {
     solix::CompilationOptions copts;
     copts.log_level = solix::CompilationOptions::LogLevel::OFF;

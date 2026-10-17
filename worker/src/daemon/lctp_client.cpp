@@ -79,13 +79,59 @@ static std::string get_system_arch() {
 #endif
 }
 
+static std::string sanitize_utf8_string(const std::string& str) {
+    std::string out;
+    out.reserve(str.size());
+    for (size_t i = 0; i < str.size();) {
+        unsigned char c = static_cast<unsigned char>(str[i]);
+        if (c < 0x80) {
+            out.push_back(static_cast<char>(c));
+            i++;
+        } else if ((c & 0xE0) == 0xC0) {
+            if (i + 1 < str.size() && (static_cast<unsigned char>(str[i + 1]) & 0xC0) == 0x80) {
+                out.push_back(str[i]);
+                out.push_back(str[i + 1]);
+                i += 2;
+            } else {
+                out += "\xEF\xBF\xBD";
+                i++;
+            }
+        } else if ((c & 0xF0) == 0xE0) {
+            if (i + 2 < str.size() &&
+                (static_cast<unsigned char>(str[i + 1]) & 0xC0) == 0x80 &&
+                (static_cast<unsigned char>(str[i + 2]) & 0xC0) == 0x80) {
+                out.append(str, i, 3);
+                i += 3;
+            } else {
+                out += "\xEF\xBF\xBD";
+                i++;
+            }
+        } else if ((c & 0xF8) == 0xF0) {
+            if (i + 3 < str.size() &&
+                (static_cast<unsigned char>(str[i + 1]) & 0xC0) == 0x80 &&
+                (static_cast<unsigned char>(str[i + 2]) & 0xC0) == 0x80 &&
+                (static_cast<unsigned char>(str[i + 3]) & 0xC0) == 0x80) {
+                out.append(str, i, 4);
+                i += 4;
+            } else {
+                out += "\xEF\xBF\xBD";
+                i++;
+            }
+        } else {
+            out += "\xEF\xBF\xBD";
+            i++;
+        }
+    }
+    return out;
+}
+
 std::string LctpFrame::serialize() const {
     nlohmann::json j;
     j["type"] = type;
     j["id"] = id;
     j["timestamp"] = timestamp;
     j["payload"] = payload;
-    return j.dump();
+    return j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
 
 LctpFrame LctpFrame::deserialize(const std::string& json_str) {
@@ -471,102 +517,108 @@ void LctpClient::handle_dispatch_task(const LctpFrame& frame) {
 
     // Launch asynchronously so message handling loop remains unblocked
     std::thread([this, envelope]() {
-        spdlog::info("Spawning task runner for task {}", envelope.task_id);
+        try {
+            spdlog::info("Spawning task runner for task {}", envelope.task_id);
 
-        std::shared_ptr<std::atomic<bool>> task_running = std::make_shared<std::atomic<bool>>(true);
+            std::shared_ptr<std::atomic<bool>> task_running = std::make_shared<std::atomic<bool>>(true);
 
-        // Background progress ticker thread (TASK_PROGRESS emitted every 1000ms while running)
-        std::thread progress_thread([this, task_id = envelope.task_id, instruction_budget = envelope.instruction_budget, task_running]() {
-            while (task_running->load()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                if (!task_running->load()) break;
+            // Background progress ticker thread (TASK_PROGRESS emitted every 1000ms while running)
+            std::thread progress_thread([this, task_id = envelope.task_id, instruction_budget = envelope.instruction_budget, task_running]() {
+                while (task_running->load()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    if (!task_running->load()) break;
 
-                uint64_t inst = 0;
-                uint64_t mem = 0;
-                if (supervisor_) {
-                    auto active_info = supervisor_->get_active_tasks_info();
-                    for (const auto& info : active_info) {
-                        if (info.task_id == task_id) {
-                            inst = info.instructions_consumed;
-                            mem = info.memory_used_bytes;
-                            break;
+                    uint64_t inst = 0;
+                    uint64_t mem = 0;
+                    if (supervisor_) {
+                        auto active_info = supervisor_->get_active_tasks_info();
+                        for (const auto& info : active_info) {
+                            if (info.task_id == task_id) {
+                                inst = info.instructions_consumed;
+                                mem = info.memory_used_bytes;
+                                break;
+                            }
                         }
                     }
-                }
-                double pct = 0.0;
-                if (instruction_budget > 0) {
-                    pct = std::min(100.0, (static_cast<double>(inst) / instruction_budget) * 100.0);
-                }
+                    double pct = 0.0;
+                    if (instruction_budget > 0) {
+                        pct = std::min(100.0, (static_cast<double>(inst) / instruction_budget) * 100.0);
+                    }
 
-                nlohmann::json progress_payload = {
+                    nlohmann::json progress_payload = {
+                        {"task_id", task_id},
+                        {"progress_pct", pct},
+                        {"instructions_consumed", inst},
+                        {"memory_used_bytes", mem},
+                        {"log_chunk", nullptr}
+                    };
+                    send_frame(LctpFrame::create("TASK_PROGRESS", progress_payload));
+                }
+            });
+
+            auto on_log_chunk = [this, task_id = envelope.task_id](const std::string& stream, const std::string& chunk) {
+                nlohmann::json chunk_payload = {
                     {"task_id", task_id},
-                    {"progress_pct", pct},
-                    {"instructions_consumed", inst},
-                    {"memory_used_bytes", mem},
-                    {"log_chunk", nullptr}
+                    {"stream", stream},
+                    {"log_chunk", sanitize_utf8_string(chunk)},
+                    {"instructions_consumed", 0},
+                    {"progress_pct", 0.0}
                 };
-                send_frame(LctpFrame::create("TASK_PROGRESS", progress_payload));
-            }
-        });
-
-        auto on_log_chunk = [this, task_id = envelope.task_id](const std::string& stream, const std::string& chunk) {
-            nlohmann::json chunk_payload = {
-                {"task_id", task_id},
-                {"stream", stream},
-                {"log_chunk", chunk},
-                {"instructions_consumed", 0},
-                {"progress_pct", 0.0}
+                send_frame(LctpFrame::create("TASK_LOG_CHUNK", chunk_payload));
             };
-            send_frame(LctpFrame::create("TASK_LOG_CHUNK", chunk_payload));
-        };
 
-        auto start_time = std::chrono::steady_clock::now();
-        auto result = supervisor_->launch_task(envelope, on_log_chunk);
-        auto end_time = std::chrono::steady_clock::now();
-        int64_t wall_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        task_running->store(false);
-        if (progress_thread.joinable()) {
-            progress_thread.join();
+            auto start_time = std::chrono::steady_clock::now();
+            auto result = supervisor_->launch_task(envelope, on_log_chunk);
+            auto end_time = std::chrono::steady_clock::now();
+            int64_t wall_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+            task_running->store(false);
+            if (progress_thread.joinable()) {
+                progress_thread.join();
+            }
+
+            std::string terminal_status = "COMPLETED";
+            if (result.exit_code == 0) {
+                terminal_status = "COMPLETED";
+            } else if (result.exit_code == 75) {
+                terminal_status = "ERR_INSTRUCTION_BUDGET_EXCEEDED";
+            } else if (result.exit_code == 71) {
+                terminal_status = "ERR_OUT_OF_MEMORY";
+            } else if (result.exit_code == 124) {
+                terminal_status = "ERR_TIMEOUT";
+            } else if (result.exit_code == 130 || result.exit_code == 143) {
+                terminal_status = "ABORTED";
+            } else if (result.exit_code == 137) {
+                terminal_status = "KILLED_FORCIBLY";
+            } else {
+                terminal_status = "FAILED";
+            }
+
+            spdlog::info("Task {} finished with status={}, exit_code={}, instructions={}, wall_time={}ms",
+                         result.task_id, terminal_status, result.exit_code, result.instructions_executed, wall_time_ms);
+
+            nlohmann::json p = {
+                {"task_id", result.task_id},
+                {"status", terminal_status},
+                {"exit_code", result.exit_code},
+                {"metrics", {
+                    {"instructions_consumed", result.instructions_executed},
+                    {"peak_memory_bytes", result.peak_memory_bytes},
+                    {"execution_wall_time_ms", std::max(static_cast<int64_t>(1), wall_time_ms)}
+                }},
+                {"output", result.stdout_output.empty() ? nullptr : nlohmann::json(sanitize_utf8_string(result.stdout_output))},
+                {"error", result.error_message.empty() ? nullptr : nlohmann::json({
+                    {"code", "TASK_EXIT_" + std::to_string(result.exit_code)},
+                    {"message", sanitize_utf8_string(result.error_message)}
+                })}
+            };
+
+            bool sent = send_frame(LctpFrame::create("TASK_RESULT", p));
+            spdlog::info("Dispatched TASK_RESULT frame for task {}: success={}", result.task_id, sent);
+        } catch (const std::exception& e) {
+            spdlog::error("Exception in task runner thread for task {}: {}", envelope.task_id, e.what());
+        } catch (...) {
+            spdlog::error("Unknown exception in task runner thread for task {}", envelope.task_id);
         }
-
-        std::string terminal_status = "COMPLETED";
-        if (result.exit_code == 0) {
-            terminal_status = "COMPLETED";
-        } else if (result.exit_code == 75) {
-            terminal_status = "ERR_INSTRUCTION_BUDGET_EXCEEDED";
-        } else if (result.exit_code == 71) {
-            terminal_status = "ERR_OUT_OF_MEMORY";
-        } else if (result.exit_code == 124) {
-            terminal_status = "ERR_TIMEOUT";
-        } else if (result.exit_code == 130 || result.exit_code == 143) {
-            terminal_status = "ABORTED";
-        } else if (result.exit_code == 137) {
-            terminal_status = "KILLED_FORCIBLY";
-        } else {
-            terminal_status = "FAILED";
-        }
-
-        spdlog::info("Task {} finished with status={}, exit_code={}, instructions={}, wall_time={}ms",
-                     result.task_id, terminal_status, result.exit_code, result.instructions_executed, wall_time_ms);
-
-        nlohmann::json p = {
-            {"task_id", result.task_id},
-            {"status", terminal_status},
-            {"exit_code", result.exit_code},
-            {"metrics", {
-                {"instructions_consumed", result.instructions_executed},
-                {"peak_memory_bytes", result.peak_memory_bytes},
-                {"execution_wall_time_ms", std::max(static_cast<int64_t>(1), wall_time_ms)}
-            }},
-            {"output", result.stdout_output.empty() ? nullptr : nlohmann::json(result.stdout_output)},
-            {"error", result.error_message.empty() ? nullptr : nlohmann::json({
-                {"code", "TASK_EXIT_" + std::to_string(result.exit_code)},
-                {"message", result.error_message}
-            })}
-        };
-
-        bool sent = send_frame(LctpFrame::create("TASK_RESULT", p));
-        spdlog::info("Dispatched TASK_RESULT frame for task {}: success={}", result.task_id, sent);
     }).detach();
 }
 

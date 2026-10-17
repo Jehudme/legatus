@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <bit>
 
 namespace {
 
@@ -60,25 +61,38 @@ static uint64_t double_native_is_infinite(solix::RuntimeContext &vm, uint64_t se
 static uint64_t int_native_clz(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
     (void)vm; (void)self; (void)argc;
     uint32_t v = static_cast<uint32_t>(args[0]);
-    return (v == 0) ? 32 : __builtin_clz(v);
+    return static_cast<uint64_t>(std::countl_zero(v));
 }
 
 static uint64_t int_native_ctz(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
     (void)vm; (void)self; (void)argc;
     uint32_t v = static_cast<uint32_t>(args[0]);
-    return (v == 0) ? 32 : __builtin_ctz(v);
+    return static_cast<uint64_t>(std::countr_zero(v));
 }
 
 static uint64_t int_native_popcount(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
     (void)vm; (void)self; (void)argc;
     uint32_t v = static_cast<uint32_t>(args[0]);
-    return __builtin_popcount(v);
+    return static_cast<uint64_t>(std::popcount(v));
+}
+
+static inline uint32_t portable_bswap32(uint32_t v) {
+#if defined(_MSC_VER)
+    return _byteswap_ulong(v);
+#elif defined(__GNUC__) || defined(__clang__)
+    return __builtin_bswap32(v);
+#else
+    return ((v & 0x000000FF) << 24) |
+           ((v & 0x0000FF00) << 8) |
+           ((v & 0x00FF0000) >> 8) |
+           ((v & 0xFF000000) >> 24);
+#endif
 }
 
 static uint64_t int_native_bswap(solix::RuntimeContext &vm, uint64_t self, uint64_t *args, size_t argc) {
     (void)vm; (void)self; (void)argc;
     uint32_t v = static_cast<uint32_t>(args[0]);
-    return static_cast<uint64_t>(static_cast<int32_t>(__builtin_bswap32(v)));
+    return static_cast<uint64_t>(static_cast<int32_t>(portable_bswap32(v)));
 }
 
 } // namespace

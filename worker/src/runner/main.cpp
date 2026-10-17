@@ -34,6 +34,9 @@ int main(int argc, char* argv[]) {
 #if defined(SIGBREAK)
     std::signal(SIGBREAK, signal_handler);
 #endif
+#if defined(SIGPIPE)
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
 
     std::string result_file;
     for (int i = 1; i < argc; ++i) {

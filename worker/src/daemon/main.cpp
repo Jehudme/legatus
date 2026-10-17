@@ -203,6 +203,9 @@ int main(int argc, char* argv[]) {
     // 4. Setup signal handling
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
+#if defined(SIGPIPE)
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
 
     // 5. Initialize Subsystems
     std::string runner_path = legatus::common::PathResolver::get_runner_path().string();

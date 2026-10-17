@@ -68,6 +68,8 @@ ExecutionResult execute_task(ExecutionEnvelope& envelope, SecretZeroizer& zeroiz
 
         LegatusRuntimeContext vm(opts);
         vm.execute();
+        std::cout.flush();
+        std::cerr.flush();
 
         result.exit_code = vm.exit_code;
         result.instructions_executed = vm.get_instructions_executed();
