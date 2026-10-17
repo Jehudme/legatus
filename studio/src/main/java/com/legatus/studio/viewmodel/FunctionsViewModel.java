@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -147,10 +148,11 @@ public class FunctionsViewModel {
                             String sha = fn.effectiveSha256();
                             if (!sha.isBlank()) {
                                 var existing = bytecodeItems.stream()
-                                        .filter(b -> b.getSha256().equalsIgnoreCase(sha) || (b.getFunctionId() != null && b.getFunctionId().equals(fn.functionId())))
+                                        .filter(b -> (fn.functionId() != null && fn.functionId().equals(b.getFunctionId())) || b.getSha256().equalsIgnoreCase(sha))
                                         .findFirst();
                                 if (existing.isPresent()) {
                                     BytecodeItem item = existing.get();
+                                    if (fn.functionId() != null) item.setFunctionId(fn.functionId());
                                     item.setFunctionName(fn.name() != null ? fn.name() : "function");
                                     item.setEntryPoint(fn.effectiveEntryPoint());
                                     item.setDescription(fn.description() != null ? fn.description() : "");
@@ -170,9 +172,12 @@ public class FunctionsViewModel {
                                             fn.invocationsLastHour() != null ? fn.invocationsLastHour() : 0L,
                                             fn
                                     );
-                                    bytecodeItems.add(0, item);
+                                    bytecodeItems.add(item);
                                 }
                             }
+                        }
+                        if (selectedBytecode.get() == null && !bytecodeItems.isEmpty()) {
+                            selectedBytecode.set(bytecodeItems.get(0));
                         }
                     });
                 })
@@ -200,11 +205,30 @@ public class FunctionsViewModel {
             String name = functionNameInput.get().isBlank() ? "function" : functionNameInput.get();
             String entry = entrypointInput.get().isBlank() ? "main" : entrypointInput.get();
 
-            return bytecodeService.uploadBytecode(bytes, name)
-                    .thenApply(sha -> {
+            return bytecodeService.uploadAndRegisterFunction(bytes, name, entry)
+                    .thenApply(dto -> {
                         com.legatus.studio.service.FxAsync.runOnFxThread(() -> {
-                            BytecodeItem item = new BytecodeItem(sha, name, entry, bytes.length, java.time.Instant.now().toString());
-                            boolean exists = bytecodeItems.stream().anyMatch(b -> b.getSha256().equalsIgnoreCase(sha));
+                            String sha = (dto != null && !dto.effectiveSha256().isBlank()) ? dto.effectiveSha256() : BytecodeService.computeSha256(bytes);
+                            String funcName = (dto != null && dto.name() != null) ? dto.name() : name;
+                            String funcEntry = (dto != null) ? dto.effectiveEntryPoint() : entry;
+                            UUID fId = (dto != null) ? dto.functionId() : null;
+
+                            BytecodeItem item = new BytecodeItem(
+                                    fId,
+                                    sha,
+                                    funcName,
+                                    funcEntry,
+                                    bytes.length,
+                                    (dto != null && dto.createdAt() != null) ? String.valueOf(dto.createdAt()) : java.time.Instant.now().toString(),
+                                    (dto != null && dto.description() != null) ? dto.description() : "",
+                                    (dto != null && dto.tags() != null) ? dto.tags() : "",
+                                    (dto != null && dto.invocationsLastHour() != null) ? dto.invocationsLastHour() : 0L,
+                                    dto
+                            );
+                            boolean exists = bytecodeItems.stream().anyMatch(b ->
+                                    (fId != null && fId.equals(b.getFunctionId())) ||
+                                    b.getSha256().equalsIgnoreCase(sha)
+                            );
                             if (!exists) {
                                 bytecodeItems.add(0, item);
                             }

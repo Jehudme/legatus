@@ -26,6 +26,8 @@ public class SolixFunctionService {
     private final SolixFunctionMapper solixFunctionMapper;
     private final dev.legatus.server.security.BytecodeSecurityValidator bytecodeSecurityValidator;
     private final dev.legatus.server.repository.ComputeTaskRepository computeTaskRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private dev.legatus.server.storage.BytecodeStorageService bytecodeStorageService;
 
     public SolixFunctionService(
         SolixFunctionRepository solixFunctionRepository,
@@ -47,8 +49,45 @@ public class SolixFunctionService {
      */
     public SolixFunctionDTO save(SolixFunctionDTO solixFunctionDTO) {
         LOG.debug("Request to save SolixFunction : {}", solixFunctionDTO);
+        if (solixFunctionDTO.getCreatedAt() == null) {
+            solixFunctionDTO.setCreatedAt(java.time.Instant.now());
+        }
+        if (solixFunctionDTO.getSemver() == null || solixFunctionDTO.getSemver().isBlank()) {
+            solixFunctionDTO.setSemver("1.0.0");
+        }
+        if (solixFunctionDTO.getBytecodeFormat() == null || solixFunctionDTO.getBytecodeFormat().isBlank()) {
+            solixFunctionDTO.setBytecodeFormat("solix_bc_v1");
+        }
+        if (solixFunctionDTO.getEntryPoint() == null || solixFunctionDTO.getEntryPoint().isBlank()) {
+            solixFunctionDTO.setEntryPoint("main");
+        }
+        if (solixFunctionDTO.getDefaultBudget() == null) {
+            solixFunctionDTO.setDefaultBudget(1_000_000L);
+        }
+        if (solixFunctionDTO.getDefaultMemoryBytes() == null) {
+            solixFunctionDTO.setDefaultMemoryBytes(33_554_432L);
+        }
+        if (solixFunctionDTO.getDefaultTimeoutMs() == null) {
+            solixFunctionDTO.setDefaultTimeoutMs(5000);
+        }
+        if (solixFunctionDTO.getBytecodeBlobContentType() == null) {
+            solixFunctionDTO.setBytecodeBlobContentType("application/octet-stream");
+        }
         if (solixFunctionDTO.getBytecodeBlob() != null) {
             bytecodeSecurityValidator.validateBytecode(solixFunctionDTO.getBytecodeBlob());
+            if (solixFunctionDTO.getBytecodeSha256() == null || solixFunctionDTO.getBytecodeSha256().isBlank()) {
+                try {
+                    var md = java.security.MessageDigest.getInstance("SHA-256");
+                    solixFunctionDTO.setBytecodeSha256(java.util.HexFormat.of().formatHex(md.digest(solixFunctionDTO.getBytecodeBlob())));
+                } catch (Exception ignored) {}
+            }
+            if (bytecodeStorageService != null && solixFunctionDTO.getBytecodeBlob().length > 0) {
+                try {
+                    bytecodeStorageService.store(solixFunctionDTO.getBytecodeBlob());
+                } catch (Exception e) {
+                    LOG.warn("Failed to store bytecode blob in CAS: {}", e.getMessage());
+                }
+            }
         }
         SolixFunction solixFunction = solixFunctionMapper.toEntity(solixFunctionDTO);
         solixFunction = solixFunctionRepository.save(solixFunction);
@@ -65,6 +104,13 @@ public class SolixFunctionService {
         LOG.debug("Request to update SolixFunction : {}", solixFunctionDTO);
         if (solixFunctionDTO.getBytecodeBlob() != null) {
             bytecodeSecurityValidator.validateBytecode(solixFunctionDTO.getBytecodeBlob());
+            if (bytecodeStorageService != null && solixFunctionDTO.getBytecodeBlob().length > 0) {
+                try {
+                    bytecodeStorageService.store(solixFunctionDTO.getBytecodeBlob());
+                } catch (Exception e) {
+                    LOG.warn("Failed to store bytecode blob in CAS: {}", e.getMessage());
+                }
+            }
         }
         SolixFunction solixFunction = solixFunctionMapper.toEntity(solixFunctionDTO);
         solixFunction = solixFunctionRepository.save(solixFunction);

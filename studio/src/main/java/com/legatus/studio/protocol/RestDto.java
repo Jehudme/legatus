@@ -248,6 +248,24 @@ public final class RestDto {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record CreateSolixFunctionRequest(
+            @JsonProperty("name") String name,
+            @JsonProperty("semver") String semver,
+            @JsonProperty("entryPoint") String entryPoint,
+            @JsonProperty("bytecodeFormat") String bytecodeFormat,
+            @JsonProperty("bytecodeSha256") String bytecodeSha256,
+            @JsonProperty("bytecodeBlob") byte[] bytecodeBlob,
+            @JsonProperty("bytecodeBlobContentType") String bytecodeBlobContentType,
+            @JsonProperty("defaultBudget") Long defaultBudget,
+            @JsonProperty("defaultMemoryBytes") Long defaultMemoryBytes,
+            @JsonProperty("defaultTimeoutMs") Integer defaultTimeoutMs,
+            @JsonProperty("createdAt") String createdAt,
+            @JsonProperty("tags") String tags,
+            @JsonProperty("description") String description
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ExecutionProfileDto(
             @JsonProperty("profile_id") String profile_id,
             @JsonProperty("profile_name") String profile_name,

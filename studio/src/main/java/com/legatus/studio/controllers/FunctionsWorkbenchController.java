@@ -76,6 +76,7 @@ public class FunctionsWorkbenchController {
     private void bindViewModel() {
         if (viewModel == null) return;
 
+        viewModel.loadCatalogedFunctions();
         filteredBytecodeItems = new FilteredList<>(viewModel.getBytecodeItems(), p -> true);
         SortedList<BytecodeItem> sorted = new SortedList<>(filteredBytecodeItems);
         if (bytecodeTable != null) {

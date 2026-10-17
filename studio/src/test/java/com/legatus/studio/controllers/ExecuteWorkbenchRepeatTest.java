@@ -75,7 +75,7 @@ public class ExecuteWorkbenchRepeatTest {
                 "Processes transactions",
                 "prod,payments",
                 12L,
-                null
+                (RestDto.SolixFunctionDto) null
         );
         functionsVm.getBytecodeItems().add(testFunction);
 
