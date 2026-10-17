@@ -74,6 +74,11 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
         { reproc::stop::kill, reproc::milliseconds(kill_timeout_.count()) },
         { reproc::stop::noop, reproc::milliseconds(0) }
     };
+    if (envelope.timeout_ms > 0) {
+        opts.deadline = reproc::milliseconds(envelope.timeout_ms);
+    } else {
+        opts.deadline = reproc::infinite;
+    }
 
     std::error_code ec = proc->start(args, opts);
     if (ec) {
@@ -197,63 +202,8 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
     auto out_sink = make_sink("stdout", stdout_str);
     auto err_sink = make_sink("stderr", stderr_str);
 
-    auto start_time = std::chrono::steady_clock::now();
-    bool has_timeout = (envelope.timeout_ms > 0);
-    auto deadline = start_time + std::chrono::milliseconds(envelope.timeout_ms);
-
-    constexpr size_t BUFFER_SIZE = 4096;
-    uint8_t drain_buffer[BUFFER_SIZE] = {};
-
-    bool timed_out = false;
-    for (;;) {
-        reproc::milliseconds poll_timeout = reproc::milliseconds(50);
-        if (has_timeout) {
-            auto now = std::chrono::steady_clock::now();
-            if (now >= deadline) {
-                timed_out = true;
-                break;
-            }
-            auto rem_ms = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
-            poll_timeout = reproc::milliseconds(static_cast<int>(std::max<int64_t>(1, std::min<int64_t>(rem_ms, 50))));
-        }
-
-        int events = 0;
-        std::tie(events, ec) = proc->poll(reproc::event::out | reproc::event::err, poll_timeout);
-
-        if (has_timeout && std::chrono::steady_clock::now() >= deadline) {
-            timed_out = true;
-            break;
-        }
-
-        if (ec) {
-            // Broken pipe or error -> process finished and closed output
-            break;
-        }
-
-        if (events == 0) {
-            continue;
-        }
-
-        if (events & reproc::event::out) {
-            size_t bytes_read = 0;
-            std::tie(bytes_read, ec) = proc->read(reproc::stream::out, drain_buffer, BUFFER_SIZE);
-            if (!ec && bytes_read > 0) {
-                out_sink(reproc::stream::out, drain_buffer, bytes_read);
-            }
-            if (ec && ec != reproc::error::broken_pipe) break;
-        }
-
-        if (events & reproc::event::err) {
-            size_t bytes_read = 0;
-            std::tie(bytes_read, ec) = proc->read(reproc::stream::err, drain_buffer, BUFFER_SIZE);
-            if (!ec && bytes_read > 0) {
-                err_sink(reproc::stream::err, drain_buffer, bytes_read);
-            }
-            if (ec && ec != reproc::error::broken_pipe) break;
-        }
-    }
-
-    if (timed_out) {
+    std::error_code drain_ec = reproc::drain(*proc, out_sink, err_sink);
+    if (drain_ec == std::errc::timed_out) {
         // Escalate termination
         proc->stop({
             { reproc::stop::terminate, reproc::milliseconds(grace_period_.count()) },
@@ -264,26 +214,6 @@ runner::ExecutionResult ProcessSupervisor::launch_task(
         result.error_message = "Task execution timed out after " + std::to_string(envelope.timeout_ms) + " ms";
         result.stdout_output = stdout_str;
         return result;
-    }
-
-    // Flush any remaining data from pipes
-    while (true) {
-        size_t b_out = 0;
-        std::tie(b_out, ec) = proc->read(reproc::stream::out, drain_buffer, BUFFER_SIZE);
-        if (!ec && b_out > 0) {
-            out_sink(reproc::stream::out, drain_buffer, b_out);
-        } else {
-            break;
-        }
-    }
-    while (true) {
-        size_t b_err = 0;
-        std::tie(b_err, ec) = proc->read(reproc::stream::err, drain_buffer, BUFFER_SIZE);
-        if (!ec && b_err > 0) {
-            err_sink(reproc::stream::err, drain_buffer, b_err);
-        } else {
-            break;
-        }
     }
 
     int status = 0;

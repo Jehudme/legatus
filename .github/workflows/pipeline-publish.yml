@@ -74,6 +74,7 @@ jobs:
         run: |
           cmake -B worker/build -S worker -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DUSE_OPEN_SSL=ON -DUSE_MBED_TLS=OFF -DUSE_TLS=ON -DUSE_ZLIB=ON `
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Worker Targets
@@ -214,6 +215,7 @@ jobs:
         run: |
           cmake -B worker/build -S worker -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DUSE_OPEN_SSL=ON -DUSE_MBED_TLS=OFF -DUSE_TLS=ON -DUSE_ZLIB=ON `
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Release Binaries
